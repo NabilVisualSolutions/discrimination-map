@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Discrimination Map — document the pattern, protect the people in it</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Newsreader:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#11100E; --bg-2:#17150F; --panel:#1C1A16;
+    --line:rgba(241,236,228,.12); --line-soft:rgba(241,236,228,.07);
+    --ink:#F1ECE4; --muted:#B4AA9B; --faint:#7C7466;
+    --amber:#FFB020; --pulse:#35E08A; --teal:#2BD9C9;
+    --disp:'Space Grotesk',system-ui,sans-serif;
+    --body:'Newsreader',Georgia,serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);
+    font-size:17px;line-height:1.7}
+  h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
+  a{color:var(--amber)}
+  .wrap{max-width:920px;margin:0 auto;padding:0 24px}
+  section{padding:74px 0}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:14px}
+
+  /* ---- nav ---- */
+  nav{position:sticky;top:0;z-index:100;background:rgba(17,16,14,.88);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft)}
+  nav .inner{max-width:920px;margin:0 auto;padding:16px 24px;display:flex;
+    justify-content:space-between;align-items:center}
+  nav .brand{display:flex;align-items:center;gap:9px;font-family:var(--disp);
+    font-weight:700;font-size:15px}
+  nav .brand svg{width:20px;height:20px}
+  nav .links{display:flex;gap:22px;font-family:var(--mono);font-size:12px}
+  nav .links a{color:var(--muted);text-decoration:none}
+  nav .links a:hover{color:var(--ink)}
+  nav .cta{background:var(--amber);color:#1C1300;padding:8px 14px;border-radius:8px;
+    text-decoration:none;font-weight:600;font-size:12.5px;font-family:var(--disp)}
+
+  /* ---- hero: the signature element is the slow pulse line ---- */
+  .hero{padding:88px 0 60px;position:relative;overflow:hidden}
+  .hero .pulse-bg{position:absolute;left:0;right:0;top:52%;height:120px;
+    opacity:.35;pointer-events:none}
+  .hero .pulse-bg svg{width:220%;height:100%;animation:drift 26s linear infinite}
+  @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-52.3%)}}
+  .hero h1{font-size:clamp(34px,5.4vw,54px);line-height:1.08;margin:0 0 22px;
+    max-width:760px;position:relative}
+  .hero p.lede{font-size:19px;color:var(--muted);max-width:600px;margin:0 0 32px;
+    position:relative}
+  .hero .ctarow{display:flex;gap:14px;flex-wrap:wrap;position:relative}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:10px;
+    font-family:var(--disp);font-weight:600;font-size:14.5px;text-decoration:none;
+    border:1px solid var(--line)}
+  .btn.primary{background:var(--amber);color:#1C1300;border-color:var(--amber)}
+  .btn.ghost{color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--ink)}
+
+  /* ---- principle strip ---- */
+  .principles{border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
+    background:var(--bg-2)}
+  .principles .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+  .principles .item{padding:30px 26px;border-right:1px solid var(--line-soft)}
+  .principles .item:last-child{border-right:none}
+  .principles .item .n{font-family:var(--mono);color:var(--amber);font-size:12px;
+    letter-spacing:.1em;margin-bottom:8px}
+  .principles .item h3{font-size:16.5px;margin:0 0 8px;font-family:var(--disp)}
+  .principles .item p{margin:0;color:var(--muted);font-size:14.5px;line-height:1.6}
+  @media (max-width:760px){.principles .grid{grid-template-columns:1fr}
+    .principles .item{border-right:none;border-bottom:1px solid var(--line-soft)}}
+
+  /* ---- how it works ---- */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:34px}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+  .step .num{font-family:var(--mono);color:var(--teal);font-size:22px;margin-bottom:10px}
+  .step h3{font-size:16px;margin:0 0 8px;font-family:var(--disp)}
+  .step p{margin:0;color:var(--muted);font-size:14.5px}
+  @media (max-width:720px){.steps{grid-template-columns:1fr}}
+
+  /* ---- categories chip cloud ---- */
+  .chipcloud{display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}
+  .chip{font-family:var(--mono);font-size:12px;padding:6px 13px;border-radius:20px;
+    border:1px solid var(--line);color:var(--muted);display:flex;align-items:center;gap:7px}
+  .chip .dot{width:8px;height:8px;border-radius:50%}
+
+  /* ---- help cards ---- */
+  .helpgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:34px}
+  .helpcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:26px}
+  .helpcard h3{font-family:var(--disp);font-size:17px;margin:0 0 10px;display:flex;
+    align-items:center;gap:10px}
+  .helpcard p{color:var(--muted);font-size:14.5px;margin:0 0 14px}
+  .helpcard a.link{font-family:var(--mono);font-size:12.5px;text-decoration:none;
+    display:inline-flex;align-items:center;gap:6px}
+  @media (max-width:720px){.helpgrid{grid-template-columns:1fr}}
+
+  /* ---- safety box ---- */
+  .safetybox{background:rgba(255,176,32,.06);border:1px solid rgba(255,176,32,.25);
+    border-radius:14px;padding:26px 28px;margin-top:20px}
+  .safetybox h3{margin:0 0 10px;font-family:var(--disp);font-size:16.5px;color:var(--amber)}
+  .safetybox p{margin:0 0 10px;color:var(--muted);font-size:14.5px}
+  .safetybox p:last-child{margin-bottom:0}
+
+  /* ---- share templates ---- */
+  .sharebox{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;margin-top:14px}
+  .sharebox .k{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.1em;color:var(--faint);margin-bottom:8px}
+  .sharebox p{margin:0;font-size:15px;color:var(--ink)}
+  .copybtn{margin-top:10px;background:none;border:1px solid var(--line);color:var(--muted);
+    font-family:var(--mono);font-size:11px;padding:6px 11px;border-radius:7px;cursor:pointer}
+  .copybtn:hover{color:var(--ink);border-color:var(--ink)}
+
+  footer{border-top:1px solid var(--line-soft);padding:44px 0;color:var(--faint);
+    font-size:13px}
+  footer .foot-grid{display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px}
+  footer a{color:var(--muted)}
+  .disclaimer{max-width:920px;margin:0 auto 24px;padding:0 24px;font-size:12.5px;
+    color:var(--faint);line-height:1.6}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M11 6v20M21 6v20M11 16h10" stroke="#FFB020" stroke-width="2.4" stroke-linecap="round"/></svg>
+      Discrimination Map
+    </div>
+    <div class="links">
+      <a href="#how">How it works</a>
+      <a href="#help">How to help</a>
+      <a href="#safety">Safety</a>
+    </div>
+    <a class="cta" href="#help">Get involved</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="pulse-bg" aria-hidden="true">
+    <svg viewBox="0 0 240 44" preserveAspectRatio="none">
+      <path d="M0 22 H30 l4 -14 l5 26 l4 -12 H70 l3 -8 l4 8 H120 H150 l4 -14 l5 26 l4 -12 H190 l3 -8 l4 8 H240"
+        fill="none" stroke="#35E08A" stroke-width="1.2"/>
+    </svg>
+  </div>
+  <div class="wrap">
+    <div class="eyebrow">A public, documented, honest map</div>
+    <h1>Hate incidents don't stop being real when the news cycle moves on.<br>
+      This is where the pattern stays visible.</h1>
+    <p class="lede">Discrimination Map documents racism, antisemitism,
+      Islamophobia, homophobia, Neo-Nazi activity, harassment, and sexual
+      violence over time and place — so the shape of the problem is visible,
+      not just the latest headline.</p>
+    <div class="ctarow">
+      <a class="btn primary" href="#help">Help build this</a>
+      <a class="btn ghost" href="../frontend/discrimination-map-mockup.html">See the map (preview)</a>
+    </div>
+  </div>
+</header>
+
+<div class="principles">
+  <div class="wrap grid">
+    <div class="item"><div class="n">01</div>
+      <h3>Documentation, not accusation</h3>
+      <p>Every mark is a sourced, unverified lead — never a verdict about a
+      named person. Presumption of innocence, always.</p></div>
+    <div class="item"><div class="n">02</div>
+      <h3>History isn't deleted</h3>
+      <p>Older reports fade visually after ten years but are never removed.
+      A quiet pattern is still a pattern.</p></div>
+    <div class="item"><div class="n">03</div>
+      <h3>Built for the people in it</h3>
+      <p>Fuzzed locations for sensitive reports, a quick-exit button, and
+      real crisis resources — on every screen, not buried in a footer.</p></div>
+  </div>
+</div>
+
+<section id="how" class="wrap">
+  <div class="eyebrow">How it works</div>
+  <h2 style="font-size:30px;margin:0 0 8px">Three moving parts</h2>
+  <p style="color:var(--muted);max-width:640px;margin:0">No single source is
+    treated as ground truth — the map is only as honest as its weakest input,
+    so every input is labeled for what it actually is.</p>
+  <div class="steps">
+    <div class="step"><div class="num">01</div>
+      <h3>People report directly</h3>
+      <p>Anyone can file a report anonymously — as much or as little detail
+      as they're comfortable sharing.</p></div>
+    <div class="step"><div class="num">02</div>
+      <h3>Public sources are scanned</h3>
+      <p>Free, public social platforms are monitored for relevant public
+      posts, which are stored as unverified leads pending review.</p></div>
+    <div class="step"><div class="num">03</div>
+      <h3>The pattern becomes visible</h3>
+      <p>Filter by category, scrub the timeline, and watch how a region's
+      pattern actually developed — not just its most recent headline.</p></div>
+  </div>
+
+  <div class="eyebrow" style="margin-top:44px">Categories tracked</div>
+  <div class="chipcloud">
+    <span class="chip"><span class="dot" style="background:#FF5C5C"></span>Racism</span>
+    <span class="chip"><span class="dot" style="background:#FFA94D"></span>Islamophobia</span>
+    <span class="chip"><span class="dot" style="background:#4DA6FF"></span>Antisemitism</span>
+    <span class="chip"><span class="dot" style="background:#B983FF"></span>Homophobia / transphobia</span>
+    <span class="chip"><span class="dot" style="background:#FFD23F"></span>Neo-Nazi activity</span>
+    <span class="chip"><span class="dot" style="background:#4CD97B"></span>Xenophobia</span>
+    <span class="chip"><span class="dot" style="background:#2BD9C9"></span>Sexual violence</span>
+    <span class="chip"><span class="dot" style="background:#E8779E"></span>Harassment</span>
+    <span class="chip"><span class="dot" style="background:#8891A8"></span>Other</span>
+  </div>
+</section>
+
+<section id="help" class="wrap" style="background:var(--bg-2);border-radius:24px">
+  <div class="eyebrow">How to help</div>
+  <h2 style="font-size:30px;margin:0 0 30px">This gets more useful with more hands</h2>
+  <div class="helpgrid">
+    <div class="helpcard">
+      <h3>🛡️ Volunteer as a moderator</h3>
+      <p>Review flagged reports in your region or language before they go
+      public. A few hours a month, not a job.</p>
+      <a class="link" href="mailto:volunteer@example.org">volunteer@example.org →</a>
+    </div>
+    <div class="helpcard">
+      <h3>🤝 Partner as an organization</h3>
+      <p>Already tracking incidents in your region? Let's talk about
+      surfacing your chronicle on the map, attributed, with your review
+      process staying yours.</p>
+      <a class="link" href="mailto:partners@example.org">partners@example.org →</a>
+    </div>
+    <div class="helpcard">
+      <h3>🌍 Translate &amp; localize</h3>
+      <p>Help translate the interface, monitoring terms, and — critically —
+      the local crisis resources for your region.</p>
+      <a class="link" href="mailto:translate@example.org">translate@example.org →</a>
+    </div>
+    <div class="helpcard">
+      <h3>💻 Contribute code</h3>
+      <p>The project is being built in the open. Backend, frontend, data
+      pipeline — see the repository for open items.</p>
+      <a class="link" href="#" onclick="return false">github.com/your-org/discrimination-map →</a>
+    </div>
+  </div>
+
+  <div class="eyebrow" style="margin-top:40px">Just spread the word</div>
+  <p style="color:var(--muted);max-width:640px">Coverage only exists where
+    people know to look for it. Sharing this with someone who'd find it
+    useful — a journalist, a local NGO, a community group — genuinely helps.
+    Copy-paste templates:</p>
+
+  <div class="sharebox">
+    <div class="k">Social post</div>
+    <p id="shareSocial">Discrimination Map documents hate incidents over
+      time — racism, antisemitism, Islamophobia, homophobia, Neo-Nazi
+      activity, harassment, sexual violence — with a timeline so the pattern
+      is visible, not just the headline. [link]</p>
+    <button class="copybtn" onclick="copyText('shareSocial')">Copy</button>
+  </div>
+  <div class="sharebox">
+    <div class="k">Email to an organization</div>
+    <p id="shareEmail">Hi [name] — I came across Discrimination Map, a
+      project documenting hate incidents with a public timeline. Given
+      [organization]'s work on [topic], I thought it might be relevant —
+      worth a look? [link]</p>
+    <button class="copybtn" onclick="copyText('shareEmail')">Copy</button>
+  </div>
+</section>
+
+<section id="safety" class="wrap">
+  <div class="eyebrow">Safety &amp; ethics</div>
+  <h2 style="font-size:28px;margin:0 0 14px">What we won't compromise on</h2>
+  <div class="safetybox">
+    <h3>This is a documentation tool, not an emergency service</h3>
+    <p>If you or someone else is in immediate danger, contact local
+    emergency services first. The map exists to make long-term patterns
+    visible — it is not built or staffed for crisis response.</p>
+    <h3 style="margin-top:18px">Reports are leads, never verdicts</h3>
+    <p>Nothing on the map asserts guilt or confirms an allegation. Automated
+    and user-submitted reports are explicitly labeled unverified, pending
+    human review for the most sensitive categories.</p>
+    <h3 style="margin-top:18px">The map documents incidents, not people</h3>
+    <p>No names, faces, or addresses of private individuals — on either side
+    of a report. Locations for sexual violence and harassment reports are
+    deliberately approximated, never exact.</p>
+  </div>
+</section>
+
+<div class="disclaimer">
+  Discrimination Map is a documentation and awareness project. It is not
+  a substitute for law enforcement, legal advice, or crisis counseling.
+  Automated and user-submitted content reflects unverified reports and
+  should be treated as such.
+</div>
+
+<footer>
+  <div class="wrap foot-grid">
+    <div>© Discrimination Map · Built in the open</div>
+    <div><a href="#how">How it works</a> · <a href="#help">Get involved</a> ·
+      <a href="mailto:contact@example.org">contact@example.org</a></div>
+  </div>
+</footer>
+
+<script>
+function copyText(id){
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard?.writeText(text);
+}
+</script>
+</body>
+</html>
