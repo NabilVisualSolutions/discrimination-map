@@ -1,0 +1,21 @@
+# Runtime data — never commit the live database or logs
+backend/hermes.db
+backend/hermes.db-wal
+backend/hermes.db-shm
+backend/improvements.log
+
+# Secrets — never commit API keys or environment files
+.env
+*.env
+deploy/.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+.venv/
+
+# OS / editor cruft
+.DS_Store
+*.swp

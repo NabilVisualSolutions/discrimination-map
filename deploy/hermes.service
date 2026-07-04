@@ -1,0 +1,36 @@
+[Unit]
+Description=Hermes Map — far-right incident monitor (Germany)
+After=network.target
+
+[Service]
+Type=simple
+# Adjust these two if you install somewhere other than /opt/hermes-map
+WorkingDirectory=/opt/hermes-map/backend
+ExecStart=/opt/hermes-map/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
+
+# Run as an unprivileged service user, not root. Created by deploy.sh.
+User=hermes
+Group=hermes
+
+# --- environment -----------------------------------------------------------
+# Prefer an EnvironmentFile so secrets aren't visible in `systemctl status`.
+EnvironmentFile=-/opt/hermes-map/.env
+Environment=HERMES_ENV=prod
+Environment=HERMES_DB_PATH=/opt/hermes-map/data/hermes.db
+Environment=HERMES_ALLOW_ORIGINS=https://yourdomain.com
+
+# --- reliability -------------------------------------------------------------
+Restart=on-failure
+RestartSec=5
+# Give the process time to finish an in-flight heartbeat on shutdown.
+TimeoutStopSec=20
+
+# --- basic hardening ---------------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/hermes-map/data
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

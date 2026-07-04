@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hermes — far-right incident monitor · Germany</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#0B0E14; --panel:#111725; --panel-2:#0E1420;
+    --line:#212B3D; --line-soft:#1A2334;
+    --ink:#E6ECF6; --muted:#7A879C; --faint:#4C596E;
+    --hermes:#FFB020;      /* scraped by the agent */
+    --user:#29D3E0;        /* filed by a person   */
+    --pulse:#35E08A;       /* the heartbeat       */
+    --danger:#FF5C6C;
+    --rail:340px;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --disp:'Space Grotesk',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:var(--disp);overflow:hidden;
+  }
+  #map{position:absolute;inset:0 0 0 var(--rail);background:#0B0E14}
+  .leaflet-container{background:#0B0E14}
+
+  /* ---- console rail ---- */
+  .rail{
+    position:absolute;top:0;left:0;bottom:0;width:var(--rail);
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border-right:1px solid var(--line);
+    display:flex;flex-direction:column;z-index:1000;
+  }
+  .brand{padding:18px 20px 14px;border-bottom:1px solid var(--line-soft)}
+  .brand .wing{display:flex;align-items:center;gap:11px}
+  .brand svg{width:26px;height:26px;flex:none}
+  .brand h1{
+    font-size:19px;font-weight:700;letter-spacing:.14em;margin:0;
+    text-transform:uppercase;
+  }
+  .brand .sub{
+    font-family:var(--mono);font-size:10.5px;color:var(--muted);
+    letter-spacing:.06em;margin-top:5px;padding-left:37px;
+  }
+
+  /* ---- ethics / method notice ---- */
+  .notice{position:relative;margin:0;padding:12px 34px 12px 20px;
+    background:rgba(255,176,32,.08);border-bottom:1px solid var(--line-soft);
+    font-size:11.5px;line-height:1.5;color:var(--muted)}
+  .notice strong{color:var(--hermes);font-weight:700}
+  .notice em{color:var(--ink);font-style:normal;text-decoration:underline dotted}
+  .notice button{position:absolute;top:8px;right:8px;background:none;border:none;
+    color:var(--faint);font-size:16px;line-height:1;cursor:pointer;padding:2px 6px}
+  .notice button:hover{color:var(--ink)}
+  .notice.hide{display:none}
+
+  /* ---- heartbeat monitor : the signature element ---- */
+  .monitor{padding:16px 20px;border-bottom:1px solid var(--line-soft)}
+  .monitor .row{display:flex;justify-content:space-between;align-items:baseline}
+  .monitor .lbl{
+    font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faint);
+  }
+  .monitor .pulseword{
+    font-family:var(--mono);font-size:11px;color:var(--pulse);letter-spacing:.05em;
+  }
+  .ecg{
+    position:relative;height:44px;margin:10px 0 4px;overflow:hidden;
+    border-radius:6px;background:
+      radial-gradient(120% 140% at 50% 0%,rgba(53,224,138,.06),transparent 60%),
+      #0A0F18;
+    border:1px solid var(--line-soft);
+  }
+  .ecg svg{position:absolute;inset:0;width:200%;height:100%}
+  .ecg .trace{
+    fill:none;stroke:var(--pulse);stroke-width:1.6;
+    filter:drop-shadow(0 0 4px rgba(53,224,138,.55));
+    animation:scroll 4s linear infinite;
+  }
+  @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .beatline{display:flex;justify-content:space-between;margin-top:8px}
+  .beatline .k{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.1em}
+  .beatline .v{font-family:var(--mono);font-size:13px;color:var(--ink)}
+  .beatline .v small{color:var(--muted);font-size:10px}
+
+  /* ---- source health chips ---- */
+  .sources{padding:14px 20px;border-bottom:1px solid var(--line-soft)}
+  .sources .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:9px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;
+    padding:4px 9px;border-radius:20px;border:1px solid var(--line);
+    color:var(--muted);display:flex;align-items:center;gap:6px;
+  }
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--faint)}
+  .chip.up{color:var(--ink);border-color:rgba(53,224,138,.35)}
+  .chip.up .dot{background:var(--pulse);box-shadow:0 0 6px var(--pulse)}
+  .chip.down{color:var(--muted);border-color:rgba(255,92,108,.3)}
+  .chip.down .dot{background:var(--danger)}
+  .chip.off{opacity:.5}
+
+  /* ---- live feed ---- */
+  .feed{flex:1;overflow-y:auto;padding:6px 0}
+  .feed .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faint);padding:10px 20px 4px}
+  .item{
+    padding:10px 20px;border-bottom:1px solid var(--line-soft);cursor:pointer;
+    display:grid;grid-template-columns:3px 1fr;gap:11px;transition:background .15s;
+  }
+  .item:hover{background:rgba(255,255,255,.025)}
+  .item .bar{border-radius:2px;background:var(--hermes)}
+  .item.user .bar{background:var(--user)}
+  .item .t{font-size:12.5px;line-height:1.35;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .item .m{font-family:var(--mono);font-size:9.5px;color:var(--faint);
+    margin-top:5px;letter-spacing:.04em;text-transform:uppercase}
+  .feed .empty{color:var(--muted);font-size:12px;padding:24px 20px;line-height:1.5}
+  .lawtag{color:var(--hermes)}
+
+  /* ---- file-a-report button + modal ---- */
+  .fab{
+    position:absolute;right:22px;bottom:22px;z-index:1000;
+    background:var(--user);color:#062126;border:none;cursor:pointer;
+    font-family:var(--disp);font-weight:700;font-size:13.5px;letter-spacing:.03em;
+    padding:14px 20px;border-radius:12px;display:flex;align-items:center;gap:9px;
+    box-shadow:0 8px 26px rgba(41,211,224,.32);transition:transform .12s,box-shadow .12s;
+  }
+  .fab:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(41,211,224,.42)}
+  .fab:focus-visible{outline:2px solid #fff;outline-offset:3px}
+  .fab svg{width:17px;height:17px}
+
+  .scrim{position:absolute;inset:0;z-index:2000;background:rgba(5,8,13,.7);
+    display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+  .scrim.on{display:flex}
+  .modal{
+    width:min(440px,92vw);background:var(--panel);border:1px solid var(--line);
+    border-radius:16px;padding:22px 22px 20px;
+  }
+  .modal h2{margin:0 0 4px;font-size:17px;letter-spacing:.02em}
+  .modal p.hint{margin:0 0 16px;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .field input,.field textarea,.field select{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    border-radius:9px;padding:10px 12px;font-family:var(--disp);font-size:13.5px;
+  }
+  .field textarea{resize:vertical;min-height:64px}
+  .field input:focus,.field textarea:focus,.field select:focus{
+    outline:none;border-color:var(--user)}
+  .coordline{font-family:var(--mono);font-size:11px;color:var(--muted);
+    background:var(--panel-2);border:1px dashed var(--line);border-radius:9px;
+    padding:9px 12px;margin-bottom:14px;display:flex;justify-content:space-between}
+  .coordline b{color:var(--user);font-weight:500}
+  .lawhint{font-size:11px;color:var(--muted);line-height:1.45;margin-top:6px;
+    padding-left:2px}
+  .lawhint b{color:var(--hermes);font-weight:600}
+  .actions{display:flex;gap:10px;margin-top:4px}
+  .btn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);
+    background:transparent;color:var(--ink);font-family:var(--disp);font-weight:500;
+    font-size:13.5px;cursor:pointer}
+  .btn.primary{background:var(--user);color:#062126;border-color:var(--user);font-weight:700}
+  .btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  .toast{position:absolute;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    z-index:3000;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    font-size:12.5px;padding:11px 16px;border-radius:10px;opacity:0;transition:.25s;
+    pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* Leaflet markers */
+  .mk{border-radius:50%;border:2px solid rgba(255,255,255,.85)}
+  .mk.hermes{background:var(--hermes);box-shadow:0 0 10px rgba(255,176,32,.7)}
+  .mk.user{background:var(--user);box-shadow:0 0 10px rgba(41,211,224,.7)}
+  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border-radius:10px}
+  .leaflet-popup-tip{background:var(--panel)}
+  .leaflet-popup-content{margin:12px 14px;font-family:var(--disp)}
+  .leaflet-popup-content a{color:var(--user)}
+  .pop .src{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint)}
+  .pop .ttl{font-size:13px;line-height:1.4;margin:6px 0 7px;font-weight:500}
+  .badge{display:inline-block;font-family:var(--mono);font-size:9px;
+    letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:20px;
+    margin-top:4px}
+  .badge.lead{background:rgba(255,176,32,.15);color:var(--hermes)}
+  .badge.user{background:rgba(41,211,224,.15);color:var(--user)}
+  .badge.ok{background:rgba(53,224,138,.16);color:var(--pulse)}
+  .pop .prow{display:flex;gap:8px;font-size:11.5px;margin:3px 0;line-height:1.4}
+  .pop .prow span{color:var(--faint);font-family:var(--mono);font-size:9.5px;
+    text-transform:uppercase;letter-spacing:.06em;min-width:44px;padding-top:1px}
+  .pop .prow b{color:var(--ink);font-weight:500}
+  .pop .ev{margin-top:7px}
+  .pop .evtxt{color:var(--muted);font-size:11px}
+
+  /* mobile: rail becomes a bottom sheet-ish top bar */
+  @media (max-width:720px){
+    :root{--rail:0px}
+    .rail{width:100%;height:auto;bottom:auto;flex-direction:column;
+      border-right:none;border-bottom:1px solid var(--line)}
+    .feed{max-height:150px}
+    #map{inset:0}
+    .rail{background:rgba(17,23,37,.94)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .ecg .trace{animation:none}
+    .fab{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== console rail ===================== -->
+<aside class="rail">
+  <div class="brand">
+    <div class="wing">
+      <!-- winged 'H' mark -->
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M11 6v20M21 6v20M11 16h10" stroke="#FFB020" stroke-width="2.4"
+              stroke-linecap="round"/>
+        <path d="M6 11c-2 .4-3.4 1.3-4 2.6 1.6-.3 2.9-.2 4 .3M26 11c2 .4 3.4 1.3 4 2.6-1.6-.3-2.9-.2-4 .3"
+              stroke="#35E08A" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <h1>Hermes</h1>
+    </div>
+    <div class="sub">far-right incident monitor · Germany</div>
+  </div>
+
+  <!-- ethics / method note: keeps the tool honest and lawful -->
+  <div class="notice" id="notice">
+    <strong>Documentation, not accusation.</strong> Automated marks are
+    <em>unverified leads</em> from public posts — alleged, not proven.
+    Presumption of innocence applies. Witnessing a crime? Call police 110.
+    <button id="noticeX" aria-label="Dismiss">×</button>
+  </div>
+
+  <!-- signature: heartbeat monitor -->
+  <div class="monitor">
+    <div class="row">
+      <span class="lbl">agent heartbeat</span>
+      <span class="pulseword" id="beatState">listening</span>
+    </div>
+    <div class="ecg" aria-hidden="true">
+      <svg viewBox="0 0 240 44" preserveAspectRatio="none">
+        <path class="trace" d="M0 22 H30 l4 -14 l5 26 l4 -12 H70 l3 -8 l4 8 H120
+          H150 l4 -14 l5 26 l4 -12 H190 l3 -8 l4 8 H240"/>
+      </svg>
+    </div>
+    <div class="beatline">
+      <div><div class="k">LAST SCAN</div><div class="v" id="lastBeat">—</div></div>
+      <div style="text-align:right"><div class="k">NEXT IN</div>
+        <div class="v" id="nextBeat">—<small>s</small></div></div>
+      <div style="text-align:right"><div class="k">BEATS</div>
+        <div class="v" id="beatCount">0</div></div>
+    </div>
+  </div>
+
+  <!-- source health -->
+  <div class="sources">
+    <div class="lbl">sources</div>
+    <div class="chips" id="chips"><span class="chip">loading…</span></div>
+  </div>
+
+  <!-- live feed -->
+  <div class="feed">
+    <div class="lbl">live feed</div>
+    <div id="feed"><div class="empty">Waiting for the first heartbeat. Hermes
+      scans German public posts for far-right signals and maps located leads for
+      review.</div></div>
+  </div>
+</aside>
+
+<div id="map"></div>
+
+<!-- file a report -->
+<button class="fab" id="fab" aria-haspopup="dialog">
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 5v14M5 12h14" stroke="#062126" stroke-width="2.6" stroke-linecap="round"/>
+  </svg>
+  File a report
+</button>
+
+<!-- report modal -->
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="modal">
+    <h2 id="mTitle">Report an incident</h2>
+    <p class="hint">Document a far-right incident in Germany. Give what you can —
+      the more evidence, the more useful. Reports are public, anonymous, and
+      logged as <em>unverified</em> pending review. Report crimes to police (110).</p>
+    <div class="coordline">
+      <span>LOCATION</span><span><b id="coordTxt">click the map or use your location</b></span>
+    </div>
+    <div class="field">
+      <label for="rReason">What happened</label>
+      <input id="rReason" maxlength="500" placeholder="e.g. Swastika sprayed on memorial" />
+    </div>
+    <div class="field">
+      <label for="rCat">Category</label>
+      <select id="rCat">
+        <option value="banned_symbol">Banned symbol / salute</option>
+        <option value="incitement">Incitement / hate speech</option>
+        <option value="propaganda">Propaganda</option>
+        <option value="threat">Threat</option>
+        <option value="violence">Assault / violence</option>
+        <option value="arson">Arson</option>
+        <option value="holocaust_denial">Holocaust denial</option>
+        <option value="assembly">March / rally</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="rLaw">Possibly-applicable law <span style="text-transform:none;color:var(--faint)">(optional)</span></label>
+      <select id="rLaw"><option value="">— select a statute —</option></select>
+      <div id="lawHint" class="lawhint"></div>
+    </div>
+    <div class="field">
+      <label for="rEvidence">Evidence <span style="text-transform:none;color:var(--faint)">(link or description)</span></label>
+      <input id="rEvidence" maxlength="1000" placeholder="URL of a photo, post, or news report" />
+    </div>
+    <div class="field">
+      <label for="rImpact">Impact / harm <span style="text-transform:none;color:var(--faint)">(optional)</span></label>
+      <textarea id="rImpact" maxlength="1000" placeholder="Who was targeted and how it affected them."></textarea>
+    </div>
+    <div class="actions">
+      <button class="btn" id="useLoc" type="button">Use my location</button>
+      <button class="btn primary" id="submit" type="button">Submit report</button>
+    </div>
+    <div class="actions" style="margin-top:10px">
+      <button class="btn" id="cancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+// ---------- map ----------
+const map = L.map('map',{zoomControl:false}).setView([51.16,10.45],6);
+L.control.zoom({position:'topright'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19
+}).addTo(map);
+
+const seen = new Set();           // report ids already on the map
+let pendingPin = null;            // {lat,lon} chosen in the modal
+let pinMarker = null;
+
+function icon(source){
+  const cls = source === 'user' ? 'user' : 'hermes';
+  return L.divIcon({className:'', html:`<div class="mk ${cls}" style="width:13px;height:13px"></div>`,
+    iconSize:[13,13], iconAnchor:[7,7]});
+}
+
+let LAWS = {};   // code -> {title_en, summary, penalty}, from /api/laws
+
+function lawShort(code){
+  const l = LAWS[code];
+  if(!l) return code || '';
+  // title_en looks like "§ 86a StGB — Use of symbols…"; take the code part.
+  return (l.title_en || code).split('—')[0].trim();
+}
+
+function statusBadge(r){
+  // scraped leads are unverified; user reports are community-submitted.
+  if(r.verified) return `<span class="badge ok">Verified</span>`;
+  if(r.source === 'user') return `<span class="badge user">Community report · unverified</span>`;
+  return `<span class="badge lead">Automated lead · unverified</span>`;
+}
+
+function addReport(r){
+  if(seen.has(r.id) || r.lat == null || r.lon == null) return;
+  seen.add(r.id);
+  const m = L.marker([r.lat,r.lon],{icon:icon(r.source)}).addTo(map);
+  const reason = escapeHtml(r.reason || r.title || 'Reported incident');
+  const lawRow = r.law ? `<div class="prow"><span>Law</span><b title="${escapeHtml((LAWS[r.law]||{}).summary||'')}">${escapeHtml(lawShort(r.law))}</b></div>` : '';
+  const impactRow = r.impact ? `<div class="prow"><span>Impact</span><b>${escapeHtml(r.impact)}</b></div>` : '';
+  const ev = r.url ? `<a href="${r.url}" target="_blank" rel="noopener">evidence ↗</a>`
+                   : (r.evidence ? `<span class="evtxt">${escapeHtml(r.evidence)}</span>` : '');
+  m.bindPopup(`<div class="pop">
+    <div class="src">${r.source} · ${escapeHtml(r.place||'Germany')}</div>
+    ${statusBadge(r)}
+    <div class="ttl">${reason}</div>
+    ${lawRow}${impactRow}
+    <div class="ev">${ev}</div>
+  </div>`);
+}
+
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>(
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ---------- live feed + reports ----------
+async function refreshReports(){
+  try{
+    const res = await fetch('/api/reports?limit=300');
+    const {reports} = await res.json();
+    reports.forEach(addReport);
+    renderFeed(reports.slice(0,40));
+  }catch(e){/* keep last good state */}
+}
+
+function renderFeed(reports){
+  const el = document.getElementById('feed');
+  if(!reports.length){return;}
+  el.innerHTML = reports.map(r=>{
+    const lawTag = r.law ? ` · <span class="lawtag">${escapeHtml(lawShort(r.law))}</span>` : '';
+    return `
+    <div class="item ${r.source==='user'?'user':''}" data-lat="${r.lat}" data-lon="${r.lon}">
+      <div class="bar"></div>
+      <div>
+        <div class="t">${escapeHtml(r.reason || r.title)}</div>
+        <div class="m">${r.source} · ${escapeHtml(r.place||'DE')}${lawTag} · ${ago(r.created_at)}</div>
+      </div>
+    </div>`;}).join('');
+  el.querySelectorAll('.item').forEach(it=>it.addEventListener('click',()=>{
+    const lat=+it.dataset.lat, lon=+it.dataset.lon;
+    if(!isNaN(lat)&&!isNaN(lon)) map.flyTo([lat,lon],9,{duration:.8});
+  }));
+}
+
+function ago(ts){
+  const s = Math.max(0, Math.floor(Date.now()/1000)-ts);
+  if(s<60) return s+'s ago';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+
+// ---------- heartbeat HUD ----------
+async function refreshHeartbeat(){
+  try{
+    const st = await (await fetch('/api/heartbeat')).json();
+    document.getElementById('beatCount').textContent = st.beat_count ?? 0;
+    document.getElementById('nextBeat').innerHTML =
+      (st.next_beat_in ?? '—') + '<small>s</small>';
+    document.getElementById('lastBeat').textContent =
+      st.last_beat ? ago(st.last_beat) : '—';
+    const bs = document.getElementById('beatState');
+    if(st.next_beat_in <= 2){ bs.textContent='scanning…'; }
+    else { bs.textContent='listening'; }
+  }catch(e){}
+}
+
+async function refreshHealth(){
+  try{
+    const h = await (await fetch('/api/health')).json();
+    const known = ['bluesky','mastodon','youtube'];
+    const chips = document.getElementById('chips');
+    chips.innerHTML = known.map(name=>{
+      const s = h.sources[name];
+      let cls='off', label=name;
+      if(s){
+        cls = s.streak_fail>=3 ? 'down' : (s.success_rate>=0.5 ? 'up' : 'down');
+      }
+      return `<span class="chip ${cls}"><span class="dot"></span>${label}</span>`;
+    }).join('');
+  }catch(e){}
+}
+
+// ---------- report modal ----------
+const scrim=document.getElementById('scrim');
+function openModal(){scrim.classList.add('on');document.getElementById('rReason').focus();}
+function closeModal(){scrim.classList.remove('on');}
+document.getElementById('fab').onclick=openModal;
+document.getElementById('cancel').onclick=closeModal;
+scrim.addEventListener('click',e=>{if(e.target===scrim)closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+function setPin(lat,lon){
+  pendingPin={lat,lon};
+  document.getElementById('coordTxt').textContent = lat.toFixed(4)+', '+lon.toFixed(4);
+  if(pinMarker) map.removeLayer(pinMarker);
+  pinMarker = L.marker([lat,lon],{icon:icon('user')}).addTo(map);
+}
+map.on('click',e=>{ if(scrim.classList.contains('on')) setPin(e.latlng.lat,e.latlng.lng); });
+
+document.getElementById('useLoc').onclick=()=>{
+  if(!navigator.geolocation){toast('Geolocation not available');return;}
+  navigator.geolocation.getCurrentPosition(
+    p=>{setPin(p.coords.latitude,p.coords.longitude);map.flyTo([p.coords.latitude,p.coords.longitude],11);},
+    ()=>toast('Could not get your location'));
+};
+
+document.getElementById('submit').onclick=async()=>{
+  const reason=document.getElementById('rReason').value.trim();
+  if(reason.length<3){toast('Describe what happened first');return;}
+  if(!pendingPin){toast('Set a location: click the map or use your location');return;}
+  const payload={
+    title:reason.slice(0,120),
+    reason,
+    evidence:document.getElementById('rEvidence').value.trim(),
+    law:document.getElementById('rLaw').value,
+    impact:document.getElementById('rImpact').value.trim(),
+    category:document.getElementById('rCat').value,
+    lat:pendingPin.lat, lon:pendingPin.lon,
+  };
+  try{
+    const res=await fetch('/api/reports',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!res.ok) throw new Error();
+    toast('Report filed — logged as unverified for review');
+    closeModal();
+    ['rReason','rEvidence','rImpact'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('rLaw').value='';
+    document.getElementById('lawHint').innerHTML='';
+    if(pinMarker){map.removeLayer(pinMarker);pinMarker=null;}
+    pendingPin=null;
+    refreshReports();
+  }catch(e){toast('Could not file report. Try again.');}
+};
+
+// ---------- statute reference (dropdown + popups) ----------
+async function loadLaws(){
+  try{
+    const {laws} = await (await fetch('/api/laws')).json();
+    LAWS = laws || {};
+    const sel = document.getElementById('rLaw');
+    Object.keys(LAWS).forEach(code=>{
+      const o=document.createElement('option');
+      o.value=code; o.textContent=lawShort(code); sel.appendChild(o);
+    });
+    sel.addEventListener('change',()=>{
+      const l=LAWS[sel.value];
+      document.getElementById('lawHint').innerHTML =
+        l ? `<b>${escapeHtml(lawShort(sel.value))}</b> — ${escapeHtml(l.summary)} <em>${escapeHtml(l.penalty||'')}</em>` : '';
+    });
+  }catch(e){}
+}
+
+// notice dismiss
+document.getElementById('noticeX').onclick=()=>
+  document.getElementById('notice').classList.add('hide');
+
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ---------- polling ----------
+loadLaws();
+refreshReports(); refreshHeartbeat(); refreshHealth();
+setInterval(refreshReports, 15000);
+setInterval(refreshHeartbeat, 1000);
+setInterval(refreshHealth, 15000);
+</script>
+</body>
+</html>
