@@ -29,14 +29,36 @@
   /* ---- top bar ---- */
   .topbar{
     position:absolute;top:0;left:var(--rail);right:0;z-index:1000;
-    display:flex;justify-content:space-between;align-items:center;
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
     padding:12px 16px;pointer-events:none;
   }
+  .searchbox{
+    pointer-events:auto;flex:1;max-width:420px;position:relative;
+  }
+  .searchbox input{
+    width:100%;background:rgba(17,23,37,.94);border:1px solid var(--line);
+    color:var(--ink);border-radius:12px;padding:11px 14px 11px 40px;
+    font-family:var(--disp);font-size:13.5px;backdrop-filter:blur(4px);
+    box-shadow:0 4px 18px rgba(0,0,0,.25);
+  }
+  .searchbox input:focus{outline:none;border-color:#29D3E0}
+  .searchbox svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);
+    width:15px;height:15px;pointer-events:none;opacity:.6}
+  .searchbox .results{
+    position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;display:none;
+    box-shadow:0 12px 30px rgba(0,0,0,.4);
+  }
+  .searchbox .results.on{display:block}
+  .searchbox .results .r{padding:10px 14px;font-size:12.5px;cursor:pointer;
+    border-bottom:1px solid var(--line-soft)}
+  .searchbox .results .r:last-child{border-bottom:none}
+  .searchbox .results .r:hover{background:rgba(255,255,255,.05)}
   .topbar .pill{
     pointer-events:auto;background:rgba(17,23,37,.92);border:1px solid var(--line);
     backdrop-filter:blur(4px);border-radius:10px;padding:8px 14px;
     font-family:var(--mono);font-size:11.5px;color:var(--muted);
-    display:flex;align-items:center;gap:8px;
+    display:flex;align-items:center;gap:8px;white-space:nowrap;
   }
   .topbar .pill a, .topbar .pill button.link{
     color:var(--ink);background:none;border:none;font-family:var(--mono);
@@ -46,10 +68,25 @@
     pointer-events:auto;background:var(--exit);color:#fff;border:none;
     font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.02em;
     padding:10px 16px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;
-    box-shadow:0 6px 18px rgba(226,59,78,.35);
+    box-shadow:0 6px 18px rgba(226,59,78,.35);white-space:nowrap;
   }
   .exitbtn:hover{background:#c92e40}
   .exitbtn svg{width:15px;height:15px}
+
+  /* ---- navigator-style map controls (locate-me, like Google Maps/Waze) ---- */
+  .locatebtn{
+    position:absolute;z-index:1000;right:12px;bottom:calc(var(--timebar) + 78px);
+    width:42px;height:42px;border-radius:50%;background:rgba(17,23,37,.94);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);
+  }
+  .locatebtn:hover{border-color:#29D3E0}
+  .locatebtn svg{width:19px;height:19px}
+  .me-dot{width:14px;height:14px;border-radius:50%;background:#29D3E0;
+    border:3px solid #fff;box-shadow:0 0 0 5px rgba(41,211,224,.35)}
+  @keyframes mePulse{0%{box-shadow:0 0 0 0 rgba(41,211,224,.5)}
+    100%{box-shadow:0 0 0 14px rgba(41,211,224,0)}}
+  .me-pulse{animation:mePulse 1.8s ease-out infinite}
 
   /* ---- rail (filters/legend) ---- */
   .rail{
@@ -184,9 +221,9 @@
   /* map markers + popup */
   .mk{border-radius:50%;border:2px solid rgba(255,255,255,.85)}
   .mk.faded{border-color:rgba(255,255,255,.35);filter:grayscale(1) brightness(.75);opacity:.55}
-  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border-radius:10px}
+  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border-radius:10px;max-width:290px}
   .leaflet-popup-tip{background:var(--panel)}
-  .leaflet-popup-content{margin:12px 14px;font-family:var(--disp)}
+  .leaflet-popup-content{margin:12px 14px;font-family:var(--disp);width:262px !important}
   .pop .src{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
     color:var(--faint);display:flex;align-items:center;gap:6px}
   .pop .src .dot{width:8px;height:8px;border-radius:50%}
@@ -195,6 +232,9 @@
   .pop .badge{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
     text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-top:5px;
     background:rgba(255,176,32,.15);color:#FFB020}
+  .pop .badge.verified{background:rgba(53,224,138,.16);color:#35E08A}
+  .pop .note{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px;
+    padding-top:8px;border-top:1px solid var(--line-soft)}
 
   @media (max-width:820px){
     :root{--rail:0px;--timebar:118px}
@@ -260,8 +300,12 @@
 <button class="railtoggle" id="railToggle" aria-label="Toggle filters">☰ Filters</button>
 
 <div class="topbar">
-  <span></span>
-  <div style="display:flex;gap:10px;align-items:center">
+  <div class="searchbox">
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#E6ECF6" stroke-width="1.8"/><path d="M21 21l-4.3-4.3" stroke="#E6ECF6" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <input type="text" id="searchInput" placeholder="Search a place (e.g. Berlin, Orlando...)" autocomplete="off" />
+    <div class="results" id="searchResults"></div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;pointer-events:none">
     <span class="pill">
       <span id="visibleCount">0</span> reports shown ·
       <button class="link" id="openResources2">get help</button>
@@ -273,13 +317,18 @@
   </div>
 </div>
 
+<button class="locatebtn" id="locateBtn" title="Show my location">
+  <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="#E6ECF6" stroke-width="1.8"/>
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="#E6ECF6" stroke-width="1.8" stroke-linecap="round"/></svg>
+</button>
+
 <div id="map"></div>
 
 <div class="timebar">
   <div class="yearbadge"><small>viewing</small><span id="yearOut">2026</span></div>
   <div class="slider-wrap">
-    <input type="range" id="yearSlider" min="2007" max="2026" value="2026" step="1" />
-    <div class="slider-ticks"><span>2007</span><span>timeline — drag to travel back in time</span><span>2026 (today)</span></div>
+    <input type="range" id="yearSlider" min="2016" max="2026" value="2026" step="1" />
+    <div class="slider-ticks"><span>2016</span><span>timeline — drag to travel back in time</span><span>2026 (today)</span></div>
   </div>
   <button class="todaybtn" id="jumpToday">Jump to today</button>
 </div>
@@ -354,6 +403,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="data/sample-incidents.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
@@ -378,45 +428,20 @@ const FADE_YEARS = 10;
 const TODAY_YEAR = 2026;
 
 // ============================================================
-// SAMPLE DATA — placeholder points for the mockup only. Spread
-// across categories, decades, and continents to show filtering,
-// the timeline, and the 10-year fade all working together.
+// SAMPLE DATA loads from data/sample-incidents.js (gitignored — see
+// .gitignore and NEXT-STEPS.md). If that file is missing, e.g. because
+// you cloned the repo fresh, fall back to an empty set with a visible
+// notice rather than failing silently.
 // ============================================================
-const SAMPLE = [
-  {lat:52.52,lon:13.40,cat:'neonazi',year:2024,place:'Berlin, DE',title:'Banned symbol displayed at a rally'},
-  {lat:48.8566,lon:2.3522,cat:'islamophobia',year:2023,place:'Paris, FR',title:'Woman harassed for wearing a hijab'},
-  {lat:51.5074,lon:-0.1278,cat:'racism',year:2025,place:'London, UK',title:'Racist graffiti on a shop front'},
-  {lat:40.7128,lon:-74.0060,cat:'antisemitism',year:2022,place:'New York, US',title:'Synagogue vandalized'},
-  {lat:34.0522,lon:-118.2437,cat:'homophobia',year:2021,place:'Los Angeles, US',title:'Couple assaulted leaving a bar'},
-  {lat:-23.5505,lon:-46.6333,cat:'xenophobia',year:2020,place:'São Paulo, BR',title:'Migrant workers denied service'},
-  {lat:19.0760,lon:72.8777,cat:'sexual',year:2024,place:'Mumbai, IN',title:'Assault reported near a transit stop'},
-  {lat:-33.8688,lon:151.2093,cat:'harassment',year:2025,place:'Sydney, AU',title:'Repeated street harassment'},
-  {lat:30.0444,lon:31.2357,cat:'other',year:2019,place:'Cairo, EG',title:'Discriminatory hiring practice reported'},
-  {lat:43.6532,lon:-79.3832,cat:'racism',year:2013,place:'Toronto, CA',title:'Racial profiling incident'},
-  {lat:6.5244,lon:3.3792,cat:'xenophobia',year:2011,place:'Lagos, NG',title:'Attack on refugee settlement'},
-  {lat:41.9028,lon:12.4964,cat:'neonazi',year:2009,place:'Rome, IT',title:'Fascist salute at a football match'},
-  {lat:52.2297,lon:21.0122,cat:'antisemitism',year:2016,place:'Warsaw, PL',title:'Cemetery desecrated'},
-  {lat:59.3293,lon:18.0686,cat:'homophobia',year:2014,place:'Stockholm, SE',title:'Pride march attacked'},
-  {lat:37.9838,lon:23.7275,cat:'islamophobia',year:2018,place:'Athens, GR',title:'Mosque vandalized'},
-  {lat:55.7558,lon:37.6173,cat:'racism',year:2010,place:'Moscow, RU',title:'Migrant worker beaten'},
-  {lat:28.7041,lon:77.1025,cat:'sexual',year:2015,place:'Delhi, IN',title:'Harassment on public transport'},
-  {lat:-1.2921,lon:36.8219,cat:'harassment',year:2017,place:'Nairobi, KE',title:'Online harassment campaign'},
-  {lat:35.6762,lon:139.6503,cat:'other',year:2012,place:'Tokyo, JP',title:'Housing discrimination reported'},
-  {lat:-34.6037,lon:-58.3816,cat:'xenophobia',year:2008,place:'Buenos Aires, AR',title:'Xenophobic public statement'},
-  {lat:50.1109,lon:8.6821,cat:'neonazi',year:2026,place:'Frankfurt, DE',title:'Banned insignia at a march'},
-  {lat:41.0082,lon:28.9784,cat:'islamophobia',year:2026,place:'Istanbul, TR',title:'Attack on a place of worship'},
-  {lat:-26.2041,lon:28.0473,cat:'racism',year:2025,place:'Johannesburg, ZA',title:'Xenophobic mob violence'},
-  {lat:22.3193,lon:114.1694,cat:'other',year:2007,place:'Hong Kong',title:'Discriminatory tenancy clause'},
-  {lat:13.7563,lon:100.5018,cat:'sexual',year:2020,place:'Bangkok, TH',title:'Workplace assault reported'},
-];
+const SAMPLE = window.SAMPLE_INCIDENTS || [];
 
 let visibleYear = TODAY_YEAR;
 const activeCats = new Set(CATEGORIES.map(c=>c.key));
 
 // ---------- map ----------
-const map = L.map('map',{zoomControl:false}).setView([25,10],2.3);
+const map = L.map('map',{zoomControl:false}).setView([30,15],2.3);
 L.control.zoom({position:'topright'}).addTo(map);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19
 }).addTo(map);
 
@@ -438,11 +463,15 @@ function renderMarkers(){
     const faded = age >= FADE_YEARS;
     const c = CAT[r.cat];
     const m = L.marker([r.lat,r.lon],{icon:icon(c.color, faded)}).addTo(map);
+    const badge = r.verified
+      ? '<span class="badge verified">Documented — widely reported</span>'
+      : '<span class="badge">unverified lead</span>';
+    const note = r.sourceNote ? `<div class="note">${escapeHtml(r.sourceNote)}</div>` : '';
     m.bindPopup(`<div class="pop">
       <div class="src"><span class="dot" style="background:${c.color}"></span>${c.label} · ${escapeHtml(r.place)}</div>
       <div class="ttl">${escapeHtml(r.title)}</div>
       <div class="meta">${r.year} · ${faded ? age+' years ago — faded, still documented' : age+' years ago'}</div>
-      <span class="badge">unverified lead</span>
+      ${badge}${note}
     </div>`);
     markers.push(m);
     shown++;
@@ -486,6 +515,54 @@ slider.addEventListener('input', ()=>{
 document.getElementById('jumpToday').onclick = ()=>{
   slider.value = TODAY_YEAR; visibleYear = TODAY_YEAR; yearOut.textContent = TODAY_YEAR;
   renderCatList(); renderMarkers();
+};
+
+// ---------- search (free Nominatim geocoding — like typing an address into a nav app) ----------
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
+let searchTimer = null;
+searchInput.addEventListener('input', ()=>{
+  clearTimeout(searchTimer);
+  const q = searchInput.value.trim();
+  if (q.length < 3) { searchResults.classList.remove('on'); return; }
+  searchTimer = setTimeout(async ()=>{
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const data = await res.json();
+      if (!data.length) { searchResults.innerHTML = '<div class="r">No results</div>'; searchResults.classList.add('on'); return; }
+      searchResults.innerHTML = data.map(d =>
+        `<div class="r" data-lat="${d.lat}" data-lon="${d.lon}">${escapeHtml(d.display_name)}</div>`).join('');
+      searchResults.classList.add('on');
+      searchResults.querySelectorAll('.r').forEach(el=>{
+        el.addEventListener('click', ()=>{
+          const lat = parseFloat(el.dataset.lat), lon = parseFloat(el.dataset.lon);
+          if (!isNaN(lat)) { map.flyTo([lat,lon], 10, {duration:1}); }
+          searchResults.classList.remove('on');
+          searchInput.value = el.textContent;
+        });
+      });
+    } catch(e) { /* geocoding hiccup — fail quietly, this is a mockup */ }
+  }, 400); // debounce so we don't hammer the free API while typing
+});
+document.addEventListener('click', e=>{
+  if (!e.target.closest('.searchbox')) searchResults.classList.remove('on');
+});
+
+// ---------- locate me (navigator-app "blue dot") ----------
+let meMarker = null;
+document.getElementById('locateBtn').onclick = ()=>{
+  if (!navigator.geolocation) { toast('Geolocation not available'); return; }
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      const {latitude:lat, longitude:lon} = p.coords;
+      if (meMarker) map.removeLayer(meMarker);
+      meMarker = L.marker([lat,lon], {
+        icon: L.divIcon({ className:'', html:'<div class="me-dot me-pulse"></div>', iconSize:[14,14], iconAnchor:[7,7] })
+      }).addTo(map);
+      map.flyTo([lat,lon], 12, {duration:1});
+    },
+    ()=> toast('Could not get your location'));
 };
 
 // ---------- quick exit (safety) ----------

@@ -4,6 +4,11 @@ backend/hermes.db-wal
 backend/hermes.db-shm
 backend/improvements.log
 
+# Incident data — the code that renders/loads it is open source, the actual
+# incident data (seed data, exports, or anything derived from real reports)
+# is not. See NEXT-STEPS.md and DEVELOPMENT-WORKFLOW.md for why.
+frontend/data/
+
 # Secrets — never commit API keys or environment files
 .env
 *.env
