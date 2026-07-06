@@ -32,6 +32,22 @@ write down in `PLAN.md`:
 Write these decisions down before step 1, so the schema doesn't need a
 rewrite later.
 
+### 0.1 Data stays out of git — code doesn't
+
+Already set up in the mockup, and worth keeping as a hard rule going forward:
+`frontend/data/` is gitignored (see `.gitignore`). `sample-incidents.js`
+in that directory holds seed/real incident data and is **not** committed —
+only the loading/rendering code that reads it is. Extend this same pattern
+to the real backend:
+- `backend/hermes.db` is already gitignored (was from the Germany build).
+- If you ever add data exports, backups, or a moderation-queue dump to disk
+  for debugging, put them under a gitignored path too — `backend/data/` or
+  similar — never alongside the tracked source files.
+- When onboarding a new contributor or moderator, they get the *code* from
+  git and the *data* through a separate, access-controlled channel (a
+  shared drive, a database dump handed over directly, etc.) — never a
+  git clone.
+
 ---
 
 ## 1. Update the database schema (`backend/db.py`)
