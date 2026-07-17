@@ -1,7 +1,7 @@
 # Runtime data — never commit the live database or logs
-backend/hermes.db
-backend/hermes.db-wal
-backend/hermes.db-shm
+backend/dxmap.db
+backend/dxmap.db-wal
+backend/dxmap.db-shm
 backend/improvements.log
 
 # Incident data — the code that renders/loads it is open source, the actual

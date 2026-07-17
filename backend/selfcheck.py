@@ -22,9 +22,9 @@ import httpx
 import db
 
 LOG_PATH = os.environ.get(
-    "HERMES_IMPROVE_LOG", os.path.join(os.path.dirname(__file__), "improvements.log"))
-SELFCHECK_SECONDS = int(os.environ.get("HERMES_SELFCHECK_SECONDS", "900"))  # 15 min
-BASE_URL = os.environ.get("HERMES_BASE_URL", "http://127.0.0.1:8000")
+    "DXMAP_IMPROVE_LOG", os.path.join(os.path.dirname(__file__), "improvements.log"))
+SELFCHECK_SECONDS = int(os.environ.get("DXMAP_SELFCHECK_SECONDS", "900"))  # 15 min
+BASE_URL = os.environ.get("DXMAP_BASE_URL", "http://127.0.0.1:8020")
 
 # Security headers we expect the app / proxy to set on responses.
 EXPECTED_HEADERS = {
@@ -87,12 +87,12 @@ def audit_security() -> list[str]:
         findings.append("SECURITY: database file is under the served frontend dir")
 
     # 3. Debug / reload must be off in production.
-    if os.environ.get("HERMES_DEBUG", "0") == "1":
-        findings.append("SECURITY: HERMES_DEBUG is on — disable in production")
+    if os.environ.get("DXMAP_DEBUG", "0") == "1":
+        findings.append("SECURITY: DXMAP_DEBUG is on — disable in production")
 
     # 4. CORS must not be wildcard in production.
-    if os.environ.get("HERMES_ALLOW_ORIGINS", "") == "*" and \
-            os.environ.get("HERMES_ENV", "dev") == "prod":
+    if os.environ.get("DXMAP_ALLOW_ORIGINS", "") == "*" and \
+            os.environ.get("DXMAP_ENV", "dev") == "prod":
         findings.append("SECURITY: CORS allow-origins is '*' in prod")
 
     return findings

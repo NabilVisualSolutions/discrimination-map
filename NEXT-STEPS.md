@@ -39,7 +39,7 @@ Already set up in the mockup, and worth keeping as a hard rule going forward:
 in that directory holds seed/real incident data and is **not** committed —
 only the loading/rendering code that reads it is. Extend this same pattern
 to the real backend:
-- `backend/hermes.db` is already gitignored (was from the Germany build).
+- `backend/dxmap.db` is already gitignored (was from the Germany build).
 - If you ever add data exports, backups, or a moderation-queue dump to disk
   for debugging, put them under a gitignored path too — `backend/data/` or
   similar — never alongside the tracked source files.
@@ -117,14 +117,14 @@ Replace the hardcoded `_DE_BOX` bounding-box gate with a configurable
 allow-list:
 
 ```python
-ALLOWED_REGIONS = os.environ.get("HERMES_REGIONS", "").strip()  # "" = no restriction, global
+ALLOWED_REGIONS = os.environ.get("DXMAP_REGIONS", "").strip()  # "" = no restriction, global
 ```
 
 Keep the gazetteer, but expand it well beyond German cities — or better,
 switch fully to Nominatim for anything the gazetteer misses (already wired
 up) and treat the gazetteer as a fast-path cache, not the primary source.
 
-## 5. Update `hermes.py` search terms for multi-category, multi-language
+## 5. Update `agent.py` search terms for multi-category, multi-language
 
 The current `SEARCH_TERMS` list is German-far-right-specific. Restructure as
 a dict keyed by category, each with terms in relevant languages:
@@ -210,7 +210,7 @@ Extend `tests/test_api.py`:
 ## 12. Deploy
 
 No changes needed to `deploy/` — same systemd/Nginx setup. Just re-run
-`git pull && systemctl restart hermes` on the VPS per
+`git pull && systemctl restart dxmap` on the VPS per
 `DEVELOPMENT-WORKFLOW.md` once steps 1–11 are tested locally on dragon.
 
 ---

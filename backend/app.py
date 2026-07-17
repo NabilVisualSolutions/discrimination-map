@@ -1,8 +1,9 @@
 """
-Hermes Map — FastAPI application.
+Discrimination Map (dxmap) — FastAPI application.
 
 One process serves the JSON API, the static frontend, and launches two
-background loops on startup: the Hermes heartbeat and the self-check.
+background loops on startup: the monitoring agent's heartbeat and the
+self-check.
 """
 from __future__ import annotations
 
@@ -17,14 +18,14 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
+import agent
 import db
-import hermes
 import lawref
 import selfcheck
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-ENV = os.environ.get("HERMES_ENV", "dev")
-ALLOW_ORIGINS = os.environ.get("HERMES_ALLOW_ORIGINS", "*").split(",")
+ENV = os.environ.get("DXMAP_ENV", "dev")
+ALLOW_ORIGINS = os.environ.get("DXMAP_ALLOW_ORIGINS", "*").split(",")
 
 # Background task handles, so we can cancel them cleanly on shutdown.
 _tasks: list[asyncio.Task] = []
@@ -34,7 +35,7 @@ _tasks: list[asyncio.Task] = []
 async def lifespan(app: FastAPI):
     """Init DB and start the heartbeat + self-check loops on boot."""
     db.init_db()
-    _tasks.append(asyncio.create_task(hermes.heartbeat_loop()))
+    _tasks.append(asyncio.create_task(agent.heartbeat_loop()))
     _tasks.append(asyncio.create_task(selfcheck.selfcheck_loop()))
     try:
         yield
@@ -150,9 +151,9 @@ def health():
 @app.get("/api/heartbeat")
 def heartbeat_status():
     """Live heartbeat state for the HUD: last beat, count, countdown."""
-    st = dict(hermes.STATE)
+    st = dict(agent.STATE)
     st["now"] = int(time.time())
-    st["heartbeat_seconds"] = hermes.HEARTBEAT_SECONDS
+    st["heartbeat_seconds"] = agent.HEARTBEAT_SECONDS
     return st
 
 

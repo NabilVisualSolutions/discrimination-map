@@ -1,5 +1,5 @@
 """
-Hermes — the scraping agent.
+Discrimination Map — the scraping agent.
 
 Runs as an asyncio background task inside the FastAPI process. On each heartbeat
 it polls every enabled source, geolocates what it finds, and persists new
@@ -32,12 +32,12 @@ import db
 import geolocate
 import lawref
 
-HEARTBEAT_SECONDS = int(os.environ.get("HERMES_HEARTBEAT_SECONDS", "180"))  # 3 min
-USER_AGENT = "HermesMap/1.0 (far-right-monitoring prototype; Germany)"
+HEARTBEAT_SECONDS = int(os.environ.get("DXMAP_HEARTBEAT_SECONDS", "180"))  # 3 min
+USER_AGENT = "DxMap/1.0 (far-right-monitoring prototype; Germany)"
 
 # Germany focus. Event/incident-shaped far-right terms (German + some English).
 SEARCH_TERMS = [t.strip() for t in os.environ.get(
-    "HERMES_TERMS",
+    "DXMAP_TERMS",
     "Neonazi,Rechtsextremismus,Naziaufmarsch,rechte Gewalt,Hakenkreuz,"
     "Volksverhetzung,rechtsextremer Angriff,Brandanschlag Geflüchtete,"
     "Reichsbürger,neo-Nazi Germany"
@@ -45,9 +45,9 @@ SEARCH_TERMS = [t.strip() for t in os.environ.get(
 
 # German Mastodon instances + far-right-monitoring hashtags (public, no auth).
 MASTODON_INSTANCES = [i.strip() for i in os.environ.get(
-    "HERMES_MASTODON_INSTANCES", "mastodon.social,norden.social,nrw.social").split(",") if i.strip()]
+    "DXMAP_MASTODON_INSTANCES", "mastodon.social,norden.social,nrw.social").split(",") if i.strip()]
 MASTODON_TAGS = [t.strip() for t in os.environ.get(
-    "HERMES_MASTODON_TAGS", "Rechtsextremismus,Naziaufmarsch,Nazis,KeinenMeterDenNazis").split(",") if t.strip()]
+    "DXMAP_MASTODON_TAGS", "Rechtsextremismus,Naziaufmarsch,Nazis,KeinenMeterDenNazis").split(",") if t.strip()]
 
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "").strip()
 REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID", "").strip()
@@ -55,7 +55,7 @@ REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET", "").strip()
 
 # Network geocodes (Nominatim) allowed per heartbeat — keeps us within its
 # ~1 req/s policy and bounds beat duration.
-GEOCODE_BUDGET = int(os.environ.get("HERMES_GEOCODE_BUDGET", "6"))
+GEOCODE_BUDGET = int(os.environ.get("DXMAP_GEOCODE_BUDGET", "6"))
 
 STATE: dict[str, Any] = {
     "started_at": None, "last_beat": None, "beat_count": 0,

@@ -1,5 +1,5 @@
 """
-Tests for the Hermes far-right incident monitor (Germany).
+Tests for Discrimination Map — far-right incident monitor (Germany).
 
 Run from the project root:  python -m pytest -q tests
 The self-check loop runs exactly this suite on each tick.
@@ -10,7 +10,7 @@ import tempfile
 
 # Isolated temp DB so tests never touch real data.
 _TMP = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-os.environ["HERMES_DB_PATH"] = _TMP.name
+os.environ["DXMAP_DB_PATH"] = _TMP.name
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 

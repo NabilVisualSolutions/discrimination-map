@@ -1,6 +1,6 @@
-# Hermes Map — Build & Deploy Plan
+# Discrimination Map (dxmap) — Build & Deploy Plan
 
-A live situational-awareness web app. A background agent ("Hermes") scrapes
+A live situational-awareness web app. A background monitoring agent scrapes
 free social APIs for geolocatable reports and plots them on a map. Users file
 their own reports with one button. Everything persists. The agent runs a
 heartbeat loop and a self-check routine (tests + security audit + health).
@@ -19,7 +19,7 @@ heartbeat loop and a self-check routine (tests + security audit + health).
                  │   SQLite (WAL, persistent on disk)        │
                  │        ▲                                  │
                  │        │  writes scraped reports          │
-                 │  Hermes agent (asyncio heartbeat loop)    │
+                 │  Monitoring agent (asyncio heartbeat loop) │
                  │    ├─ Reddit    (free public JSON)  ✅     │
                  │    ├─ YouTube   (free API key quota) ◑     │
                  │    ├─ X/Twitter (paid — stub)        ✕     │
@@ -29,7 +29,7 @@ heartbeat loop and a self-check routine (tests + security audit + health).
 ```
 
 - **Backend:** Python + FastAPI + uvicorn. One process serves the API, the
-  static frontend, and runs the Hermes agent as an asyncio background task.
+  static frontend, and runs the monitoring agent as an asyncio background task.
 - **DB:** SQLite in WAL mode. Zero-config, genuinely persistent on the VPS
   disk, survives restarts. Swap to Postgres later without changing the API.
 - **Frontend:** Single `index.html` — Leaflet + OpenStreetMap tiles (no API
@@ -73,7 +73,7 @@ safe, valuable version on each self-check tick:
 
 1. `db.py` — schema + persistence helpers.
 2. `geolocate.py` — gazetteer + Nominatim fallback.
-3. `hermes.py` — source adapters + heartbeat loop.
+3. `agent.py` — source adapters + heartbeat loop.
 4. `selfcheck.py` — tests + security audit + health.
 5. `app.py` — FastAPI: `/api/reports` (GET/POST), `/api/health`,
    `/api/heartbeat`, serve frontend.
@@ -84,8 +84,8 @@ safe, valuable version on each self-check tick:
 ## 6. Deploy to Hostinger VPS (summary — full steps in README)
 
 ```bash
-scp -r hermes-map root@YOUR_VPS_IP:/opt/
-ssh root@YOUR_VPS_IP 'bash /opt/hermes-map/deploy/deploy.sh yourdomain.com'
+scp -r dxmap root@YOUR_VPS_IP:/opt/
+ssh root@YOUR_VPS_IP 'bash /opt/dxmap/deploy/deploy.sh yourdomain.com'
 ```
 
 Installs Python deps, creates the systemd service, configures Nginx, and

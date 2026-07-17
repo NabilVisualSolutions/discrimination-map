@@ -71,11 +71,11 @@ dig +short dxmap.nabilvs.com A   # should print the VPS IP
 ## 4. Ship the code and deploy
 
 ```bash
-# From dragon, in the hermes-map project directory:
-scp -r . dxmap-vps:/opt/hermes-map
+# From dragon, in the dxmap project directory:
+scp -r . dxmap-vps:/opt/dxmap
 
 ssh dxmap-vps
-bash /opt/hermes-map/deploy/deploy.sh dxmap.nabilvs.com
+bash /opt/dxmap/deploy/deploy.sh dxmap.nabilvs.com
 ```
 
 `deploy.sh` now refuses to run if port 8020 is already taken by something
@@ -83,9 +83,9 @@ that isn't itself, and warns (without blocking) if it spots a
 tahia/marawan-looking container — read those messages if they show up
 instead of re-running blindly.
 
-This installs its own systemd service (`hermes`) bound to
+This installs its own systemd service (`dxmap`) bound to
 `127.0.0.1:8020`, its own Nginx site file
-(`/etc/nginx/sites-available/hermes-map`, proxying `dxmap.nabilvs.com` →
+(`/etc/nginx/sites-available/dxmap`, proxying `dxmap.nabilvs.com` →
 that port), and — since you passed a real domain — attempts a free Let's
 Encrypt cert via Certbot automatically.
 
@@ -94,7 +94,7 @@ Encrypt cert via Certbot automatically.
 ```bash
 curl -sI https://dxmap.nabilvs.com/          # expect 200
 curl -s https://dxmap.nabilvs.com/api/health # expect {"status":"ok",...}
-systemctl status hermes                       # active (running)
+systemctl status dxmap                       # active (running)
 nginx -t                                       # syntax ok, and didn't touch
                                                 # tahiafilms/marawan's site files
 ```
@@ -119,8 +119,8 @@ restart the service and reload Nginx). To pull it entirely:
 
 ```bash
 ssh dxmap-vps
-systemctl disable --now hermes
-rm /etc/nginx/sites-enabled/hermes-map
+systemctl disable --now dxmap
+rm /etc/nginx/sites-enabled/dxmap
 nginx -t && systemctl reload nginx
 ```
 

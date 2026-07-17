@@ -4,20 +4,20 @@ After=network.target
 
 [Service]
 Type=simple
-# Adjust these two if you install somewhere other than /opt/hermes-map
-WorkingDirectory=/opt/hermes-map/backend
-ExecStart=/opt/hermes-map/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8020
+# Adjust these two if you install somewhere other than /opt/dxmap
+WorkingDirectory=/opt/dxmap/backend
+ExecStart=/opt/dxmap/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8020
 
 # Run as an unprivileged service user, not root. Created by deploy.sh.
-User=hermes
-Group=hermes
+User=dxmap
+Group=dxmap
 
 # --- environment -----------------------------------------------------------
 # Prefer an EnvironmentFile so secrets aren't visible in `systemctl status`.
-EnvironmentFile=-/opt/hermes-map/.env
-Environment=HERMES_ENV=prod
-Environment=HERMES_DB_PATH=/opt/hermes-map/data/hermes.db
-Environment=HERMES_ALLOW_ORIGINS=https://yourdomain.com
+EnvironmentFile=-/opt/dxmap/.env
+Environment=DXMAP_ENV=prod
+Environment=DXMAP_DB_PATH=/opt/dxmap/data/dxmap.db
+Environment=DXMAP_ALLOW_ORIGINS=https://yourdomain.com
 
 # --- reliability -------------------------------------------------------------
 Restart=on-failure
@@ -29,7 +29,7 @@ TimeoutStopSec=20
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/hermes-map/data
+ReadWritePaths=/opt/dxmap/data
 ProtectHome=true
 
 [Install]

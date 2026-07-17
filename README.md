@@ -1,8 +1,8 @@
-# Hermes Map — far-right incident monitor (Germany)
+# Discrimination Map (dxmap) — far-right incident monitor (Germany)
 
-A live map that documents far-right incidents in Germany. A background agent
-("Hermes") scans free public sources for leads; anyone can also file a report
-by hand. Every mark on the map carries **what happened, the evidence, the
+A live map that documents far-right incidents in Germany. A monitoring agent
+scans free public sources for leads; anyone can also file a report by hand.
+Every mark on the map carries **what happened, the evidence, the
 possibly-applicable German statute, and the impact** — see `PLAN.md` for the
 full design and honesty notes about what's automated vs. what's stubbed.
 
@@ -12,13 +12,13 @@ See "How this stays fair and lawful" below before you deploy this publicly.
 ## 1. Run it locally
 
 ```bash
-cd hermes-map
+cd dxmap
 python3 -m venv venv && source venv/bin/activate
 pip install -r backend/requirements.txt
-python -m uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8000
+python -m uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8020
 ```
 
-Open http://127.0.0.1:8000/. Run the tests any time with:
+Open http://127.0.0.1:8020/. Run the tests any time with:
 
 ```bash
 python -m pytest -q tests
@@ -28,15 +28,15 @@ python -m pytest -q tests
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `HERMES_DB_PATH` | `backend/hermes.db` | SQLite file location |
-| `HERMES_HEARTBEAT_SECONDS` | `180` | Seconds between agent scans |
-| `HERMES_SELFCHECK_SECONDS` | `900` | Seconds between self-checks |
-| `HERMES_ALLOW_ORIGINS` | `*` | CORS allow-list (set to your domain in prod) |
-| `HERMES_ENV` | `dev` | Set to `prod` on the VPS |
-| `HERMES_GEO_COUNTRY` | `de` | Nominatim country restriction |
-| `HERMES_TERMS` | (German far-right terms) | Bluesky/YouTube search terms |
-| `HERMES_MASTODON_INSTANCES` | `mastodon.social,norden.social,nrw.social` | Instances to poll |
-| `HERMES_MASTODON_TAGS` | `Rechtsextremismus,Naziaufmarsch,...` | Hashtags to poll |
+| `DXMAP_DB_PATH` | `backend/dxmap.db` | SQLite file location |
+| `DXMAP_HEARTBEAT_SECONDS` | `180` | Seconds between agent scans |
+| `DXMAP_SELFCHECK_SECONDS` | `900` | Seconds between self-checks |
+| `DXMAP_ALLOW_ORIGINS` | `*` | CORS allow-list (set to your domain in prod) |
+| `DXMAP_ENV` | `dev` | Set to `prod` on the VPS |
+| `DXMAP_GEO_COUNTRY` | `de` | Nominatim country restriction |
+| `DXMAP_TERMS` | (German far-right terms) | Bluesky/YouTube search terms |
+| `DXMAP_MASTODON_INSTANCES` | `mastodon.social,norden.social,nrw.social` | Instances to poll |
+| `DXMAP_MASTODON_TAGS` | `Rechtsextremismus,Naziaufmarsch,...` | Hashtags to poll |
 | `YOUTUBE_API_KEY` | *(unset)* | Free key to activate the YouTube source |
 
 Bluesky and Mastodon work with **zero configuration** — they're free, keyless,
@@ -49,14 +49,14 @@ not wired in as a default source — see `PLAN.md` for the honest rundown.
 
 ```bash
 # From your local machine:
-scp -r hermes-map root@YOUR_VPS_IP:/opt/
+scp -r dxmap root@YOUR_VPS_IP:/opt/
 
 # Then, on the VPS:
 ssh root@YOUR_VPS_IP
-bash /opt/hermes-map/deploy/deploy.sh yourdomain.com
+bash /opt/dxmap/deploy/deploy.sh yourdomain.com
 ```
 
-That installs Python + Nginx, creates an unprivileged `hermes` service user,
+That installs Python + Nginx, creates an unprivileged `dxmap` service user,
 sets up a virtualenv, installs the systemd service, configures Nginx, and
 (if you gave a real domain with DNS already pointed at the VPS) provisions a
 free Let's Encrypt certificate.
@@ -64,16 +64,20 @@ free Let's Encrypt certificate.
 No domain yet? Run `bash deploy/deploy.sh` with no argument — it deploys on
 plain HTTP so you can test, then re-run with a domain later to add TLS.
 
+For the specific `dxmap.nabilvs.com` deployment (SSH key, Cloudflare DNS,
+coexisting with tahiafilms.com/marawan on the same VPS), see
+`deploy/DEPLOY-DXMAP.md` instead of the generic steps above.
+
 **Useful commands after deploying:**
 
 ```bash
-systemctl status hermes        # is it running?
-journalctl -u hermes -f        # live logs
-cat /opt/hermes-map/backend/improvements.log   # self-check findings
+systemctl status dxmap        # is it running?
+journalctl -u dxmap -f        # live logs
+cat /opt/dxmap/backend/improvements.log   # self-check findings
 ```
 
-To activate YouTube later, edit `/opt/hermes-map/.env`, uncomment
-`YOUTUBE_API_KEY=...`, then `systemctl restart hermes`.
+To activate YouTube later, edit `/opt/dxmap/.env`, uncomment
+`YOUTUBE_API_KEY=...`, then `systemctl restart dxmap`.
 
 ## 4. How this stays fair and lawful
 
@@ -95,12 +99,12 @@ To activate YouTube later, edit `/opt/hermes-map/.env`, uncomment
 ## 5. Project layout
 
 ```
-hermes-map/
+dxmap/
 ├── PLAN.md                  # architecture, source status, legal framework
 ├── README.md                 # this file
 ├── backend/
 │   ├── app.py                 # FastAPI app + endpoints
-│   ├── hermes.py               # the scraping agent (heartbeat loop)
+│   ├── agent.py                # the scraping agent (heartbeat loop)
 │   ├── selfcheck.py            # tester + security audit + health + suggestions
 │   ├── lawref.py                # statute reference + text classifier
 │   ├── geolocate.py             # gazetteer + Nominatim, Germany-restricted
@@ -111,9 +115,10 @@ hermes-map/
 ├── tests/
 │   └── test_api.py            # pytest suite (self-check runs this)
 └── deploy/
-    ├── hermes.service           # systemd unit
+    ├── dxmap.service            # systemd unit
     ├── nginx.conf                # reverse proxy + TLS
-    └── deploy.sh                  # one-command VPS setup
+    ├── deploy.sh                  # one-command VPS setup
+    └── DEPLOY-DXMAP.md             # dxmap.nabilvs.com-specific runbook
 ```
 
 For ongoing development workflow (SSH from mobile/tablet + using Claude Code

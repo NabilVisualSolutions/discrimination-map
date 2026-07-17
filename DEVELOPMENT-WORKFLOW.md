@@ -1,8 +1,8 @@
 # Development Workflow: Mobile Access + Claude Code
 
 How to (1) reach your VPS and your dev machine ("dragon") from your phone and
-tablet, and (2) use Claude Code to keep enhancing Hermes Map on a regular
-schedule, safely.
+tablet, and (2) use Claude Code to keep enhancing Discrimination Map (dxmap)
+on a regular schedule, safely.
 
 **The core recommendation, up front:** develop on **dragon** (your computer),
 not on the production VPS. Use Claude Code with git there, review its
@@ -34,17 +34,17 @@ per device so you can revoke one without breaking the others.
 **On dragon**, for each device you want to grant access from:
 
 ```bash
-ssh-keygen -t ed25519 -C "phone" -f ~/.ssh/hermes_vps_phone
-ssh-keygen -t ed25519 -C "tablet" -f ~/.ssh/hermes_vps_tablet
+ssh-keygen -t ed25519 -C "phone" -f ~/.ssh/dxmap_vps_phone
+ssh-keygen -t ed25519 -C "tablet" -f ~/.ssh/dxmap_vps_tablet
 ```
 
-This produces `hermes_vps_phone` (private, stays on your phone only) and
-`hermes_vps_phone.pub` (public, goes on the VPS). Copy each public key to the
+This produces `dxmap_vps_phone` (private, stays on your phone only) and
+`dxmap_vps_phone.pub` (public, goes on the VPS). Copy each public key to the
 VPS:
 
 ```bash
-ssh-copy-id -i ~/.ssh/hermes_vps_phone.pub root@YOUR_VPS_IP
-ssh-copy-id -i ~/.ssh/hermes_vps_tablet.pub root@YOUR_VPS_IP
+ssh-copy-id -i ~/.ssh/dxmap_vps_phone.pub root@YOUR_VPS_IP
+ssh-copy-id -i ~/.ssh/dxmap_vps_tablet.pub root@YOUR_VPS_IP
 ```
 
 Then transfer the matching **private** key to each device (e.g. AirDrop,
@@ -111,7 +111,7 @@ plan doesn't include it.
 ### Point it at this project
 
 ```bash
-cd /path/to/hermes-map
+cd /path/to/dxmap
 claude
 ```
 
@@ -138,7 +138,7 @@ check the Claude app if you don't see it yet).
 **Start a remote session on dragon:**
 
 ```bash
-cd /path/to/hermes-map
+cd /path/to/dxmap
 claude --remote-control
 ```
 
@@ -173,7 +173,7 @@ second for narrow, well-scoped, reviewed tasks.
 Pick a cadence — weekly works well for a side project. Each session:
 
 ```bash
-cd /path/to/hermes-map
+cd /path/to/dxmap
 git pull                                   # if you also edit from elsewhere
 cat backend/improvements.log | tail -50    # see what self-check flagged
 claude
@@ -213,7 +213,7 @@ runaway loop. Schedule it with cron on dragon if you want it fully hands-off:
 
 ```bash
 # crontab -e  (on dragon)
-0 9 * * 1 cd /path/to/hermes-map && claude -p "..." --allowedTools "Read" "Bash(python -m pytest*)" --max-turns 8 --max-budget-usd 0.50 >> /tmp/hermes-weekly-check.log 2>&1
+0 9 * * 1 cd /path/to/dxmap && claude -p "..." --allowedTools "Read" "Bash(python -m pytest*)" --max-turns 8 --max-budget-usd 0.50 >> /tmp/dxmap-weekly-check.log 2>&1
 ```
 
 **Don't** run headless Claude Code with broad tool access directly against
@@ -232,8 +232,8 @@ unreviewed code:
 ```bash
 # One-time: create an empty private repo (GitHub, GitLab, or self-hosted),
 # then on dragon:
-cd /path/to/hermes-map
-git remote add origin git@github.com:you/hermes-map.git
+cd /path/to/dxmap
+git remote add origin git@github.com:you/dxmap.git
 git push -u origin main
 ```
 
@@ -242,13 +242,13 @@ once and pull thereafter:
 
 ```bash
 # First time (replaces the scp step from README.md §3):
-git clone git@github.com:you/hermes-map.git /opt/hermes-map
-bash /opt/hermes-map/deploy/deploy.sh yourdomain.com
+git clone git@github.com:you/dxmap.git /opt/dxmap
+bash /opt/dxmap/deploy/deploy.sh yourdomain.com
 
 # Every deploy after that:
-cd /opt/hermes-map
+cd /opt/dxmap
 git pull
-sudo systemctl restart hermes
+sudo systemctl restart dxmap
 ```
 
 No GitHub/GitLab account? Skip the middle step and go back to `scp -r` from
@@ -267,4 +267,4 @@ finished touching.
 | Keep developing from your phone | Phone + dragon | Claude Code Remote Control |
 | Weekly feature work / fixes | Dragon | Interactive `claude` session, then git push |
 | Narrow recurring check (e.g. "did tests break?") | Dragon (cron) | `claude -p` with `--allowedTools` + budget caps |
-| Ship a reviewed change | VPS | `git pull && systemctl restart hermes` |
+| Ship a reviewed change | VPS | `git pull && systemctl restart dxmap` |

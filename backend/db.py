@@ -1,5 +1,5 @@
 """
-Persistence layer for Hermes Map.
+Persistence layer for Discrimination Map.
 
 Uses SQLite in WAL mode: zero-config, genuinely persistent on disk, and safe
 for the concurrent reads (API) + writes (agent) this app does. Swap the
@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from typing import Any, Iterator, Optional
 
 # DB lives next to the app data, NOT under any web-served directory.
-DB_PATH = os.environ.get("HERMES_DB_PATH", os.path.join(os.path.dirname(__file__), "hermes.db"))
+DB_PATH = os.environ.get("DXMAP_DB_PATH", os.path.join(os.path.dirname(__file__), "dxmap.db"))
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS reports (

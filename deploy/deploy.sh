@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Hermes Map — VPS deploy script.
+# Discrimination Map (dxmap) — VPS deploy script.
 #
-# Usage (run AS ROOT on the VPS, after scp-ing the project to /opt/hermes-map):
-#   bash /opt/hermes-map/deploy/deploy.sh yourdomain.com
+# Usage (run AS ROOT on the VPS, after scp-ing/cloning the project to /opt/dxmap):
+#   bash /opt/dxmap/deploy/deploy.sh yourdomain.com
 #
 # What it does:
 #   1. Installs Python + Nginx if missing.
-#   2. Creates an unprivileged 'hermes' service user.
+#   2. Creates an unprivileged 'dxmap' service user.
 #   3. Creates a virtualenv and installs backend/requirements.txt into it.
 #   4. Installs the systemd unit and starts the service.
 #   5. Installs the Nginx site config, reloads Nginx.
@@ -18,8 +18,8 @@
 set -euo pipefail
 
 DOMAIN="${1:-}"
-APP_DIR="/opt/hermes-map"
-SERVICE_USER="hermes"
+APP_DIR="/opt/dxmap"
+SERVICE_USER="dxmap"
 DATA_DIR="$APP_DIR/data"
 APP_PORT=8020
 
@@ -36,22 +36,22 @@ fi
 
 # --- pre-flight: this VPS hosts other sites (tahiafilms.com, marawan, ...) —
 # refuse to proceed if something else already owns the port or the domain,
-# instead of silently clobbering it. Re-running after a real hermes install
+# instead of silently clobbering it. Re-running after a real dxmap install
 # is still safe (systemd/nginx will just see it's already there).
 echo "==> Pre-flight: checking for conflicts with existing services on this VPS"
 if ss -tlnp 2>/dev/null | grep -q ":${APP_PORT} "; then
   OWNER=$(ss -tlnp 2>/dev/null | grep ":${APP_PORT} " || true)
-  if ! systemctl is-active --quiet hermes 2>/dev/null; then
-    echo "Port ${APP_PORT} is already in use by something that isn't the hermes service:" >&2
+  if ! systemctl is-active --quiet dxmap 2>/dev/null; then
+    echo "Port ${APP_PORT} is already in use by something that isn't the dxmap service:" >&2
     echo "  $OWNER" >&2
     echo "Pick a different APP_PORT at the top of this script and re-run." >&2
     exit 1
   fi
-  echo "    Port ${APP_PORT} is in use by the existing hermes service — fine, will restart it."
+  echo "    Port ${APP_PORT} is in use by the existing dxmap service — fine, will restart it."
 fi
 if [[ -n "$DOMAIN" && -e "/etc/nginx/sites-enabled/$DOMAIN" ]]; then
   echo "An Nginx site already exists for $DOMAIN at /etc/nginx/sites-enabled/$DOMAIN — not touching it." >&2
-  echo "This script only ever writes /etc/nginx/sites-available/hermes-map, so if that's a" >&2
+  echo "This script only ever writes /etc/nginx/sites-available/dxmap, so if that's a" >&2
   echo "different site under the same domain, double check before continuing." >&2
 fi
 if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -qi "tahia\|marawan"; then
@@ -81,28 +81,28 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
   cat > "$APP_DIR/.env" <<EOF
 # Optional upgrades — uncomment and fill in to activate more sources.
 # YOUTUBE_API_KEY=
-# HERMES_ALLOW_ORIGINS=https://${DOMAIN:-yourdomain.com}
+# DXMAP_ALLOW_ORIGINS=https://${DOMAIN:-yourdomain.com}
 EOF
 fi
 
 echo "==> Installing the systemd service"
-cp "$APP_DIR/deploy/hermes.service" /etc/systemd/system/hermes.service
+cp "$APP_DIR/deploy/dxmap.service" /etc/systemd/system/dxmap.service
 if [[ -n "$DOMAIN" ]]; then
-  sed -i "s/yourdomain.com/$DOMAIN/g" /etc/systemd/system/hermes.service
+  sed -i "s/yourdomain.com/$DOMAIN/g" /etc/systemd/system/dxmap.service
 fi
 systemctl daemon-reload
-systemctl enable hermes
-systemctl restart hermes
+systemctl enable dxmap
+systemctl restart dxmap
 sleep 2
-systemctl --no-pager status hermes || true
+systemctl --no-pager status dxmap || true
 
 echo "==> Installing the Nginx site"
-SITE_CONF="/etc/nginx/sites-available/hermes-map"
+SITE_CONF="/etc/nginx/sites-available/dxmap"
 cp "$APP_DIR/deploy/nginx.conf" "$SITE_CONF"
 if [[ -n "$DOMAIN" ]]; then
   sed -i "s/yourdomain.com/$DOMAIN/g" "$SITE_CONF"
 fi
-ln -sf "$SITE_CONF" /etc/nginx/sites-enabled/hermes-map
+ln -sf "$SITE_CONF" /etc/nginx/sites-enabled/dxmap
 nginx -t
 systemctl reload nginx
 
@@ -118,7 +118,7 @@ fi
 
 echo
 echo "==> Done."
-echo "    Service:  systemctl status hermes"
-echo "    Logs:     journalctl -u hermes -f"
+echo "    Service:  systemctl status dxmap"
+echo "    Logs:     journalctl -u dxmap -f"
 echo "    Site:     http://${DOMAIN:-<this-server-ip>}/"
 echo "    Self-check log: $APP_DIR/backend/improvements.log"
