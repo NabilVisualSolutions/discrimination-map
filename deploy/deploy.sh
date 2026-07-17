@@ -21,6 +21,7 @@ DOMAIN="${1:-}"
 APP_DIR="/opt/hermes-map"
 SERVICE_USER="hermes"
 DATA_DIR="$APP_DIR/data"
+APP_PORT=8020
 
 if [[ $EUID -ne 0 ]]; then
   echo "Run this as root (e.g. with sudo)." >&2
@@ -31,6 +32,32 @@ if [[ -z "$DOMAIN" ]]; then
   echo "Usage: bash deploy.sh yourdomain.com"
   echo "(You can also run without a domain to deploy on HTTP only; pass"
   echo " a real domain later and re-run to add TLS.)"
+fi
+
+# --- pre-flight: this VPS hosts other sites (tahiafilms.com, marawan, ...) —
+# refuse to proceed if something else already owns the port or the domain,
+# instead of silently clobbering it. Re-running after a real hermes install
+# is still safe (systemd/nginx will just see it's already there).
+echo "==> Pre-flight: checking for conflicts with existing services on this VPS"
+if ss -tlnp 2>/dev/null | grep -q ":${APP_PORT} "; then
+  OWNER=$(ss -tlnp 2>/dev/null | grep ":${APP_PORT} " || true)
+  if ! systemctl is-active --quiet hermes 2>/dev/null; then
+    echo "Port ${APP_PORT} is already in use by something that isn't the hermes service:" >&2
+    echo "  $OWNER" >&2
+    echo "Pick a different APP_PORT at the top of this script and re-run." >&2
+    exit 1
+  fi
+  echo "    Port ${APP_PORT} is in use by the existing hermes service — fine, will restart it."
+fi
+if [[ -n "$DOMAIN" && -e "/etc/nginx/sites-enabled/$DOMAIN" ]]; then
+  echo "An Nginx site already exists for $DOMAIN at /etc/nginx/sites-enabled/$DOMAIN — not touching it." >&2
+  echo "This script only ever writes /etc/nginx/sites-available/hermes-map, so if that's a" >&2
+  echo "different site under the same domain, double check before continuing." >&2
+fi
+if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -qi "tahia\|marawan"; then
+  echo "    Note: found a running container that looks like tahiafilms/marawan —"
+  echo "    this deploy only touches port ${APP_PORT} and its own systemd/nginx files, so it"
+  echo "    should coexist, but you may want to eyeball 'docker ps' yourself before continuing."
 fi
 
 echo "==> Installing system packages"
@@ -60,6 +87,9 @@ fi
 
 echo "==> Installing the systemd service"
 cp "$APP_DIR/deploy/hermes.service" /etc/systemd/system/hermes.service
+if [[ -n "$DOMAIN" ]]; then
+  sed -i "s/yourdomain.com/$DOMAIN/g" /etc/systemd/system/hermes.service
+fi
 systemctl daemon-reload
 systemctl enable hermes
 systemctl restart hermes

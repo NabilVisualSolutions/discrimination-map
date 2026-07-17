@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
             t.cancel()
 
 
-app = FastAPI(title="Hermes Map", version="1.0", lifespan=lifespan)
+app = FastAPI(title="Discrimination Map", version="1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

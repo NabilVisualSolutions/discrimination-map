@@ -1,12 +1,12 @@
 [Unit]
-Description=Hermes Map — far-right incident monitor (Germany)
+Description=Discrimination Map — far-right incident monitor (Germany)
 After=network.target
 
 [Service]
 Type=simple
 # Adjust these two if you install somewhere other than /opt/hermes-map
 WorkingDirectory=/opt/hermes-map/backend
-ExecStart=/opt/hermes-map/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
+ExecStart=/opt/hermes-map/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8020
 
 # Run as an unprivileged service user, not root. Created by deploy.sh.
 User=hermes
