@@ -1,0 +1,7 @@
+venv
+__pycache__
+*.pyc
+backend/dxmap.db
+backend/improvements.log
+tests
+.git
