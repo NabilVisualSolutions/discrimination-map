@@ -59,7 +59,14 @@ async def security_headers(request, call_next):
     """Set baseline security headers on every response."""
     resp = await call_next(request)
     resp.headers["X-Content-Type-Options"] = "nosniff"
+    # Legacy fallback for browsers that don't understand CSP frame-ancestors —
+    # modern browsers use the CSP directive below instead, which allows the
+    # one trusted parent site (the case-study page embeds this map) while
+    # still blocking everyone else, same as DENY did.
     resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Content-Security-Policy"] = (
+        "frame-ancestors 'self' https://nabilvs.com https://www.nabilvs.com"
+    )
     resp.headers["Referrer-Policy"] = "no-referrer"
     resp.headers["Permissions-Policy"] = "geolocation=(self)"
     return resp
@@ -135,6 +142,12 @@ def post_report(report: UserReport):
 def laws():
     """The statute reference the UI uses for the law dropdown and popups."""
     return {"laws": lawref.STATUTES}
+
+
+@app.get("/api/categories")
+def categories():
+    """Category -> {label, color} the UI uses for marker colors and the legend."""
+    return {"categories": lawref.CATEGORIES}
 
 
 @app.get("/api/health")

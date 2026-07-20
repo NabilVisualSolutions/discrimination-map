@@ -176,9 +176,18 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   /* Leaflet markers */
-  .mk{border-radius:50%;border:2px solid rgba(255,255,255,.85)}
-  .mk.agent{background:var(--agent);box-shadow:0 0 10px rgba(255,176,32,.7)}
-  .mk.user{background:var(--user);box-shadow:0 0 10px rgba(41,211,224,.7)}
+  .mk{border-radius:50%;border:2px solid rgba(255,255,255,.85);transition:filter .6s ease,opacity .6s ease,box-shadow .6s ease}
+  .mk.user{border-color:var(--user)}
+  .mk.faded{border-color:rgba(255,255,255,.35);filter:grayscale(1) brightness(.75);opacity:.55;box-shadow:none}
+  .categories{padding:14px 20px;border-bottom:1px solid var(--line-soft);max-height:190px;overflow-y:auto}
+  .categories .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:9px}
+  .cat{display:flex;align-items:center;gap:8px;padding:4.5px 2px;font-size:11.5px;
+    color:var(--muted);cursor:pointer;user-select:none}
+  .cat:hover{color:var(--ink)}
+  .cat .swatch{width:9px;height:9px;border-radius:50%;flex:none}
+  .cat .count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .cat.dim{opacity:.35}
   .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border-radius:10px}
   .leaflet-popup-tip{background:var(--panel)}
   .leaflet-popup-content{margin:12px 14px;font-family:var(--disp)}
@@ -199,14 +208,19 @@
   .pop .ev{margin-top:7px}
   .pop .evtxt{color:var(--muted);font-size:11px}
 
-  /* mobile: rail becomes a bottom sheet-ish top bar */
+  /* mobile: rail becomes a scrollable top sheet capped well under half the
+     screen, so the map — the actual point of the page — stays visible
+     underneath instead of being pushed off by an ever-taller sidebar. */
   @media (max-width:720px){
     :root{--rail:0px}
-    .rail{width:100%;height:auto;bottom:auto;flex-direction:column;
-      border-right:none;border-bottom:1px solid var(--line)}
-    .feed{max-height:150px}
+    .rail{width:100%;max-height:44vh;bottom:auto;flex-direction:column;
+      border-right:none;border-bottom:1px solid var(--line);overflow-y:auto;
+      -webkit-overflow-scrolling:touch}
+    .categories{max-height:120px}
+    .feed{max-height:120px}
     #map{inset:0}
-    .rail{background:rgba(17,23,37,.94)}
+    .rail{background:rgba(17,23,37,.96)}
+    .fab{padding:12px 16px;font-size:13px}
   }
   @media (prefers-reduced-motion:reduce){
     .ecg .trace{animation:none}
@@ -265,6 +279,12 @@
   <div class="sources">
     <div class="lbl">sources</div>
     <div class="chips" id="chips"><span class="chip">loading…</span></div>
+  </div>
+
+  <!-- categories: colors the map, doubles as a filter -->
+  <div class="categories">
+    <div class="lbl">categories</div>
+    <div id="catlist"><span class="chip">loading…</span></div>
   </div>
 
   <!-- live feed -->
@@ -353,13 +373,50 @@ const seen = new Set();           // report ids already on the map
 let pendingPin = null;            // {lat,lon} chosen in the modal
 let pinMarker = null;
 
-function icon(source){
+// Reports don't disappear as they age — they desaturate in place, staying
+// visible as muted grey circles instead of being deleted from the record.
+const FADE_DAYS = 30;
+
+function icon(source, color, faded){
   const cls = source === 'user' ? 'user' : 'agent';
-  return L.divIcon({className:'', html:`<div class="mk ${cls}" style="width:13px;height:13px"></div>`,
+  const glow = faded ? 'none' : `0 0 10px ${color}b3`;
+  return L.divIcon({className:'', html:`<div class="mk ${cls}${faded?' faded':''}" style="width:13px;height:13px;background:${color};box-shadow:${glow}"></div>`,
     iconSize:[13,13], iconAnchor:[7,7]});
 }
 
 let LAWS = {};   // code -> {title_en, summary, penalty}, from /api/laws
+let CATS = {};   // category -> {label, color}, from /api/categories
+const catGroups = {};    // category -> L.layerGroup, so a chip click can show/hide it
+const catCounts = {};    // category -> running count, shown in the legend
+const DEFAULT_CAT_COLOR = '#8891A8';
+
+function categoryColor(cat){ return (CATS[cat] || {}).color || DEFAULT_CAT_COLOR; }
+
+function ensureGroup(cat){
+  if(!catGroups[cat]){
+    catGroups[cat] = L.layerGroup().addTo(map);
+    catCounts[cat] = 0;
+  }
+  return catGroups[cat];
+}
+
+function renderCatList(){
+  const el = document.getElementById('catlist');
+  if(!Object.keys(CATS).length){ return; }
+  el.innerHTML = Object.entries(CATS).map(([key, c])=>{
+    const count = catCounts[key] || 0;
+    return `<div class="cat" data-cat="${key}"><span class="swatch" style="background:${c.color}"></span>${escapeHtml(c.label)}<span class="count">${count}</span></div>`;
+  }).join('');
+  el.querySelectorAll('.cat').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const cat = row.dataset.cat;
+      const group = catGroups[cat];
+      if(!group) return;
+      if(map.hasLayer(group)){ map.removeLayer(group); row.classList.add('dim'); }
+      else{ map.addLayer(group); row.classList.remove('dim'); }
+    });
+  });
+}
 
 function lawShort(code){
   const l = LAWS[code];
@@ -378,7 +435,13 @@ function statusBadge(r){
 function addReport(r){
   if(seen.has(r.id) || r.lat == null || r.lon == null) return;
   seen.add(r.id);
-  const m = L.marker([r.lat,r.lon],{icon:icon(r.source)}).addTo(map);
+  const ageDays = (Date.now()/1000 - r.created_at) / 86400;
+  const faded = ageDays >= FADE_DAYS;
+  const cat = r.category || 'far_right_mention';
+  const color = categoryColor(cat);
+  const m = L.marker([r.lat,r.lon],{icon:icon(r.source, color, faded)}).addTo(ensureGroup(cat));
+  catCounts[cat] = (catCounts[cat] || 0) + 1;
+  renderCatList();
   const reason = escapeHtml(r.reason || r.title || 'Reported incident');
   const lawRow = r.law ? `<div class="prow"><span>Law</span><b title="${escapeHtml((LAWS[r.law]||{}).summary||'')}">${escapeHtml(lawShort(r.law))}</b></div>` : '';
   const impactRow = r.impact ? `<div class="prow"><span>Impact</span><b>${escapeHtml(r.impact)}</b></div>` : '';
@@ -390,6 +453,7 @@ function addReport(r){
     <div class="ttl">${reason}</div>
     ${lawRow}${impactRow}
     <div class="ev">${ev}</div>
+    ${faded ? `<div class="prow"><span>Age</span><b>${Math.round(ageDays)}d — faded, still documented</b></div>` : ''}
   </div>`);
 }
 
@@ -543,9 +607,19 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'),2600);
 }
 
+// ---------- category legend (colors the map + filters it) ----------
+async function loadCategories(){
+  try{
+    const {categories} = await (await fetch('/api/categories')).json();
+    CATS = categories || {};
+    renderCatList();
+  }catch(e){}
+}
+
 // ---------- polling ----------
 loadLaws();
-refreshReports(); refreshHeartbeat(); refreshHealth();
+loadCategories().then(()=>{ refreshReports(); });
+refreshHeartbeat(); refreshHealth();
 setInterval(refreshReports, 15000);
 setInterval(refreshHeartbeat, 1000);
 setInterval(refreshHealth, 15000);

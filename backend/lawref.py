@@ -93,6 +93,25 @@ STATUTES: dict[str, dict[str, str]] = {
     },
 }
 
+# Display metadata for every category `classify()` can return — label + a
+# distinct color for the map/legend, ordered by severity (matches
+# _INDICATORS below). None of these are sensitive-personal-data categories
+# (no "sexual assault" bucket exists in this Germany-only, statute-based
+# build), so coloring by category carries none of the location-fuzzing /
+# moderation-queue requirements the not-yet-built global expansion has.
+CATEGORIES: dict[str, dict[str, str]] = {
+    "arson":              {"label": "Arson / firebombing", "color": "#FF5C5C"},
+    "violence":           {"label": "Physical attack", "color": "#FF8A3D"},
+    "threat":             {"label": "Threat against persons", "color": "#FFD23F"},
+    "banned_symbol":      {"label": "Banned symbol / salute", "color": "#B983FF"},
+    "holocaust_denial":   {"label": "Holocaust denial", "color": "#E8779E"},
+    "incitement":         {"label": "Incitement to hatred", "color": "#4DA6FF"},
+    "propaganda":         {"label": "Banned propaganda", "color": "#4CD97B"},
+    "banned_org":         {"label": "Banned organization activity", "color": "#2BD9C9"},
+    "assembly":           {"label": "Far-right assembly / march", "color": "#8891A8"},
+    "far_right_mention":  {"label": "Far-right context (needs review)", "color": "#6B7280"},
+}
+
 # Category label -> which statute it points at, plus a human "reason" phrase.
 # Ordered by severity so the most serious matched signal wins.
 _INDICATORS: list[tuple[str, str, str, str]] = [
