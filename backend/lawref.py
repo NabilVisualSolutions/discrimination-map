@@ -100,16 +100,19 @@ STATUTES: dict[str, dict[str, str]] = {
 # build), so coloring by category carries none of the location-fuzzing /
 # moderation-queue requirements the not-yet-built global expansion has.
 CATEGORIES: dict[str, dict[str, str]] = {
-    "arson":              {"label": "Arson / firebombing", "color": "#FF5C5C"},
-    "violence":           {"label": "Physical attack", "color": "#FF8A3D"},
-    "threat":             {"label": "Threat against persons", "color": "#FFD23F"},
-    "banned_symbol":      {"label": "Banned symbol / salute", "color": "#B983FF"},
-    "holocaust_denial":   {"label": "Holocaust denial", "color": "#E8779E"},
-    "incitement":         {"label": "Incitement to hatred", "color": "#4DA6FF"},
-    "propaganda":         {"label": "Banned propaganda", "color": "#4CD97B"},
-    "banned_org":         {"label": "Banned organization activity", "color": "#2BD9C9"},
-    "assembly":           {"label": "Far-right assembly / march", "color": "#8891A8"},
-    "far_right_mention":  {"label": "Far-right context (needs review)", "color": "#6B7280"},
+    # Colors tuned for legibility on the map's light background — the map
+    # was dark when these were first picked (see git history for the
+    # original, brighter values if ever reverting to a dark theme).
+    "arson":              {"label": "Arson / firebombing", "color": "#E0433A"},
+    "violence":           {"label": "Physical attack", "color": "#E06A1F"},
+    "threat":             {"label": "Threat against persons", "color": "#C99400"},
+    "banned_symbol":      {"label": "Banned symbol / salute", "color": "#8E4FD6"},
+    "holocaust_denial":   {"label": "Holocaust denial", "color": "#C94A75"},
+    "incitement":         {"label": "Incitement to hatred", "color": "#1F72D6"},
+    "propaganda":         {"label": "Banned propaganda", "color": "#1F9B54"},
+    "banned_org":         {"label": "Banned organization activity", "color": "#0EA695"},
+    "assembly":           {"label": "Far-right assembly / march", "color": "#5B6B85"},
+    "far_right_mention":  {"label": "Far-right context (needs review)", "color": "#495467"},
 }
 
 # Category label -> which statute it points at, plus a human "reason" phrase.

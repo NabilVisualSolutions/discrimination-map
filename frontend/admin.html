@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin — Discrimination Map</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f4f7fb'/%3E%3Cpath d='M11 6v20M21 6v20M11 6l10 20' stroke='%230088cc' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
+    --line:#dbe3ee; --line-soft:#e8eef6;
+    --ink:#0b1326; --muted:#5b6b85; --faint:#8a97ac;
+    --accent:#0088cc; --danger:#D6363F; --ok:#1F9B54;
+    --disp:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--disp);font-size:14px}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 24px}
+  a{color:var(--accent)}
+
+  #gate{max-width:360px;margin:80px auto;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:28px}
+  #gate h2{margin:0 0 14px;font-size:17px}
+  #gate input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+    font-family:var(--mono);font-size:13px;margin-bottom:12px}
+  #gate button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;
+    border-radius:8px;font-weight:600;cursor:pointer;font-size:14px}
+  #gate .err{color:var(--danger);font-size:12.5px;margin-top:8px;display:none}
+
+  #app{display:none}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+  .toolbar select,.toolbar button{padding:8px 12px;border:1px solid var(--line);
+    border-radius:8px;background:var(--panel);font-family:var(--disp);font-size:13px;cursor:pointer}
+  .toolbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .toolbar .spacer{flex:1}
+  .toolbar .count{color:var(--muted);font-size:13px}
+
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;overflow:hidden}
+  th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+    padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  td{padding:10px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top;font-size:13px}
+  tr:last-child td{border-bottom:none}
+  .title{font-weight:600;max-width:340px}
+  .meta{color:var(--muted);font-size:11.5px;font-family:var(--mono)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700}
+  .badge.verified{background:rgba(31,155,84,.12);color:var(--ok)}
+  .badge.pending{background:var(--panel-2);color:var(--muted)}
+  .rowbtn{padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);
+    font-size:11.5px;cursor:pointer;margin-right:5px}
+  .rowbtn.danger{color:var(--danger);border-color:rgba(214,54,63,.3)}
+  .rowbtn.ok{color:var(--ok);border-color:rgba(31,155,84,.3)}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .pager{display:flex;gap:10px;justify-content:center;margin-top:16px}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <h2>Admin login</h2>
+  <input id="tokenInput" type="password" placeholder="Admin token" autocomplete="off" />
+  <button id="loginBtn">Enter</button>
+  <div class="err" id="gateErr">Wrong token, or admin isn't configured on the server.</div>
+</div>
+
+<div id="app">
+  <div class="wrap">
+    <h1>Moderation queue</h1>
+    <p class="sub">Reports are unverified leads by default — mark verified after a human
+      confirms it, or delete spam and false positives. <a href="/awareness">Awareness guide</a> ·
+      <a href="/">Back to the map</a></p>
+
+    <div class="toolbar">
+      <select id="filterVerified">
+        <option value="">All reports</option>
+        <option value="false">Unverified only</option>
+        <option value="true">Verified only</option>
+      </select>
+      <button id="findDupes">Find duplicates</button>
+      <div class="spacer"></div>
+      <span class="count" id="countLabel"></span>
+      <button id="logout">Log out</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Report</th><th>Category</th><th>Source</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="pager">
+      <button class="rowbtn" id="prevPage">← Prev</button>
+      <button class="rowbtn" id="nextPage">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN_KEY = 'dxmap_admin_token';
+let token = localStorage.getItem(TOKEN_KEY) || '';
+let offset = 0;
+const LIMIT = 50;
+
+function authHeaders(){ return { 'Authorization': 'Bearer ' + token }; }
+
+async function tryEnter(t){
+  const res = await fetch('/api/admin/reports?limit=1', { headers: { 'Authorization': 'Bearer ' + t } });
+  if (res.ok) {
+    token = t;
+    localStorage.setItem(TOKEN_KEY, t);
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadReports();
+  } else {
+    document.getElementById('gateErr').style.display = 'block';
+  }
+}
+
+document.getElementById('loginBtn').onclick = () => tryEnter(document.getElementById('tokenInput').value.trim());
+document.getElementById('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryEnter(e.target.value.trim()); });
+document.getElementById('logout').onclick = () => { localStorage.removeItem(TOKEN_KEY); location.reload(); };
+
+document.getElementById('filterVerified').onchange = () => { offset = 0; loadReports(); };
+document.getElementById('prevPage').onclick = () => { offset = Math.max(0, offset - LIMIT); loadReports(); };
+document.getElementById('nextPage').onclick = () => { offset += LIMIT; loadReports(); };
+
+document.getElementById('findDupes').onclick = async () => {
+  const res = await fetch('/api/admin/duplicates', { headers: authHeaders() });
+  const data = await res.json();
+  alert(data.duplicates.length + ' duplicate report(s) found (same URL as an earlier report). Check the console for ids.');
+  console.log('Duplicate report ids:', data.duplicates);
+};
+
+function esc(s){ return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function loadReports(){
+  const verified = document.getElementById('filterVerified').value;
+  const qs = new URLSearchParams({ limit: LIMIT, offset });
+  if (verified) qs.set('verified', verified);
+  const res = await fetch('/api/admin/reports?' + qs, { headers: authHeaders() });
+  if (res.status === 401) { localStorage.removeItem(TOKEN_KEY); location.reload(); return; }
+  const data = await res.json();
+  document.getElementById('countLabel').textContent = data.total + ' total';
+  const rows = document.getElementById('rows');
+  if (!data.reports.length) {
+    rows.innerHTML = '<tr><td colspan="5"><div class="empty">No reports here.</div></td></tr>';
+    return;
+  }
+  rows.innerHTML = data.reports.map(r => `
+    <tr data-id="${r.id}">
+      <td>
+        <div class="title">${esc(r.title)}</div>
+        <div class="meta">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">source ↗</a> · ` : ''}${new Date(r.created_at*1000).toLocaleString()}</div>
+      </td>
+      <td>${esc(r.category)}</td>
+      <td class="meta">${esc(r.source)}</td>
+      <td><span class="badge ${r.verified ? 'verified' : 'pending'}">${r.verified ? 'Verified' : 'Unverified'}</span></td>
+      <td>
+        <button class="rowbtn ok" onclick="setVerified(${r.id}, ${r.verified ? 'false' : 'true'})">${r.verified ? 'Unverify' : 'Verify'}</button>
+        <button class="rowbtn danger" onclick="deleteReport(${r.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function setVerified(id, verified){
+  await fetch('/api/admin/reports/' + id, {
+    method: 'PATCH',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ verified }),
+  });
+  loadReports();
+}
+
+async function deleteReport(id){
+  if (!confirm('Delete this report permanently?')) return;
+  await fetch('/api/admin/reports/' + id, { method: 'DELETE', headers: authHeaders() });
+  loadReports();
+}
+
+if (token) tryEnter(token);
+</script>
+</body>
+</html>

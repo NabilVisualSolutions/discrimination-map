@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 CREATE INDEX IF NOT EXISTS idx_reports_created ON reports(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_located ON reports(located);
+CREATE INDEX IF NOT EXISTS idx_reports_url ON reports(url);
 
 CREATE TABLE IF NOT EXISTS heartbeats (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,11 +98,21 @@ def insert_report(
 ) -> Optional[int]:
     """
     Insert a report. Returns the new row id, or None if it was a duplicate
-    (same source + external_id). Never raises on duplicates.
+    (same source + external_id, OR same url — the latter catches the same
+    post getting federated across Mastodon instances under different
+    instance-local external_ids, which the UNIQUE constraint alone misses).
+    Never raises on duplicates.
     """
     located = 1 if (lat is not None and lon is not None) else 0
+    normalized_url = url.strip().rstrip("/") if url else None
     try:
         with _conn() as conn:
+            if normalized_url:
+                existing = conn.execute(
+                    "SELECT id FROM reports WHERE url = ? LIMIT 1", (normalized_url,)
+                ).fetchone()
+                if existing is not None:
+                    return None
             cur = conn.execute(
                 """
                 INSERT INTO reports
@@ -110,7 +121,7 @@ def insert_report(
                      lat, lon, place, located, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (source, external_id, title, body, url, category,
+                (source, external_id, title, body, normalized_url, category,
                  reason, evidence, law, impact, 1 if verified else 0,
                  lat, lon, place, located, int(time.time())),
             )
@@ -137,6 +148,68 @@ def list_reports(limit: int = 500, located_only: bool = True) -> list[dict[str, 
     with _conn() as conn:
         rows = conn.execute(q, (limit,)).fetchall()
     return [dict(r) for r in rows]
+
+
+def list_reports_admin(
+    limit: int = 100, offset: int = 0, verified: Optional[bool] = None,
+) -> dict[str, Any]:
+    """
+    Every report (located or not), newest first, for the moderation queue.
+    `verified` filters to only-verified or only-unverified when given.
+    """
+    where = ""
+    params: list[Any] = []
+    if verified is not None:
+        where = " WHERE verified = ?"
+        params.append(1 if verified else 0)
+    with _conn() as conn:
+        total = conn.execute(f"SELECT COUNT(*) AS n FROM reports{where}", params).fetchone()["n"]
+        rows = conn.execute(
+            f"SELECT * FROM reports{where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        ).fetchall()
+    return {"reports": [dict(r) for r in rows], "total": total}
+
+
+def set_verified(report_id: int, verified: bool) -> bool:
+    """Human moderator confirms (or un-confirms) a report. Returns False if no such row."""
+    with _conn() as conn:
+        cur = conn.execute(
+            "UPDATE reports SET verified = ? WHERE id = ?", (1 if verified else 0, report_id)
+        )
+        return cur.rowcount > 0
+
+
+def delete_report(report_id: int) -> bool:
+    """Remove a report (spam, false positive, takedown request). Returns False if no such row."""
+    with _conn() as conn:
+        cur = conn.execute("DELETE FROM reports WHERE id = ?", (report_id,))
+        return cur.rowcount > 0
+
+
+def find_url_duplicates() -> list[dict[str, Any]]:
+    """
+    Reports sharing a non-null url with an earlier row — the case the
+    UNIQUE(source, external_id) constraint misses (e.g. the same post
+    federated across Mastodon instances under different external_ids).
+    Keeps the oldest row per url, flags the rest as duplicates.
+    """
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, url, created_at FROM reports
+            WHERE url IS NOT NULL AND url != ''
+            ORDER BY url, created_at ASC
+            """
+        ).fetchall()
+    seen: set[str] = set()
+    dupes: list[dict[str, Any]] = []
+    for r in rows:
+        if r["url"] in seen:
+            dupes.append(dict(r))
+        else:
+            seen.add(r["url"])
+    return dupes
 
 
 def record_heartbeat(

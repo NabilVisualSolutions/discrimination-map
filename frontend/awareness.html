@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Awareness — Recognizing Far-Right Symbols | Discrimination Map</title>
+<meta name="description" content="A factual reference for recognizing banned far-right symbols, gestures, and coded language under German law — so people can recognize it and be aware." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f4f7fb'/%3E%3Cpath d='M11 6v20M21 6v20M11 6l10 20' stroke='%230088cc' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
+    --line:#dbe3ee; --line-soft:#e8eef6;
+    --ink:#0b1326; --muted:#5b6b85; --faint:#8a97ac;
+    --accent:#0088cc; --warn:#B8720B;
+    --disp:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --body:Georgia,'Times New Roman',serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);
+    font-size:17px;line-height:1.7}
+  h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
+  a{color:var(--accent)}
+  .wrap{max-width:760px;margin:0 auto;padding:0 24px}
+  section{padding:52px 0}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:14px}
+
+  nav{position:sticky;top:0;z-index:100;background:rgba(244,247,251,.9);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft)}
+  nav .inner{max-width:760px;margin:0 auto;padding:16px 24px;display:flex;
+    justify-content:space-between;align-items:center}
+  nav .brand{display:flex;align-items:center;gap:9px;font-family:var(--disp);
+    font-weight:700;font-size:15px;text-decoration:none;color:var(--ink)}
+  nav .brand svg{width:20px;height:20px}
+  nav a.back{font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none}
+  nav a.back:hover{color:var(--ink)}
+
+  .hero{padding:56px 0 8px}
+  .hero h1{font-size:clamp(28px,4.6vw,42px);line-height:1.15;margin:0 0 20px;max-width:640px}
+  .hero p.lede{font-size:18px;color:var(--muted);max-width:600px;margin:0}
+
+  .valuesbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:24px 26px;margin-top:30px}
+  .valuesbox h3{margin:0 0 10px;font-size:15.5px;font-family:var(--disp)}
+  .valuesbox p{margin:0;color:var(--muted);font-size:15px;line-height:1.65}
+
+  .entry{border-top:1px solid var(--line-soft);padding:30px 0}
+  .entry h3{font-size:19px;margin:0 0 4px;font-family:var(--disp)}
+  .entry .code{font-family:var(--mono);font-size:11.5px;color:var(--accent);
+    letter-spacing:.04em;margin-bottom:12px;display:block}
+  .entry p{margin:0 0 10px;font-size:16px}
+  .entry p:last-child{margin-bottom:0}
+  .entry .law{font-size:13.5px;color:var(--faint);font-family:var(--disp);margin-top:10px}
+
+  .codelist{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    gap:10px;margin-top:18px}
+  .codeitem{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px}
+  .codeitem .k{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--ink)}
+  .codeitem .v{font-family:var(--disp);font-size:13px;color:var(--muted);margin-top:3px}
+
+  .safetybox{background:rgba(184,114,11,.07);border:1px solid rgba(184,114,11,.28);
+    border-radius:14px;padding:26px 28px;margin-top:8px}
+  .safetybox h3{margin:0 0 10px;font-family:var(--disp);font-size:16.5px;color:var(--warn)}
+  .safetybox p{margin:0 0 10px;color:var(--muted);font-size:15px}
+  .safetybox p:last-child{margin-bottom:0}
+  .safetybox a.btn{display:inline-flex;margin-top:6px;background:var(--accent);color:#fff;
+    padding:11px 18px;border-radius:10px;text-decoration:none;font-family:var(--disp);
+    font-weight:600;font-size:14px}
+
+  footer{border-top:1px solid var(--line-soft);padding:40px 0;color:var(--faint);
+    font-size:13px;font-family:var(--disp)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M11 6v20M21 6v20M11 6l10 20" stroke="#0088cc" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      Discrimination Map
+    </a>
+    <a class="back" href="/">← Back to the map</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Awareness</div>
+    <h1>Recognizing far-right symbols, gestures, and coded language.</h1>
+    <p class="lede">Not a catalog to browse for its own sake — a reference for
+      recognizing what you're looking at, so you can report it, avoid it, or
+      just understand what you saw.</p>
+
+    <div class="valuesbox">
+      <h3>Why this page describes rather than shows</h3>
+      <p>You won't find images of the symbols here. Text descriptions are
+        enough for recognition, and reproducing the imagery itself — even for
+        education — risks doing the one thing this project exists to stop.
+        Everything below is grounded in Germany's actual statute references
+        (the same ones the map uses to classify reports), not a general
+        internet list.</p>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Banned under § 86a StGB</div>
+    <h2 style="font-size:26px;margin:0 0 10px">Symbols and gestures</h2>
+    <p style="color:var(--muted);margin:0 0 8px">Public use or display of these
+      is a criminal offense in Germany, outside narrow exceptions for art,
+      science, research, or reporting on history.</p>
+
+    <div class="entry">
+      <span class="code">§ 86a StGB</span>
+      <h3>The swastika (Hakenkreuz)</h3>
+      <p>The most widely recognized Nazi symbol. Any orientation, any
+        context outside the legal exceptions above, is covered by the ban —
+        this includes stylized or partially-obscured versions used to
+        evade moderation.</p>
+    </div>
+
+    <div class="entry">
+      <span class="code">§ 86a StGB</span>
+      <h3>SS runes and the death's head (Totenkopf)</h3>
+      <p>The double lightning-bolt "Sig rune" associated with the SS, and
+        the skull-and-crossbones insignia used by SS units, are both
+        banned symbols under the same statute.</p>
+    </div>
+
+    <div class="entry">
+      <span class="code">§ 86a StGB</span>
+      <h3>The Hitler salute and "Sieg Heil"</h3>
+      <p>The raised-arm salute, and the phrase "Sieg Heil" spoken or
+        written publicly, are both criminalized gestures/speech — not just
+        symbols in the graphic sense.</p>
+    </div>
+
+    <div class="entry">
+      <span class="code">§ 86a StGB</span>
+      <h3>The Reichskriegsflagge (war ensign)</h3>
+      <p>Specific historical war-flag variants (particularly the 1938
+        pattern with the Iron Cross and swastika) are banned; the flag
+        has been adopted as a stand-in symbol by later far-right groups
+        specifically because the plain naval-ensign version is not
+        automatically illegal — context and specific variant matter.</p>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="eyebrow">Coded language</div>
+    <h2 style="font-size:26px;margin:0 0 10px">Numbers and letter codes</h2>
+    <p style="color:var(--muted);margin:0 0 8px">Numeric substitution ciphers
+      let the same message travel as a tattoo, a license plate, or a screen
+      name without tripping an obvious keyword filter. None of these numbers
+      are illegal on their own — context is what matters — but recognizing
+      the pattern is the point.</p>
+    <div class="codelist">
+      <div class="codeitem"><div class="k">88</div><div class="v">H is the 8th letter — "HH" = "Heil Hitler"</div></div>
+      <div class="codeitem"><div class="k">18</div><div class="v">"AH" = Adolf Hitler's initials</div></div>
+      <div class="codeitem"><div class="k">14 / 1488</div><div class="v">The "14 words" white-supremacist slogan, often paired with 88</div></div>
+      <div class="codeitem"><div class="k">28</div><div class="v">"BH" — Blood &amp; Honour, a banned network</div></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="eyebrow">Organizations</div>
+    <h2 style="font-size:26px;margin:0 0 10px">Banned associations</h2>
+    <p style="color:var(--muted);margin:0 0 10px">Germany's federal and state
+      governments can and do ban specific far-right organizations under the
+      Vereinsgesetz (Associations Act) — continuing to act for or promote a
+      banned association is itself a separate offense
+      (§ 20 VereinsG). Which organizations are currently banned changes over
+      time as courts and interior ministries act — the map's own statute
+      reference stays current with what's classifiable, but for the
+      authoritative, up-to-date list, the Bundesamt für Verfassungsschutz
+      (Federal Office for the Protection of the Constitution) publishes one
+      directly.</p>
+    <p><a href="https://www.verfassungsschutz.de" target="_blank" rel="noopener noreferrer">verfassungsschutz.de →</a></p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="safetybox">
+      <h3>If you see one of these</h3>
+      <p>Graffiti, a sticker, a symbol in public — document it from a safe
+        distance, on public property, without confronting anyone. If it's a
+        crime in progress or you feel unsafe, call the police (110) first.
+        Otherwise, the map has a reporting flow built for exactly this.</p>
+      <a class="btn" href="/#report">File a report →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Sources: German Strafgesetzbuch (StGB) §§ 86, 86a, and the Vereinsgesetz.
+    This page documents publicly available legal facts for recognition and
+    safety — it is not legal advice.
+  </div>
+</footer>
+
+</body>
+</html>

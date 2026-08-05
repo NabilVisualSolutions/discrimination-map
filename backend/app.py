@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import asyncio
 import os
+import secrets
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,6 +27,21 @@ import selfcheck
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 ENV = os.environ.get("DXMAP_ENV", "dev")
 ALLOW_ORIGINS = os.environ.get("DXMAP_ALLOW_ORIGINS", "*").split(",")
+ADMIN_TOKEN = os.environ.get("DXMAP_ADMIN_TOKEN", "").strip()
+
+
+def require_admin(authorization: str = Header(default="")) -> None:
+    """
+    Single shared-secret bearer token — this is a one-operator moderation
+    tool, not a multi-user system, so a full auth stack would be overhead
+    without adding real security. Set DXMAP_ADMIN_TOKEN in the environment;
+    unset means admin routes are disabled entirely (fail closed, not open).
+    """
+    if not ADMIN_TOKEN:
+        raise HTTPException(status_code=503, detail="Admin not configured")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not secrets.compare_digest(token, ADMIN_TOKEN):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 # Background task handles, so we can cancel them cleanly on shutdown.
 _tasks: list[asyncio.Task] = []
@@ -49,7 +65,7 @@ app = FastAPI(title="Discrimination Map", version="1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOW_ORIGINS,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -138,6 +154,42 @@ def post_report(report: UserReport):
     return {"id": new_id, "status": "stored", "verified": False}
 
 
+class VerifyUpdate(BaseModel):
+    verified: bool
+
+
+@app.get("/api/admin/reports")
+def admin_list_reports(
+    limit: int = 100, offset: int = 0, verified: bool | None = None,
+    _: None = Depends(require_admin),
+):
+    """Every report, located or not, for the moderation queue."""
+    limit = max(1, min(limit, 500))
+    return db.list_reports_admin(limit=limit, offset=offset, verified=verified)
+
+
+@app.patch("/api/admin/reports/{report_id}")
+def admin_verify_report(report_id: int, body: VerifyUpdate, _: None = Depends(require_admin)):
+    """Mark a report verified (or revert it) after human review."""
+    if not db.set_verified(report_id, body.verified):
+        raise HTTPException(status_code=404, detail="Report not found")
+    return {"id": report_id, "verified": body.verified}
+
+
+@app.delete("/api/admin/reports/{report_id}")
+def admin_delete_report(report_id: int, _: None = Depends(require_admin)):
+    """Remove a report — spam, false positive, or a takedown request."""
+    if not db.delete_report(report_id):
+        raise HTTPException(status_code=404, detail="Report not found")
+    return {"id": report_id, "status": "deleted"}
+
+
+@app.get("/api/admin/duplicates")
+def admin_find_duplicates(_: None = Depends(require_admin)):
+    """Reports sharing a url with an earlier row — candidates for cleanup."""
+    return {"duplicates": db.find_url_duplicates()}
+
+
 @app.get("/api/laws")
 def laws():
     """The statute reference the UI uses for the law dropdown and popups."""
@@ -180,6 +232,29 @@ def index():
     path = os.path.join(FRONTEND_DIR, "index.html")
     if not os.path.exists(path):
         return JSONResponse({"error": "frontend not built"}, status_code=500)
+    return FileResponse(path)
+
+
+@app.get("/awareness")
+def awareness_page():
+    """Serve the far-right symbol recognition/awareness reference."""
+    path = os.path.join(FRONTEND_DIR, "awareness.html")
+    if not os.path.exists(path):
+        return JSONResponse({"error": "awareness page not built"}, status_code=500)
+    return FileResponse(path)
+
+
+@app.get("/admin")
+def admin_page():
+    """
+    Serve the moderation console. The page itself is static and unprotected
+    at the HTTP level (no reports data is embedded in the HTML) — every
+    actual read/write it makes goes through the bearer-token-gated
+    /api/admin/* endpoints above, so nothing sensitive loads before login.
+    """
+    path = os.path.join(FRONTEND_DIR, "admin.html")
+    if not os.path.exists(path):
+        return JSONResponse({"error": "admin page not built"}, status_code=500)
     return FileResponse(path)
 
 
