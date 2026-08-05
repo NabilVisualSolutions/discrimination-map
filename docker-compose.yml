@@ -2,6 +2,9 @@ services:
   map:
     build: .
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "127.0.0.1:8010:8010"
     volumes:
