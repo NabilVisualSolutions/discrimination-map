@@ -25,10 +25,10 @@
   }
   *{box-sizing:border-box}
   :focus-visible{outline:2px solid var(--user, var(--accent));outline-offset:2px}
-  html{font-size:17px}
+  html{font-size:19.5px}
   html,body{height:100%;margin:0}
   body{background:var(--bg);color:var(--ink);font-family:var(--disp);overflow:hidden;
-    -webkit-tap-highlight-color:transparent;font-size:15px}
+    -webkit-tap-highlight-color:transparent;font-size:17px}
   a{color:var(--user)}
   button{font-family:var(--disp)}
   #map{position:absolute;inset:0;background:#eef2f8;
@@ -49,7 +49,7 @@
   .searchwrap svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);
     width:16px;height:16px;color:var(--faint);pointer-events:none}
   .searchwrap input{width:100%;background:var(--panel);border:1px solid var(--line);
-    color:var(--ink);border-radius:12px;padding:12px 14px 12px 40px;font-size:15.5px;
+    color:var(--ink);border-radius:12px;padding:12px 14px 12px 40px;font-size:18px;
     box-shadow:0 4px 18px rgba(20,30,50,.12)}
   .searchwrap input::placeholder{color:var(--faint)}
   .searchwrap input:focus{outline:none;border-color:var(--user)}
@@ -69,7 +69,7 @@
     box-shadow:0 10px 30px rgba(20,30,50,.18);z-index:1300}
   .langpop.on{display:flex}
   .langpop button{background:none;border:none;color:var(--ink);text-align:left;padding:10px 12px;
-    border-radius:7px;font-size:14.5px;cursor:pointer;min-height:40px}
+    border-radius:7px;font-size:16.5px;cursor:pointer;min-height:40px}
   html[dir=rtl] .langpop button{text-align:right}
   .langpop button:hover{background:var(--panel-2)}
   .langpop button.active{color:var(--user);font-weight:700}
@@ -89,7 +89,7 @@
   /* Persistent — fixed position, never inside a per-tab container, so it
      stays reachable on every tab regardless of which filter is active. */
   .fab{position:absolute;right:16px;bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));
-    z-index:1300;background:var(--user);color:#fff;border:none;font-weight:700;font-size:13.5px;
+    z-index:1300;background:var(--user);color:#fff;border:none;font-weight:700;font-size:15.5px;
     padding:14px 20px;border-radius:14px;display:flex;align-items:center;gap:8px;cursor:pointer;
     box-shadow:0 8px 26px rgba(0,136,204,.3)}
   .fab svg{width:16px;height:16px}
@@ -110,7 +110,7 @@
   @keyframes me-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(2.6);opacity:0}}
   .timeline{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px 12px;
     box-shadow:0 6px 20px rgba(20,30,50,.14)}
-  .timeline .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;
+  .timeline .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12.5px;
     letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
   .timeline .row b{color:var(--user);font-weight:700}
   .timeline input[type=range]{width:100%;accent-color:var(--user);min-height:24px}
@@ -122,12 +122,12 @@
   .catdrawer.on{display:block}
   .catdrawer-head{display:flex;justify-content:space-between;align-items:baseline;padding:4px 4px 10px;
     border-bottom:1px solid var(--line-soft);margin-bottom:4px}
-  .catdrawer-head h3{margin:0;font-size:14px;font-family:var(--disp)}
-  .catdrawer-head span{font-family:var(--mono);font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
-  .cat{display:flex;align-items:center;gap:10px;padding:13px 4px;min-height:48px;font-size:14.5px;color:var(--muted);
+  .catdrawer-head h3{margin:0;font-size:16px;font-family:var(--disp)}
+  .catdrawer-head span{font-family:var(--mono);font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+  .cat{display:flex;align-items:center;gap:10px;padding:13px 4px;min-height:48px;font-size:16.5px;color:var(--muted);
     cursor:pointer;user-select:none}
   .cat .swatch{width:12px;height:12px;border-radius:50%;flex:none}
-  .cat .count{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .cat .count{margin-left:auto;font-family:var(--mono);font-size:13px;color:var(--faint)}
   html[dir=rtl] .cat .count{margin-left:0;margin-right:auto}
   .cat.dim{opacity:.35}
 
@@ -136,7 +136,7 @@
     padding-bottom:env(safe-area-inset-bottom,0px);
     background:var(--panel);border-top:1px solid var(--line);display:flex;z-index:1400}
   .navbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-    background:none;border:none;color:var(--faint);cursor:pointer;font-size:11px;letter-spacing:.01em;
+    background:none;border:none;color:var(--faint);cursor:pointer;font-size:12.5px;letter-spacing:.01em;
     position:relative;min-height:48px;transition:color .15s}
   .navbtn svg{width:21px;height:21px}
   .navbtn.active{color:var(--user)}
@@ -146,25 +146,25 @@
     background:var(--bg);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
   .panel.on{display:flex}
   .panel .phead{padding:18px 18px 12px;border-bottom:1px solid var(--line-soft)}
-  .panel .phead h2{margin:0;font-size:19px;letter-spacing:.01em}
+  .panel .phead h2{margin:0;font-size:22px;letter-spacing:.01em}
   .panel .plist{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  .empty{color:var(--muted);font-size:14px;padding:30px 20px;line-height:1.6;text-align:center}
+  .empty{color:var(--muted);font-size:16px;padding:30px 20px;line-height:1.6;text-align:center}
 
-  .statline{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--muted)}
-  .statline b{color:var(--ink);font-size:15px;margin-inline-end:4px}
+  .statline{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-family:var(--mono);font-size:14px;color:var(--muted)}
+  .statline b{color:var(--ink);font-size:17px;margin-inline-end:4px}
 
   .item{padding:14px 18px;border-bottom:1px solid var(--line-soft);cursor:pointer;
     display:grid;grid-template-columns:3px 1fr;gap:12px;transition:background .15s}
   .item:hover{background:var(--panel)}
   .item .bar{border-radius:2px;background:var(--agent)}
   .item.user .bar{background:var(--user)}
-  .item .t{font-size:14.5px;line-height:1.4;color:var(--ink)}
-  .item .m{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:5px;
+  .item .t{font-size:16.5px;line-height:1.4;color:var(--ink)}
+  .item .m{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:5px;
     letter-spacing:.04em;text-transform:uppercase}
   .lawtag{color:var(--agent)}
 
   .chips{display:flex;flex-wrap:wrap;gap:7px}
-  .chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;padding:4px 9px;border-radius:20px;
+  .chip{font-family:var(--mono);font-size:12px;letter-spacing:.03em;padding:4px 9px;border-radius:20px;
     border:1px solid var(--line);color:var(--muted);display:flex;align-items:center;gap:6px}
   .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--faint)}
   .chip.up{color:var(--ink);border-color:rgba(53,224,138,.35)}
@@ -174,16 +174,16 @@
 
   /* ---- notice banner (dismissible, shown atop the live feed) ---- */
   .notice{position:relative;margin:0;padding:12px 34px 12px 18px;background:rgba(255,176,32,.09);
-    border-bottom:1px solid var(--line-soft);font-size:11.5px;line-height:1.5;color:var(--muted)}
+    border-bottom:1px solid var(--line-soft);font-size:13px;line-height:1.5;color:var(--muted)}
   .notice strong{color:var(--agent);font-weight:700}
   .notice button{position:absolute;top:0;right:0;width:44px;height:44px;background:none;border:none;
-    color:var(--faint);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    color:var(--faint);font-size:20.5px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
   html[dir=rtl] .notice{padding:12px 18px 12px 34px}
   html[dir=rtl] .notice button{right:auto;left:0}
   .notice.hide{display:none}
   .hunt{display:block;width:calc(100% - 36px);margin:12px 18px 0;padding:13px 15px;
     background:rgba(185,131,255,.1);border:1px solid rgba(185,131,255,.3);border-radius:10px;
-    color:var(--ink);font-size:14px;text-align:left;cursor:pointer;line-height:1.4;transition:background .15s;min-height:44px}
+    color:var(--ink);font-size:16px;text-align:left;cursor:pointer;line-height:1.4;transition:background .15s;min-height:44px}
   html[dir=rtl] .hunt{text-align:right}
   .hunt:hover{background:rgba(185,131,255,.16)}
 
@@ -195,13 +195,13 @@
     -webkit-tap-highlight-color:transparent;min-height:44px}
   .xcard-head .chev{flex:none;width:18px;height:18px;color:var(--faint);transition:transform .2s}
   .xcard.open .xcard-head .chev{transform:rotate(90deg)}
-  .xcard-code{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--agent);display:block;margin-bottom:3px}
-  .xcard-title{font-size:15px;font-weight:600;color:var(--ink);line-height:1.35}
+  .xcard-code{font-family:var(--mono);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--agent);display:block;margin-bottom:3px}
+  .xcard-title{font-size:17px;font-weight:600;color:var(--ink);line-height:1.35}
   .xcard-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
   .xcard.open .xcard-body{max-height:600px}
   .xcard-body-inner{padding:0 16px 16px}
-  .xcard-summary{font-size:14px;color:var(--muted);line-height:1.55}
-  .xcard-penalty{font-size:12.5px;color:var(--faint);font-style:italic;margin-top:8px}
+  .xcard-summary{font-size:16px;color:var(--muted);line-height:1.55}
+  .xcard-penalty{font-size:14.5px;color:var(--faint);font-style:italic;margin-top:8px}
 
   /* ---- incident detail bottom sheet ---- */
   .sheet-scrim{position:absolute;inset:0;z-index:2500;background:rgba(11,19,38,.4);display:none}
@@ -213,45 +213,45 @@
   .sheet .grabber{width:38px;height:4px;background:var(--line);border-radius:3px;margin:10px auto 4px}
   .sheet .sbody{overflow-y:auto;padding:6px 20px calc(20px + env(safe-area-inset-bottom,0px))}
   .badgebar{display:flex;align-items:center;justify-content:space-between;margin:8px 0 12px}
-  .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12.5px;
     letter-spacing:.06em;text-transform:uppercase;padding:5px 11px;border-radius:20px}
   .badge.lead{background:rgba(255,176,32,.15);color:var(--agent)}
   .badge.user{background:rgba(41,211,224,.15);color:var(--user)}
   .badge.ok{background:rgba(53,224,138,.16);color:var(--pulse)}
   .badge.dismissed{background:rgba(224,82,92,.15);color:var(--danger)}
-  .sheet .repid{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
-  .sheet .cattag{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  .sheet .repid{font-family:var(--mono);font-size:13px;color:var(--faint)}
+  .sheet .cattag{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
     color:var(--faint);margin-bottom:6px}
-  .sheet h2{margin:0 0 4px;font-size:21px;line-height:1.3}
-  .sheet .detected{font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;align-items:center;gap:6px;margin-bottom:14px}
+  .sheet h2{margin:0 0 4px;font-size:24px;line-height:1.3}
+  .sheet .detected{font-family:var(--mono);font-size:14px;color:var(--faint);display:flex;align-items:center;gap:6px;margin-bottom:14px}
   .warnbox{background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.25);border-radius:12px;
     padding:12px 14px;margin-bottom:14px}
-  .warnbox .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  .warnbox .k{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;
     color:var(--agent);margin-bottom:4px}
-  .warnbox .v{font-size:13px;color:var(--muted)}
+  .warnbox .v{font-size:15px;color:var(--muted)}
   .sec{margin-bottom:16px}
-  .sec h3{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  .sec h3{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;
     color:var(--faint);margin:0 0 8px}
   .sec .box{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:13px 14px;
-    font-size:14.5px;color:var(--ink);line-height:1.5}
+    font-size:16.5px;color:var(--ink);line-height:1.5}
   .metacard{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:11px 14px;
     margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-  .metacard .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
-  .metacard .v{font-size:13.5px;color:var(--ink);text-align:right;max-width:60%}
+  .metacard .k{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .metacard .v{font-size:15.5px;color:var(--ink);text-align:right;max-width:60%}
   html[dir=rtl] .metacard .v{text-align:left}
   .docbox{border-left:3px solid var(--faint);background:var(--panel-2);border-radius:0 10px 10px 0;
     padding:12px 14px;margin-bottom:16px;display:flex;gap:9px}
   html[dir=rtl] .docbox{border-left:none;border-right:3px solid var(--faint);border-radius:10px 0 0 10px}
-  .docbox .k{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px}
-  .docbox .v{font-size:12.5px;color:var(--muted);line-height:1.5;font-style:italic}
+  .docbox .k{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:3px}
+  .docbox .v{font-size:14.5px;color:var(--muted);line-height:1.5;font-style:italic}
   .sheetactions{display:flex;gap:10px;padding-top:2px}
   .sbtn{flex:1;padding:14px;border-radius:11px;border:1px solid var(--line);background:transparent;
-    color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;transition:transform .15s,background .15s;min-height:46px}
+    color:var(--ink);font-weight:600;font-size:16px;cursor:pointer;transition:transform .15s,background .15s;min-height:46px}
   .sbtn:active{transform:scale(.97)}
   .sbtn.primary{background:var(--user);color:#fff;border-color:var(--user)}
   .sbtn.danger{background:transparent;color:var(--danger);border-color:rgba(224,82,92,.4)}
   .sbtn.ok{background:var(--pulse);color:#fff;border-color:var(--pulse)}
-  .modtip{font-size:12.5px;color:var(--faint);text-align:center;padding:6px 0 10px}
+  .modtip{font-size:14.5px;color:var(--faint);text-align:center;padding:6px 0 10px}
 
   /* ---- report modal + guide modals ---- */
   .scrim{position:absolute;inset:0;z-index:2600;background:rgba(11,19,38,.45);display:none;
@@ -259,34 +259,34 @@
   .scrim.on{display:flex}
   .modal{width:min(460px,100%);max-height:90vh;overflow-y:auto;background:var(--panel);
     border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px}
-  .modal h2{margin:0 0 4px;font-size:19px;letter-spacing:.02em}
-  .modal p.hint{margin:0 0 16px;color:var(--muted);font-size:13.5px;line-height:1.5}
+  .modal h2{margin:0 0 4px;font-size:22px;letter-spacing:.02em}
+  .modal p.hint{margin:0 0 16px;color:var(--muted);font-size:15.5px;line-height:1.5}
   .field{margin-bottom:14px}
-  .field label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+  .field label{display:block;font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;
     text-transform:uppercase;color:var(--faint);margin-bottom:6px}
   .field input,.field textarea,.field select{width:100%;background:var(--panel-2);border:1px solid var(--line);
-    color:var(--ink);border-radius:9px;padding:11px 13px;font-family:var(--disp);font-size:15px;transition:border-color .15s}
+    color:var(--ink);border-radius:9px;padding:11px 13px;font-family:var(--disp);font-size:17px;transition:border-color .15s}
   .field textarea{resize:vertical;min-height:70px}
   .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--user)}
-  .coordline{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--panel-2);
+  .coordline{font-family:var(--mono);font-size:14px;color:var(--muted);background:var(--panel-2);
     border:1px dashed var(--line);border-radius:9px;padding:10px 13px;margin-bottom:14px;
     display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
   .coordline b{color:var(--user);font-weight:500}
   .placename{color:var(--muted);font-style:italic}
-  .lawhint{font-size:12px;color:var(--muted);line-height:1.45;margin-top:6px}
+  .lawhint{font-size:14px;color:var(--muted);line-height:1.45;margin-top:6px}
   .lawhint b{color:var(--agent);font-weight:600}
   .guide ul{margin:10px 0;padding-left:18px}
   html[dir=rtl] .guide ul{padding-left:0;padding-right:18px}
-  .guide li{font-size:13.5px;line-height:1.6;color:var(--muted);margin-bottom:4px}
-  .guide h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink);margin:16px 0 4px}
+  .guide li{font-size:15.5px;line-height:1.6;color:var(--muted);margin-bottom:4px}
+  .guide h3{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink);margin:16px 0 4px}
   .guide h3:first-of-type{margin-top:0}
   .actions{display:flex;gap:10px;margin-top:4px}
   .btn{flex:1;padding:13px;border-radius:10px;border:1px solid var(--line);background:transparent;
-    color:var(--ink);font-weight:500;font-size:14.5px;cursor:pointer;transition:transform .15s,border-color .15s;min-height:46px}
+    color:var(--ink);font-weight:500;font-size:16.5px;cursor:pointer;transition:transform .15s,border-color .15s;min-height:46px}
   .btn:active{transform:scale(.97)}
   .btn.primary{background:var(--user);color:#fff;border-color:var(--user);font-weight:700}
   .toast{position:absolute;left:50%;bottom:calc(var(--nav-h) + 20px);transform:translateX(-50%) translateY(20px);
-    z-index:3000;background:var(--panel);border:1px solid var(--line);color:var(--ink);font-size:13.5px;
+    z-index:3000;background:var(--panel);border:1px solid var(--line);color:var(--ink);font-size:15.5px;
     padding:12px 18px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;max-width:90vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
@@ -316,10 +316,10 @@
       border-right:1px solid var(--line);z-index:1400;display:flex;flex-direction:column}
     .rail .brand{padding:18px 20px 12px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;gap:11px}
     .rail .brand svg{width:26px;height:26px;flex:none}
-    .rail .brand h1{font-size:16px;font-weight:700;letter-spacing:.08em;margin:0;text-transform:uppercase}
-    .rail .brand .sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
+    .rail .brand h1{font-size:18.5px;font-weight:700;letter-spacing:.08em;margin:0;text-transform:uppercase}
+    .rail .brand .sub{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:2px}
     .railnav{display:flex;border-bottom:1px solid var(--line-soft)}
-    .railnav .navbtn{flex-direction:row;gap:6px;padding:12px 0;font-size:11.5px}
+    .railnav .navbtn{flex-direction:row;gap:6px;padding:12px 0;font-size:13px}
     .panel{position:static;flex:1;display:none;border-radius:0}
     .panel.on{display:flex}
     .sheet-scrim{background:rgba(11,19,38,.35)}
@@ -335,10 +335,35 @@
     .sheet{transition:none}
     .xcard-body{transition:none}
     .xcard-head .chev{transition:none}
+    .splash{transition:none}
   }
+
+  /* ---- boot splash: language choice, then the slogan, then the map ---- */
+  .splash{position:fixed;inset:0;z-index:5000;background:var(--bg);display:flex;
+    align-items:center;justify-content:center;flex-direction:column;padding:24px;
+    transition:opacity .5s ease}
+  .splash.hide{opacity:0;pointer-events:none}
+  .splash-lang{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
+  .splash-lang h2{font-family:var(--disp);font-size:22px;text-align:center;margin:0 0 10px;color:var(--ink)}
+  #splashLangBtns{display:flex;flex-direction:column;gap:12px}
+  .splash-lang button{width:100%;padding:16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);font-size:18px;font-weight:600;cursor:pointer;transition:border-color .15s,transform .15s;min-height:56px}
+  .splash-lang button:hover{border-color:var(--user);transform:translateY(-1px)}
+  .splash-slogan{display:none;align-items:center;justify-content:center;text-align:center;max-width:560px;
+    font-family:var(--disp);font-size:clamp(24px,5.5vw,38px);font-weight:700;color:var(--ink);
+    line-height:1.3;cursor:pointer}
 </style>
 </head>
 <body>
+
+<!-- ===================== boot splash ===================== -->
+<div class="splash" id="splash">
+  <div class="splash-lang" id="splashLang">
+    <h2 data-i18n="splash.choose">Choose your language</h2>
+    <div id="splashLangBtns"></div>
+  </div>
+  <div class="splash-slogan" id="splashSlogan"></div>
+</div>
 
 <div id="map"></div>
 
@@ -431,19 +456,19 @@
 <section class="panel" id="panel-awareness">
   <div class="phead">
     <h2 data-i18n="awareness.tabTitle">Awareness guide</h2>
-    <p class="hint" id="awareLede" style="margin:8px 0 0;color:var(--muted);font-size:13.5px;line-height:1.5"></p>
+    <p class="hint" id="awareLede" style="margin:8px 0 0;color:var(--muted);font-size:15.5px;line-height:1.5"></p>
   </div>
   <div class="plist">
     <div id="awareWhy" class="hunt" style="cursor:default;background:var(--panel-2);border-color:var(--line-soft)"></div>
     <div id="symbolsCards"></div>
     <div id="codesCards" style="padding:4px 18px 8px"></div>
     <div style="padding:8px 18px 4px">
-      <p class="hint" id="awareOrgBody" style="margin:0 0 8px;color:var(--muted);font-size:13.5px;line-height:1.55"></p>
-      <a id="awareOrgLink" href="https://www.verfassungsschutz.de" target="_blank" rel="noopener noreferrer" style="font-size:13.5px"></a>
+      <p class="hint" id="awareOrgBody" style="margin:0 0 8px;color:var(--muted);font-size:15.5px;line-height:1.55"></p>
+      <a id="awareOrgLink" href="https://www.verfassungsschutz.de" target="_blank" rel="noopener noreferrer" style="font-size:15.5px"></a>
     </div>
     <div style="padding:16px 18px 4px">
-      <h3 style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:0 0 8px" data-i18n="symbol.title">Spot something not listed here?</h3>
-      <p class="hint" style="margin:0 0 14px;color:var(--muted);font-size:13.5px;line-height:1.5" data-i18n="symbol.hint">Tell us about a symbol, code, or gesture you've seen that isn't covered above — this goes straight to review, not the public map.</p>
+      <h3 style="font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:0 0 8px" data-i18n="symbol.title">Spot something not listed here?</h3>
+      <p class="hint" style="margin:0 0 14px;color:var(--muted);font-size:15.5px;line-height:1.5" data-i18n="symbol.hint">Tell us about a symbol, code, or gesture you've seen that isn't covered above — this goes straight to review, not the public map.</p>
       <div class="field">
         <label for="symDesc" data-i18n="symbol.description">What is it, and what does it look like</label>
         <textarea id="symDesc" maxlength="1000" data-i18n-placeholder="symbol.descriptionPlaceholder" placeholder="Describe the symbol, code, gesture, or phrase"></textarea>
@@ -457,7 +482,7 @@
         <input id="symEmail" type="email" maxlength="200" placeholder="you@example.com" />
       </div>
       <button class="btn primary" id="symSubmit" data-i18n="symbol.submit" style="width:100%">Submit</button>
-      <div id="symMsg" style="font-size:13px;color:var(--muted);margin-top:10px"></div>
+      <div id="symMsg" style="font-size:15px;color:var(--muted);margin-top:10px"></div>
     </div>
     <a class="hunt" href="/awareness" target="_blank" rel="noopener" style="text-decoration:none;display:block;margin:8px 18px 20px;width:calc(100% - 36px)" data-i18n="awareness.fullPageLink">Open the full awareness reference page →</a>
   </div>
@@ -468,7 +493,7 @@
   <div class="plist">
     <div class="phead">
       <h2 data-i18n="apply.title">Get involved</h2>
-      <p class="hint" style="margin:8px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5" data-i18n="apply.hint">This gets more useful with more hands — moderators, translators, developers, and partner organizations. Tell us how you'd like to help.</p>
+      <p class="hint" style="margin:8px 0 0;color:var(--muted);font-size:14.5px;line-height:1.5" data-i18n="apply.hint">This gets more useful with more hands — moderators, translators, developers, and partner organizations. Tell us how you'd like to help.</p>
     </div>
     <div style="padding:4px 18px 24px">
       <a class="hunt" href="https://nabilvs.com/projects/discrimination-map#get-involved" target="_blank" rel="noopener" style="text-decoration:none;display:block" data-i18n="apply.open">Volunteer, translate, code, or partner as an organization →</a>
@@ -906,8 +931,8 @@ function renderAwareness(){
   wireExpandCards(symEl);
   document.getElementById('codesCards').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${(d.codes||[]).map(c=>`
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px">
-      <div style="font-family:var(--mono);font-weight:700;font-size:17px;color:var(--ink)">${escapeHtml(c.k)}</div>
-      <div style="font-size:13px;color:var(--muted);margin-top:3px">${escapeHtml(c.v)}</div>
+      <div style="font-family:var(--mono);font-weight:700;font-size:19.5px;color:var(--ink)">${escapeHtml(c.k)}</div>
+      <div style="font-size:15px;color:var(--muted);margin-top:3px">${escapeHtml(c.v)}</div>
     </div>`).join('')}</div>`;
   document.getElementById('awareOrgBody').textContent = d.orgBody;
   const link = document.getElementById('awareOrgLink');
@@ -1360,9 +1385,43 @@ function toast(msg){
   setTimeout(()=>el.classList.remove('show'), 2600);
 }
 
+// ---------- boot splash: language choice, then the slogan, while the map loads underneath ----------
+function initSplash(){
+  const splash = document.getElementById('splash');
+  const langStage = document.getElementById('splashLang');
+  const sloganStage = document.getElementById('splashSlogan');
+  const btnWrap = document.getElementById('splashLangBtns');
+  let dismissed = false;
+
+  function dismiss(){
+    if(dismissed) return;
+    dismissed = true;
+    splash.classList.add('hide');
+    setTimeout(()=>splash.remove(), 550);
+  }
+  function showSlogan(){
+    langStage.style.display = 'none';
+    sloganStage.textContent = t('splash.slogan');
+    sloganStage.style.display = 'flex';
+    setTimeout(dismiss, 3000);
+  }
+  btnWrap.innerHTML = I.langs.map(l=>`<button data-lang="${l}">${DXMAP_I18N[l].name}</button>`).join('');
+  btnWrap.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      I.setLang(btn.dataset.lang);
+      showSlogan();
+    });
+  });
+  // Slogan stage is click-to-skip; whole splash also bows out on Escape,
+  // so it's never a trap even before the 3s auto-dismiss fires.
+  sloganStage.addEventListener('click', dismiss);
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') dismiss(); }, {once:true});
+}
+
 // ---------- boot ----------
 (async function boot(){
   I.apply();
+  initSplash();
   renderAwareness();
   await checkSession();
   await loadLaws();
