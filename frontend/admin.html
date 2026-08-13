@@ -68,6 +68,8 @@
   html[dir=rtl] .rowbtn{margin:2px 0 2px 4px}
   .rowbtn.danger{color:var(--danger);border-color:rgba(214,54,63,.3)}
   .rowbtn.ok{color:var(--ok);border-color:rgba(31,155,84,.3)}
+  .editbox{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;
+    color:var(--ink);font-family:inherit;font-size:12.5px;padding:6px 8px;resize:vertical}
   .empty{padding:40px;text-align:center;color:var(--muted)}
   .pager{display:flex;gap:10px;justify-content:center;margin-top:16px}
 
@@ -280,11 +282,12 @@ async function loadReports(){
     if(r.status === 'verified') actions.push(`<button class="rowbtn" data-act="unverified">${esc(t('admin.unverify'))}</button>`);
     if(r.status !== 'dismissed') actions.push(`<button class="rowbtn danger" data-act="dismissed">${esc(t('admin.dismiss'))}</button>`);
     else actions.push(`<button class="rowbtn" data-act="unverified">${esc(t('admin.restore'))}</button>`);
+    actions.push(`<button class="rowbtn" data-act="edit">${esc(t('admin.edit'))}</button>`);
     if(me.role === 'ADMIN') actions.push(`<button class="rowbtn danger" data-act="delete">${esc(t('admin.delete'))}</button>`);
     return `
     <tr data-id="${r.id}" class="${r.status==='pending' ? 'pending-row' : ''}">
       <td>
-        <div class="title">${esc(r.title)}</div>
+        <div class="title" data-field="reason">${esc(r.reason || r.title)}</div>
         <div class="meta">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">source ↗</a> · ` : ''}${new Date(r.created_at*1000).toLocaleString(I.current)}</div>
       </td>
       <td>${esc(r.category)}</td>
@@ -297,6 +300,7 @@ async function loadReports(){
     const id = tr.dataset.id;
     tr.querySelectorAll('button').forEach(btn=>btn.addEventListener('click', () => {
       if(btn.dataset.act === 'delete') deleteReport(id);
+      else if(btn.dataset.act === 'edit') editReport(tr, id);
       else setStatus(id, btn.dataset.act);
     }));
   });
@@ -306,6 +310,23 @@ async function setStatus(id, status){
   await fetch('/api/admin/reports/' + id, {method:'PATCH', credentials:'include',
     headers:{'Content-Type':'application/json'}, body: JSON.stringify({status})});
   loadReports();
+}
+
+function editReport(tr, id){
+  const cell = tr.querySelector('[data-field="reason"]');
+  const current = cell.textContent;
+  cell.innerHTML = `<textarea class="editbox" rows="3">${esc(current)}</textarea>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <button class="rowbtn ok" data-editsave>${esc(t('admin.save'))}</button>
+      <button class="rowbtn" data-editcancel>${esc(t('admin.cancel'))}</button>
+    </div>`;
+  cell.querySelector('[data-editsave]').onclick = async () => {
+    const reason = cell.querySelector('textarea').value.trim();
+    await fetch(`/api/admin/reports/${id}/fields`, {method:'PATCH', credentials:'include',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({reason})});
+    loadReports();
+  };
+  cell.querySelector('[data-editcancel]').onclick = () => loadReports();
 }
 
 async function deleteReport(id){

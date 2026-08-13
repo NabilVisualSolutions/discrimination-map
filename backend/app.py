@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import collections
 import os
+import secrets
 import time
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -110,7 +111,12 @@ async def security_headers(request, call_next):
         "frame-ancestors 'self' https://nabilvs.com https://www.nabilvs.com"
     )
     resp.headers["Referrer-Policy"] = "no-referrer"
-    resp.headers["Permissions-Policy"] = "geolocation=(self)"
+    # "self" plus nabilvs.com — the case-study page embeds this map in an
+    # iframe, and the locate-me button needs geolocation delegated to it
+    # there too, not just when this origin is loaded top-level.
+    resp.headers["Permissions-Policy"] = (
+        'geolocation=(self "https://nabilvs.com" "https://www.nabilvs.com")'
+    )
     return resp
 
 
@@ -208,11 +214,66 @@ def post_report(report: UserReport):
     )
     if new_id is None:
         raise HTTPException(status_code=409, detail="Duplicate report")
-    return {"id": new_id, "status": "pending"}
+    saved = db.get_report(new_id)
+    return {"id": new_id, "status": saved["status"], "edit_token": saved["edit_token"]}
 
 
 class StatusUpdate(BaseModel):
     status: Literal["pending", "unverified", "verified", "dismissed"]
+
+
+class ReportEdit(BaseModel):
+    title: str | None = Field(default=None, min_length=3, max_length=300)
+    reason: str | None = Field(default=None, min_length=3, max_length=500)
+    evidence: str | None = Field(default=None, max_length=1000)
+    law: str | None = Field(default=None, max_length=40)
+    impact: str | None = Field(default=None, max_length=1000)
+    category: str | None = Field(default=None, max_length=50)
+
+    @field_validator("law")
+    @classmethod
+    def _known_law(cls, v: str | None) -> str | None:
+        if v and v not in lawref.STATUTES:
+            raise ValueError(f"unknown law code '{v}'")
+        return v
+
+
+class UserReportEdit(ReportEdit):
+    edit_token: str = Field(min_length=1, max_length=200)
+
+
+@app.patch("/api/reports/{report_id}")
+def user_edit_report(report_id: int, body: UserReportEdit):
+    """
+    Self-edit for the person who filed a report, gated by the edit_token
+    handed back once at submission time (not an account — anonymous
+    reports have no account to authenticate with, but the token proves
+    "you're the one who filed this"). Locked once a moderator has already
+    acted on it (verified/dismissed), so a self-edit can't be used to
+    quietly rewrite a report after it's been reviewed.
+    """
+    existing = db.get_report(report_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not secrets.compare_digest(existing.get("edit_token") or "", body.edit_token):
+        raise HTTPException(status_code=403, detail="Wrong edit token")
+    if existing["status"] not in ("pending", "unverified"):
+        raise HTTPException(status_code=409, detail="Already reviewed — no longer self-editable")
+    fields = body.model_dump(exclude={"edit_token"}, exclude_none=True)
+    db.update_report_fields(report_id, fields)
+    return {"id": report_id, "status": "updated"}
+
+
+@app.patch("/api/admin/reports/{report_id}/fields")
+def admin_edit_report(
+    report_id: int, body: ReportEdit,
+    _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+):
+    """Moderator correction tool — full-field edit, no token/status gate."""
+    fields = body.model_dump(exclude_none=True)
+    if not db.update_report_fields(report_id, fields):
+        raise HTTPException(status_code=404, detail="Report not found or nothing to update")
+    return {"id": report_id, "status": "updated"}
 
 
 @app.get("/api/admin/reports")

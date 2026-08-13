@@ -20,76 +20,134 @@ from typing import Any, Optional
 # --------------------------------------------------------------------------- #
 # Statute reference. Codes are the keys the rest of the app stores/looks up.   #
 # --------------------------------------------------------------------------- #
+# title_fr/title_ar are translated titles only — the map's statute reference
+# is German criminal code, and translating the summary/penalty text itself
+# into French/Arabic risks introducing legal-terminology errors without a
+# legal translator in the loop. fr/ar readers get a translated title plus
+# the English summary/penalty (the de/en pair is the one kept fully native
+# in both languages, since German speakers reading about German law is the
+# case worth getting exactly right).
 STATUTES: dict[str, dict[str, str]] = {
     "StGB-86a": {
         "title_de": "§ 86a StGB — Verwenden von Kennzeichen verfassungswidriger Organisationen",
         "title_en": "§ 86a StGB — Use of symbols of unconstitutional organizations",
+        "title_fr": "§ 86a StGB — Utilisation de symboles d'organisations anticonstitutionnelles",
+        "title_ar": "المادة 86a من قانون العقوبات — استخدام رموز منظمات مناهضة للدستور",
         "summary": "Public use/distribution of banned symbols: swastika, SS runes, "
                    "the Hitler salute, 'Sieg Heil', Reichskriegsflagge, coded ciphers "
                    "like '88'/'HH'. Outside art, science, research or reporting.",
+        "summary_de": "Öffentliches Verwenden/Verbreiten verbotener Symbole: Hakenkreuz, "
+                   "SS-Runen, Hitlergruß, „Sieg Heil“, Reichskriegsflagge, Zahlencodes "
+                   "wie „88“/„HH“. Ausgenommen Kunst, Wissenschaft, Forschung oder Berichterstattung.",
         "penalty": "Up to 3 years imprisonment or a fine.",
+        "penalty_de": "Bis zu 3 Jahre Freiheitsstrafe oder Geldstrafe.",
     },
     "StGB-86": {
         "title_de": "§ 86 StGB — Verbreiten von Propagandamitteln verfassungswidriger Organisationen",
         "title_en": "§ 86 StGB — Dissemination of propaganda of unconstitutional organizations",
+        "title_fr": "§ 86 StGB — Diffusion de propagande d'organisations anticonstitutionnelles",
+        "title_ar": "المادة 86 من قانون العقوبات — نشر دعاية منظمات مناهضة للدستور",
         "summary": "Producing or distributing propaganda material of banned "
                    "organizations (leaflets, recordings, digital media).",
+        "summary_de": "Herstellen oder Verbreiten von Propagandamaterial verbotener "
+                   "Organisationen (Flugblätter, Aufnahmen, digitale Medien).",
         "penalty": "Up to 3 years imprisonment or a fine.",
+        "penalty_de": "Bis zu 3 Jahre Freiheitsstrafe oder Geldstrafe.",
     },
     "StGB-130": {
         "title_de": "§ 130 StGB — Volksverhetzung",
         "title_en": "§ 130 StGB — Incitement to hatred",
+        "title_fr": "§ 130 StGB — Incitation à la haine",
+        "title_ar": "المادة 130 من قانون العقوبات — التحريض على الكراهية",
         "summary": "Inciting hatred against a national, racial, religious or ethnic "
                    "group, calling for violence against them, or assaulting their "
                    "human dignity, in a way capable of disturbing the public peace.",
+        "summary_de": "Aufstacheln zum Hass gegen eine nationale, rassische, religiöse "
+                   "oder ethnische Gruppe, Aufrufen zu Gewalt gegen sie, oder Angriff "
+                   "auf ihre Menschenwürde, in einer Weise, die den öffentlichen Frieden stört.",
         "penalty": "3 months to 5 years imprisonment.",
+        "penalty_de": "3 Monate bis 5 Jahre Freiheitsstrafe.",
     },
     "StGB-130-3": {
         "title_de": "§ 130 Abs. 3 StGB — Leugnung/Verharmlosung des Holocaust",
         "title_en": "§ 130(3) StGB — Holocaust denial or trivialization",
+        "title_fr": "§ 130 al. 3 StGB — Négation ou banalisation de l'Holocauste",
+        "title_ar": "المادة 130(3) من قانون العقوبات — إنكار أو تهوين الهولوكوست",
         "summary": "Publicly approving, denying or downplaying the Nazi genocide, "
                    "in a way capable of disturbing the public peace.",
+        "summary_de": "Öffentliches Billigen, Leugnen oder Verharmlosen des NS-Völkermords, "
+                   "in einer Weise, die den öffentlichen Frieden stört.",
         "penalty": "Up to 5 years imprisonment or a fine.",
+        "penalty_de": "Bis zu 5 Jahre Freiheitsstrafe oder Geldstrafe.",
     },
     "StGB-111": {
         "title_de": "§ 111 StGB — Öffentliche Aufforderung zu Straftaten",
         "title_en": "§ 111 StGB — Public incitement to commit offences",
+        "title_fr": "§ 111 StGB — Incitation publique à commettre des infractions",
+        "title_ar": "المادة 111 من قانون العقوبات — التحريض العلني على ارتكاب جرائم",
         "summary": "Publicly calling on others to commit criminal offences.",
+        "summary_de": "Öffentliches Auffordern anderer zur Begehung von Straftaten.",
         "penalty": "As for the offence incited; otherwise up to 5 years or a fine.",
+        "penalty_de": "Wie die angestiftete Tat; sonst bis zu 5 Jahre oder Geldstrafe.",
     },
     "StGB-140": {
         "title_de": "§ 140 StGB — Belohnung und Billigung von Straftaten",
         "title_en": "§ 140 StGB — Rewarding or approving of offences",
+        "title_fr": "§ 140 StGB — Récompense et approbation d'infractions",
+        "title_ar": "المادة 140 من قانون العقوبات — مكافأة الجرائم وإقرارها",
         "summary": "Publicly approving of, or rewarding, serious offences already "
                    "committed (e.g. celebrating a racist attack).",
+        "summary_de": "Öffentliches Billigen oder Belohnen bereits begangener schwerer "
+                   "Straftaten (z. B. Feiern eines rassistischen Angriffs).",
         "penalty": "Up to 3 years imprisonment or a fine.",
+        "penalty_de": "Bis zu 3 Jahre Freiheitsstrafe oder Geldstrafe.",
     },
     "StGB-241": {
         "title_de": "§ 241 StGB — Bedrohung",
         "title_en": "§ 241 StGB — Threatening the commission of an offence",
+        "title_fr": "§ 241 StGB — Menace de commettre une infraction",
+        "title_ar": "المادة 241 من قانون العقوبات — التهديد بارتكاب جريمة",
         "summary": "Threatening a person with a serious crime against them or someone close.",
+        "summary_de": "Bedrohen einer Person mit einem Verbrechen gegen sie oder eine ihr nahestehende Person.",
         "penalty": "Up to 2 years (up to 3 if made publicly) or a fine.",
+        "penalty_de": "Bis zu 2 Jahre (bis zu 3 bei öffentlicher Begehung) oder Geldstrafe.",
     },
     "StGB-223-306": {
         "title_de": "§ 223 / § 306 StGB — Körperverletzung / Brandstiftung",
         "title_en": "§ 223 / § 306 StGB — Assault / arson (violent offences)",
+        "title_fr": "§ 223 / § 306 StGB — Coups et blessures / incendie volontaire",
+        "title_ar": "المادة 223 / 306 من قانون العقوبات — إيذاء جسدي / حرق متعمد",
         "summary": "Physical attacks on persons, or arson against property — the "
                    "'terror' end of far-right activity. Charged as the specific offence.",
+        "summary_de": "Körperliche Angriffe auf Personen oder Brandstiftung gegen Eigentum — "
+                   "das „Terror“-Ende rechtsextremer Aktivität. Angeklagt als die jeweilige Straftat.",
         "penalty": "Assault: up to 5 years. Arson: 1 to 10+ years depending on severity.",
+        "penalty_de": "Körperverletzung: bis zu 5 Jahre. Brandstiftung: 1 bis über 10 Jahre je nach Schwere.",
     },
     "StGB-46-2": {
         "title_de": "§ 46 Abs. 2 StGB — Rassistische/menschenverachtende Beweggründe",
         "title_en": "§ 46(2) StGB — Racist/inhumane motives as aggravating factors",
+        "title_fr": "§ 46 al. 2 StGB — Motifs racistes/inhumains comme circonstances aggravantes",
+        "title_ar": "المادة 46(2) من قانون العقوبات — دوافع عنصرية/لاإنسانية كعامل مشدِّد",
         "summary": "Not a standalone offence: racist, xenophobic or otherwise "
                    "inhumane motives must aggravate sentencing for the underlying crime.",
+        "summary_de": "Kein eigenständiger Straftatbestand: rassistische, fremdenfeindliche "
+                   "oder sonst menschenverachtende Beweggründe müssen die Strafzumessung "
+                   "der zugrunde liegenden Tat verschärfen.",
         "penalty": "Increases the sentence for the underlying offence.",
+        "penalty_de": "Erhöht die Strafe für die zugrunde liegende Tat.",
     },
     "VereinsG-20": {
         "title_de": "§ 20 VereinsG — Zuwiderhandlung gegen ein Vereinsverbot",
         "title_en": "§ 20 Vereinsgesetz — Continuing a banned association",
+        "title_fr": "§ 20 VereinsG — Poursuite d'une association interdite",
+        "title_ar": "المادة 20 من قانون الجمعيات — الاستمرار في جمعية محظورة",
         "summary": "Continuing, or acting for, an organization banned by the state "
                    "(e.g. maintaining a prohibited neo-Nazi group).",
+        "summary_de": "Fortführen einer vom Staat verbotenen Organisation oder Handeln "
+                   "für sie (z. B. Aufrechterhalten einer verbotenen Neonazi-Gruppe).",
         "penalty": "Up to 1 year imprisonment or a fine.",
+        "penalty_de": "Bis zu 1 Jahr Freiheitsstrafe oder Geldstrafe.",
     },
 }
 

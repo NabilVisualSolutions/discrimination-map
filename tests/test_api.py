@@ -305,6 +305,75 @@ def test_propose_symbol_too_short_description_rejected():
     assert r.status_code == 422
 
 
+# ---------------- self-edit via edit_token ----------------
+
+def test_report_creation_returns_edit_token_not_leaked_in_listings():
+    r = client.post("/api/reports", json={
+        "title": "Edit-token test", "reason": "checking the edit token flow",
+        "lat": 48.85, "lon": 2.35})
+    body = r.json()
+    assert "edit_token" in body and len(body["edit_token"]) > 10
+
+    admin = TestClient(app_module.app)
+    admin.post("/api/auth/login", json={
+        "email": "admin@dxmap-tests.example-org.dev", "password": "adminpass123"})
+    admin_rows = admin.get("/api/admin/reports").json()["reports"]
+    assert all("edit_token" not in row for row in admin_rows)
+
+
+def test_user_can_edit_own_pending_report_with_token():
+    r = client.post("/api/reports", json={
+        "title": "Original title", "reason": "original reason text here",
+        "lat": 48.85, "lon": 2.35})
+    body = r.json()
+    rid, token = body["id"], body["edit_token"]
+
+    bad = client.patch(f"/api/reports/{rid}", json={"edit_token": "wrong-token", "reason": "hacked"})
+    assert bad.status_code == 403
+
+    ok = client.patch(f"/api/reports/{rid}", json={"edit_token": token, "reason": "an edited reason text"})
+    assert ok.status_code == 200
+
+    admin = TestClient(app_module.app)
+    admin.post("/api/auth/login", json={
+        "email": "admin@dxmap-tests.example-org.dev", "password": "adminpass123"})
+    row = next(r for r in admin.get("/api/admin/reports").json()["reports"] if r["id"] == rid)
+    assert row["reason"] == "an edited reason text"
+
+
+def test_user_cannot_edit_report_after_verification():
+    r = client.post("/api/reports", json={
+        "title": "Locks after review", "reason": "should lock after verification",
+        "lat": 48.85, "lon": 2.35})
+    body = r.json()
+    rid, token = body["id"], body["edit_token"]
+
+    admin = TestClient(app_module.app)
+    admin.post("/api/auth/login", json={
+        "email": "admin@dxmap-tests.example-org.dev", "password": "adminpass123"})
+    admin.patch(f"/api/admin/reports/{rid}", json={"status": "verified"})
+
+    resp = client.patch(f"/api/reports/{rid}", json={"edit_token": token, "reason": "too late now"})
+    assert resp.status_code == 409
+
+
+def test_admin_can_edit_report_fields_directly():
+    r = client.post("/api/reports", json={
+        "title": "Admin edit test", "reason": "admin should be able to fix this",
+        "lat": 48.85, "lon": 2.35})
+    rid = r.json()["id"]
+
+    assert client.patch(f"/api/admin/reports/{rid}/fields", json={"reason": "unauthorized edit"}).status_code == 401
+
+    admin = TestClient(app_module.app)
+    admin.post("/api/auth/login", json={
+        "email": "admin@dxmap-tests.example-org.dev", "password": "adminpass123"})
+    ok = admin.patch(f"/api/admin/reports/{rid}/fields", json={"reason": "corrected by admin"})
+    assert ok.status_code == 200
+    row = next(r for r in admin.get("/api/admin/reports").json()["reports"] if r["id"] == rid)
+    assert row["reason"] == "corrected by admin"
+
+
 # ---------------- rate limiting ----------------
 
 def test_login_rate_limited_after_repeated_attempts():
@@ -316,3 +385,5 @@ def test_login_rate_limited_after_repeated_attempts():
         statuses.append(resp.status_code)
     assert 429 in statuses
     assert statuses.count(401) <= 30  # the 401s stop once the limiter kicks in
+
+

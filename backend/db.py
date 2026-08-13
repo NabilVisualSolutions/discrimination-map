@@ -100,6 +100,7 @@ CREATE INDEX IF NOT EXISTS idx_applications_created ON applications(created_at D
 # (SQLite's ADD COLUMN is a fast metadata-only change, no table rewrite).
 _MIGRATIONS: list[tuple[str, str]] = [
     ("reports", "ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'unverified'"),
+    ("reports", "ALTER TABLE reports ADD COLUMN edit_token TEXT"),
 ]
 
 
@@ -115,6 +116,14 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
     conn.execute(
         "UPDATE reports SET status = 'verified' WHERE verified = 1 AND status = 'unverified'"
     )
+    # Backfill edit_token for pre-existing rows written before that column
+    # existed — each gets its own random token so old reports become
+    # editable too (nobody has it yet, but a future export/lookup could).
+    for row in conn.execute("SELECT id FROM reports WHERE edit_token IS NULL").fetchall():
+        conn.execute(
+            "UPDATE reports SET edit_token = ? WHERE id = ?",
+            (secrets.token_urlsafe(16), row["id"]),
+        )
     # Deferred until here because the column above may not exist until the
     # ALTER TABLE loop just ran.
     conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status)")
@@ -270,12 +279,12 @@ def insert_report(
                 INSERT INTO reports
                     (source, external_id, title, body, url, category,
                      reason, evidence, law, impact, verified, status,
-                     lat, lon, place, located, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     lat, lon, place, located, created_at, edit_token)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (source, external_id, title, body, normalized_url, category,
                  reason, evidence, law, impact, 1 if status == "verified" else 0, status,
-                 lat, lon, place, located, int(time.time())),
+                 lat, lon, place, located, int(time.time()), secrets.token_urlsafe(16)),
             )
             return cur.lastrowid
     except sqlite3.IntegrityError:
@@ -303,7 +312,14 @@ def list_reports(limit: int = 500, located_only: bool = True) -> list[dict[str, 
     q += " ORDER BY created_at DESC LIMIT ?"
     with _conn() as conn:
         rows = conn.execute(q, (limit,)).fetchall()
-    return [dict(r) for r in rows]
+    return [_strip_token(dict(r)) for r in rows]
+
+
+def _strip_token(row: dict[str, Any]) -> dict[str, Any]:
+    """Never let `edit_token` leak through a listing endpoint — it's a
+    bearer credential, only handed back once, at creation."""
+    row.pop("edit_token", None)
+    return row
 
 
 def list_reports_admin(
@@ -331,7 +347,7 @@ def list_reports_admin(
             f"SELECT * FROM reports{where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (*params, limit, offset),
         ).fetchall()
-    return {"reports": [dict(r) for r in rows], "total": total}
+    return {"reports": [_strip_token(dict(r)) for r in rows], "total": total}
 
 
 def set_verified(report_id: int, verified: bool) -> bool:
@@ -355,6 +371,38 @@ def set_status(report_id: int, status: str) -> bool:
         cur = conn.execute(
             "UPDATE reports SET status = ?, verified = ? WHERE id = ?",
             (status, 1 if status == "verified" else 0, report_id),
+        )
+        return cur.rowcount > 0
+
+
+def get_report(report_id: int) -> Optional[dict[str, Any]]:
+    """Single report, WITH its edit_token — internal/trusted use only
+    (checking a caller-supplied token, or the ADMIN edit form). Never
+    return this dict straight out of a public endpoint."""
+    with _conn() as conn:
+        row = conn.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
+    return dict(row) if row else None
+
+
+_EDITABLE_FIELDS = {"title", "reason", "evidence", "law", "impact", "category"}
+
+
+def update_report_fields(report_id: int, fields: dict[str, Any]) -> bool:
+    """
+    Partial update of a report's documentation fields — used by both the
+    original submitter's self-edit (token-gated) and ADMIN/VERIFIER's
+    correction tool (role-gated). Deliberately excludes status/lat/lon/
+    source/etc: status has its own dedicated endpoint, and location edits
+    go through a separate, more guarded path.
+    """
+    updates = {k: v for k, v in fields.items() if k in _EDITABLE_FIELDS and v is not None}
+    if not updates:
+        return False
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    with _conn() as conn:
+        cur = conn.execute(
+            f"UPDATE reports SET {set_clause} WHERE id = ?",
+            (*updates.values(), report_id),
         )
         return cur.rowcount > 0
 

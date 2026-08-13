@@ -21,12 +21,12 @@
   :focus-visible{outline:2px solid var(--user, var(--accent));outline-offset:2px}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);
-    font-size:17px;line-height:1.7}
+    font-size:18px;line-height:1.7}
   h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
   a{color:var(--accent)}
   .wrap{max-width:760px;margin:0 auto;padding:0 24px}
   section{padding:52px 0}
-  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;
+  .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;
     text-transform:uppercase;color:var(--faint);margin-bottom:14px}
 
   nav{position:sticky;top:0;z-index:100;background:rgba(244,247,251,.9);
@@ -34,49 +34,50 @@
   nav .inner{max-width:760px;margin:0 auto;padding:16px 24px;display:flex;
     justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
   nav .brand{display:flex;align-items:center;gap:9px;font-family:var(--disp);
-    font-weight:700;font-size:15px;text-decoration:none;color:var(--ink)}
+    font-weight:700;font-size:16px;text-decoration:none;color:var(--ink)}
   nav .brand svg{width:20px;height:20px}
-  nav a.back{font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none}
+  nav a.back{font-family:var(--mono);font-size:13px;color:var(--muted);text-decoration:none}
   nav a.back:hover{color:var(--ink)}
   .langbar{display:flex;gap:6px}
-  .langbar button{padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);
-    color:var(--muted);font-size:11.5px;cursor:pointer;font-family:var(--disp)}
+  .langbar button{padding:6px 11px;border:1px solid var(--line);border-radius:7px;background:var(--panel);
+    color:var(--muted);font-size:12.5px;cursor:pointer;font-family:var(--disp);transition:border-color .15s,color .15s}
   .langbar button.active{color:var(--accent);border-color:var(--accent)}
 
   .hero{padding:56px 0 8px}
   .hero h1{font-size:clamp(28px,4.6vw,42px);line-height:1.15;margin:0 0 20px;max-width:640px}
-  .hero p.lede{font-size:18px;color:var(--muted);max-width:600px;margin:0}
+  .hero p.lede{font-size:19px;color:var(--muted);max-width:600px;margin:0}
 
   .valuesbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:24px 26px;margin-top:30px}
-  .valuesbox h3{margin:0 0 10px;font-size:15.5px;font-family:var(--disp)}
-  .valuesbox p{margin:0;color:var(--muted);font-size:15px;line-height:1.65}
+  .valuesbox h3{margin:0 0 10px;font-size:16.5px;font-family:var(--disp)}
+  .valuesbox p{margin:0;color:var(--muted);font-size:16px;line-height:1.65}
 
   .entry{border-top:1px solid var(--line-soft);padding:30px 0}
-  .entry h3{font-size:19px;margin:0 0 4px;font-family:var(--disp)}
-  .entry .code{font-family:var(--mono);font-size:11.5px;color:var(--accent);
+  .entry h3{font-size:20px;margin:0 0 4px;font-family:var(--disp)}
+  .entry .code{font-family:var(--mono);font-size:12px;color:var(--accent);
     letter-spacing:.04em;margin-bottom:12px;display:block}
-  .entry p{margin:0 0 10px;font-size:16px}
+  .entry p{margin:0 0 10px;font-size:16.5px}
   .entry p:last-child{margin-bottom:0}
 
   .codelist{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
     gap:10px;margin-top:18px}
   .codeitem{background:var(--panel);border:1px solid var(--line);border-radius:10px;
     padding:14px 16px}
-  .codeitem .k{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--ink)}
-  .codeitem .v{font-family:var(--disp);font-size:13px;color:var(--muted);margin-top:3px}
+  .codeitem .k{font-family:var(--mono);font-weight:700;font-size:16px;color:var(--ink)}
+  .codeitem .v{font-family:var(--disp);font-size:13.5px;color:var(--muted);margin-top:3px}
 
   .safetybox{background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.28);
     border-radius:14px;padding:26px 28px;margin-top:8px}
-  .safetybox h3{margin:0 0 10px;font-family:var(--disp);font-size:16.5px;color:var(--warn)}
-  .safetybox p{margin:0 0 10px;color:var(--muted);font-size:15px}
+  .safetybox h3{margin:0 0 10px;font-family:var(--disp);font-size:17.5px;color:var(--warn)}
+  .safetybox p{margin:0 0 10px;color:var(--muted);font-size:16px}
   .safetybox p:last-child{margin-bottom:0}
   .safetybox a.btn{display:inline-flex;margin-top:6px;background:var(--accent);color:#fff;
-    padding:11px 18px;border-radius:10px;text-decoration:none;font-family:var(--disp);
-    font-weight:700;font-size:14px}
+    padding:12px 20px;border-radius:10px;text-decoration:none;font-family:var(--disp);
+    font-weight:700;font-size:15px;transition:transform .15s}
+  .safetybox a.btn:hover{transform:translateY(-1px)}
 
   footer{border-top:1px solid var(--line-soft);padding:40px 0;color:var(--faint);
-    font-size:13px;font-family:var(--disp)}
+    font-size:13.5px;font-family:var(--disp)}
 
   html[dir=rtl] body{font-family:'Traditional Arabic','Times New Roman',var(--body)}
 </style>
@@ -100,246 +101,92 @@
 
 <header class="hero">
   <div class="wrap">
-    <div class="eyebrow" id="t-eyebrow1">Awareness</div>
-    <h1 id="t-h1">Recognizing far-right symbols, gestures, and coded language.</h1>
-    <p class="lede" id="t-lede">Not a catalog to browse for its own sake — a reference for
-      recognizing what you're looking at, so you can report it, avoid it, or
-      just understand what you saw.</p>
+    <div class="eyebrow" id="t-eyebrow"></div>
+    <h1 id="t-h1"></h1>
+    <p class="lede" id="t-lede"></p>
 
     <div class="valuesbox">
-      <h3 id="t-whyTitle">Why this page describes rather than shows</h3>
-      <p id="t-whyBody">You won't find images of the symbols here. Text descriptions are
-        enough for recognition, and reproducing the imagery itself — even for
-        education — risks doing the one thing this project exists to stop.
-        Everything below is grounded in Germany's actual statute references
-        (the same ones the map uses to classify reports), not a general
-        internet list.</p>
+      <h3 id="t-whyTitle"></h3>
+      <p id="t-whyBody"></p>
     </div>
   </div>
 </header>
 
 <section>
   <div class="wrap">
-    <div class="eyebrow" id="t-eyebrow2">Banned under § 86a StGB</div>
-    <h2 style="font-size:26px;margin:0 0 10px" id="t-symbolsTitle">Symbols and gestures</h2>
-    <p style="color:var(--muted);margin:0 0 8px" id="t-symbolsLede">Public use or display of these
-      is a criminal offense in Germany, outside narrow exceptions for art,
-      science, research, or reporting on history.</p>
-
-    <div class="entry">
-      <span class="code">§ 86a StGB</span>
-      <h3 id="t-e1h">The swastika (Hakenkreuz)</h3>
-      <p id="t-e1p">The most widely recognized Nazi symbol. Any orientation, any
-        context outside the legal exceptions above, is covered by the ban —
-        this includes stylized or partially-obscured versions used to
-        evade moderation.</p>
-    </div>
-
-    <div class="entry">
-      <span class="code">§ 86a StGB</span>
-      <h3 id="t-e2h">SS runes and the death's head (Totenkopf)</h3>
-      <p id="t-e2p">The double lightning-bolt "Sig rune" associated with the SS, and
-        the skull-and-crossbones insignia used by SS units, are both
-        banned symbols under the same statute.</p>
-    </div>
-
-    <div class="entry">
-      <span class="code">§ 86a StGB</span>
-      <h3 id="t-e3h">The Hitler salute and "Sieg Heil"</h3>
-      <p id="t-e3p">The raised-arm salute, and the phrase "Sieg Heil" spoken or
-        written publicly, are both criminalized gestures/speech — not just
-        symbols in the graphic sense.</p>
-    </div>
-
-    <div class="entry">
-      <span class="code">§ 86a StGB</span>
-      <h3 id="t-e4h">The Reichskriegsflagge (war ensign)</h3>
-      <p id="t-e4p">Specific historical war-flag variants (particularly the 1938
-        pattern with the Iron Cross and swastika) are banned; the flag
-        has been adopted as a stand-in symbol by later far-right groups
-        specifically because the plain naval-ensign version is not
-        automatically illegal — context and specific variant matter.</p>
-    </div>
+    <div class="eyebrow" id="t-symbolsEyebrow"></div>
+    <h2 style="font-size:26px;margin:0 0 10px" id="t-symbolsTitle"></h2>
+    <p style="color:var(--muted);margin:0 0 8px" id="t-symbolsLede"></p>
+    <div id="symbolsList"></div>
   </div>
 </section>
 
 <section style="padding-top:0">
   <div class="wrap">
-    <div class="eyebrow" id="t-eyebrow3">Coded language</div>
-    <h2 style="font-size:26px;margin:0 0 10px" id="t-codesTitle">Numbers and letter codes</h2>
-    <p style="color:var(--muted);margin:0 0 8px" id="t-codesLede">Numeric substitution ciphers
-      let the same message travel as a tattoo, a license plate, or a screen
-      name without tripping an obvious keyword filter. None of these numbers
-      are illegal on their own — context is what matters — but recognizing
-      the pattern is the point.</p>
-    <div class="codelist">
-      <div class="codeitem"><div class="k">88</div><div class="v" id="t-c88">H is the 8th letter — "HH" = "Heil Hitler"</div></div>
-      <div class="codeitem"><div class="k">18</div><div class="v" id="t-c18">"AH" = Adolf Hitler's initials</div></div>
-      <div class="codeitem"><div class="k">14 / 1488</div><div class="v" id="t-c14">The "14 words" white-supremacist slogan, often paired with 88</div></div>
-      <div class="codeitem"><div class="k">28</div><div class="v" id="t-c28">"BH" — Blood &amp; Honour, a banned network</div></div>
-    </div>
+    <div class="eyebrow" id="t-codesEyebrow"></div>
+    <h2 style="font-size:26px;margin:0 0 10px" id="t-codesTitle"></h2>
+    <p style="color:var(--muted);margin:0 0 8px" id="t-codesLede"></p>
+    <div class="codelist" id="codesList"></div>
   </div>
 </section>
 
 <section style="padding-top:0">
   <div class="wrap">
-    <div class="eyebrow" id="t-eyebrow4">Organizations</div>
-    <h2 style="font-size:26px;margin:0 0 10px" id="t-orgTitle">Banned associations</h2>
-    <p style="color:var(--muted);margin:0 0 10px" id="t-orgBody">Germany's federal and state
-      governments can and do ban specific far-right organizations under the
-      Vereinsgesetz (Associations Act) — continuing to act for or promote a
-      banned association is itself a separate offense
-      (§ 20 VereinsG). Which organizations are currently banned changes over
-      time as courts and interior ministries act — the map's own statute
-      reference stays current with what's classifiable, but for the
-      authoritative, up-to-date list, the Bundesamt für Verfassungsschutz
-      (Federal Office for the Protection of the Constitution) publishes one
-      directly.</p>
-    <p><a href="https://www.verfassungsschutz.de" target="_blank" rel="noopener noreferrer">verfassungsschutz.de →</a></p>
+    <div class="eyebrow" id="t-orgEyebrow"></div>
+    <h2 style="font-size:26px;margin:0 0 10px" id="t-orgTitle"></h2>
+    <p style="color:var(--muted);margin:0 0 10px" id="t-orgBody"></p>
+    <p><a href="https://www.verfassungsschutz.de" target="_blank" rel="noopener noreferrer" id="t-orgLink"></a></p>
   </div>
 </section>
 
 <section style="padding-top:0">
   <div class="wrap">
     <div class="safetybox">
-      <h3 id="t-safetyTitle">If you see one of these</h3>
-      <p id="t-safetyBody">Graffiti, a sticker, a symbol in public — document it from a safe
-        distance, on public property, without confronting anyone. If it's a
-        crime in progress or you feel unsafe, call the police (110) first.
-        Otherwise, the map has a reporting flow built for exactly this.</p>
-      <a class="btn" href="/#report" id="t-fileBtn">File a report →</a>
+      <h3 id="t-safetyTitle"></h3>
+      <p id="t-safetyBody"></p>
+      <a class="btn" href="/#report" id="t-fileBtn"></a>
     </div>
   </div>
 </section>
 
 <footer>
-  <div class="wrap" id="t-footer">
-    Sources: German Strafgesetzbuch (StGB) §§ 86, 86a, and the Vereinsgesetz.
-    This page documents publicly available legal facts for recognition and
-    safety — it is not legal advice.
-  </div>
+  <div class="wrap" id="t-footer"></div>
 </footer>
 
 <script src="/static/i18n.js"></script>
+<script src="/static/awareness-data.js"></script>
 <script>
 const I = window.DXMAP_I18N_RUNTIME;
 
-const AWARE = {
-  en: {
-    brand:"Discrimination Map", back:"← Back to the map", eyebrow1:"Awareness",
-    h1:"Recognizing far-right symbols, gestures, and coded language.",
-    lede:"Not a catalog to browse for its own sake — a reference for recognizing what you're looking at, so you can report it, avoid it, or just understand what you saw.",
-    whyTitle:"Why this page describes rather than shows",
-    whyBody:"You won't find images of the symbols here. Text descriptions are enough for recognition, and reproducing the imagery itself — even for education — risks doing the one thing this project exists to stop. Everything below is grounded in Germany's actual statute references (the same ones the map uses to classify reports), not a general internet list.",
-    eyebrow2:"Banned under § 86a StGB", symbolsTitle:"Symbols and gestures",
-    symbolsLede:"Public use or display of these is a criminal offense in Germany, outside narrow exceptions for art, science, research, or reporting on history.",
-    e1h:"The swastika (Hakenkreuz)", e1p:"The most widely recognized Nazi symbol. Any orientation, any context outside the legal exceptions above, is covered by the ban — this includes stylized or partially-obscured versions used to evade moderation.",
-    e2h:"SS runes and the death's head (Totenkopf)", e2p:"The double lightning-bolt \"Sig rune\" associated with the SS, and the skull-and-crossbones insignia used by SS units, are both banned symbols under the same statute.",
-    e3h:"The Hitler salute and \"Sieg Heil\"", e3p:"The raised-arm salute, and the phrase \"Sieg Heil\" spoken or written publicly, are both criminalized gestures/speech — not just symbols in the graphic sense.",
-    e4h:"The Reichskriegsflagge (war ensign)", e4p:"Specific historical war-flag variants (particularly the 1938 pattern with the Iron Cross and swastika) are banned; the flag has been adopted as a stand-in symbol by later far-right groups specifically because the plain naval-ensign version is not automatically illegal — context and specific variant matter.",
-    eyebrow3:"Coded language", codesTitle:"Numbers and letter codes",
-    codesLede:"Numeric substitution ciphers let the same message travel as a tattoo, a license plate, or a screen name without tripping an obvious keyword filter. None of these numbers are illegal on their own — context is what matters — but recognizing the pattern is the point.",
-    c88:"H is the 8th letter — \"HH\" = \"Heil Hitler\"", c18:"\"AH\" = Adolf Hitler's initials",
-    c14:"The \"14 words\" white-supremacist slogan, often paired with 88", c28:"\"BH\" — Blood & Honour, a banned network",
-    eyebrow4:"Organizations", orgTitle:"Banned associations",
-    orgBody:"Germany's federal and state governments can and do ban specific far-right organizations under the Vereinsgesetz (Associations Act) — continuing to act for or promote a banned association is itself a separate offense (§ 20 VereinsG). Which organizations are currently banned changes over time as courts and interior ministries act — the map's own statute reference stays current with what's classifiable, but for the authoritative, up-to-date list, the Bundesamt für Verfassungsschutz (Federal Office for the Protection of the Constitution) publishes one directly.",
-    safetyTitle:"If you see one of these",
-    safetyBody:"Graffiti, a sticker, a symbol in public — document it from a safe distance, on public property, without confronting anyone. If it's a crime in progress or you feel unsafe, call the police (110) first. Otherwise, the map has a reporting flow built for exactly this.",
-    fileBtn:"File a report →",
-    footer:"Sources: German Strafgesetzbuch (StGB) §§ 86, 86a, and the Vereinsgesetz. This page documents publicly available legal facts for recognition and safety — it is not legal advice.",
-  },
-  de: {
-    brand:"Diskriminierungskarte", back:"← Zurück zur Karte", eyebrow1:"Aufklärung",
-    h1:"Rechtsextreme Symbole, Gesten und Code-Sprache erkennen.",
-    lede:"Kein Katalog zum Durchstöbern, sondern ein Nachschlagewerk, um zu erkennen, was man vor sich hat — um es zu melden, zu meiden oder einfach zu verstehen, was man gesehen hat.",
-    whyTitle:"Warum diese Seite beschreibt statt zeigt",
-    whyBody:"Hier finden sich keine Abbildungen der Symbole. Textbeschreibungen reichen zur Erkennung aus, und die Bilder selbst zu reproduzieren — auch zu Bildungszwecken — riskiert genau das, was dieses Projekt verhindern soll. Alles Folgende stützt sich auf die tatsächlichen deutschen Gesetzesparagraphen (dieselben, nach denen die Karte Meldungen einordnet), nicht auf eine allgemeine Internetliste.",
-    eyebrow2:"Verboten nach § 86a StGB", symbolsTitle:"Symbole und Gesten",
-    symbolsLede:"Die öffentliche Verwendung oder Zurschaustellung ist in Deutschland eine Straftat, mit engen Ausnahmen für Kunst, Wissenschaft, Forschung oder Berichterstattung über Geschichte.",
-    e1h:"Das Hakenkreuz", e1p:"Das bekannteste NS-Symbol. Jede Ausrichtung und jeder Kontext außerhalb der oben genannten gesetzlichen Ausnahmen fällt unter das Verbot — auch stilisierte oder teilweise verdeckte Versionen, die zur Umgehung von Moderation genutzt werden.",
-    e2h:"SS-Runen und Totenkopf", e2p:"Die doppelte Blitz-„Sig-Rune“ der SS sowie das Totenkopf-Abzeichen von SS-Einheiten sind beides nach demselben Paragraphen verbotene Symbole.",
-    e3h:"Der Hitlergruß und „Sieg Heil“", e3p:"Der ausgestreckte Arm als Gruß sowie der öffentlich gesprochene oder geschriebene Ausruf „Sieg Heil“ sind strafbare Gesten bzw. Äußerungen — nicht nur Symbole im grafischen Sinn.",
-    e4h:"Die Reichskriegsflagge", e4p:"Bestimmte historische Kriegsflaggen-Varianten (insbesondere die Fassung von 1938 mit Eisernem Kreuz und Hakenkreuz) sind verboten; die Flagge wurde von späteren rechtsextremen Gruppen als Ersatzsymbol übernommen, gerade weil die schlichte Marineflaggen-Version nicht automatisch illegal ist — Kontext und konkrete Variante entscheiden.",
-    eyebrow3:"Code-Sprache", codesTitle:"Zahlen- und Buchstabencodes",
-    codesLede:"Numerische Ersatzchiffren lassen dieselbe Botschaft als Tattoo, Kennzeichen oder Nutzername reisen, ohne einen offensichtlichen Stichwortfilter auszulösen. Keine dieser Zahlen ist für sich genommen illegal — der Kontext entscheidet —, aber das Muster zu erkennen ist der Punkt.",
-    c88:"H ist der 8. Buchstabe — „HH“ = „Heil Hitler“", c18:"„AH“ = Adolf Hitlers Initialen",
-    c14:"Die „14 words“, ein Slogan weißer Vorherrschaft, oft mit 88 kombiniert", c28:"„BH“ — Blood & Honour, ein verbotenes Netzwerk",
-    eyebrow4:"Organisationen", orgTitle:"Verbotene Vereinigungen",
-    orgBody:"Bund und Länder können und verbieten konkrete rechtsextreme Organisationen nach dem Vereinsgesetz — das Fortführen oder Werben für eine verbotene Vereinigung ist selbst eine eigene Straftat (§ 20 VereinsG). Welche Organisationen aktuell verboten sind, ändert sich mit Gerichts- und Innenministeriumsentscheidungen — die Statutenreferenz der Karte bleibt aktuell in Bezug auf das Klassifizierbare, für die maßgebliche, aktuelle Liste veröffentlicht das Bundesamt für Verfassungsschutz jedoch direkt eine solche.",
-    safetyTitle:"Wenn du so etwas siehst",
-    safetyBody:"Graffiti, ein Aufkleber, ein Symbol im öffentlichen Raum — dokumentiere es aus sicherer Entfernung, auf öffentlichem Grund, ohne jemanden zu konfrontieren. Bei einer laufenden Straftat oder wenn du dich unsicher fühlst, ruf zuerst die Polizei (110). Ansonsten bietet die Karte einen Meldeweg genau dafür.",
-    fileBtn:"Melden →",
-    footer:"Quellen: deutsches Strafgesetzbuch (StGB) §§ 86, 86a, sowie das Vereinsgesetz. Diese Seite dokumentiert öffentlich zugängliche Rechtstatsachen zur Erkennung und Sicherheit — sie ist keine Rechtsberatung.",
-  },
-  fr: {
-    brand:"Carte de la discrimination", back:"← Retour à la carte", eyebrow1:"Sensibilisation",
-    h1:"Reconnaître les symboles, gestes et langage codé d'extrême droite.",
-    lede:"Pas un catalogue à parcourir pour lui-même — une référence pour reconnaître ce que vous voyez, afin de le signaler, de l'éviter, ou simplement de comprendre ce que vous avez vu.",
-    whyTitle:"Pourquoi cette page décrit plutôt qu'elle ne montre",
-    whyBody:"Vous ne trouverez pas d'images des symboles ici. Des descriptions textuelles suffisent pour la reconnaissance, et reproduire l'imagerie elle-même — même à des fins éducatives — risque de faire précisément ce que ce projet existe pour empêcher. Tout ce qui suit s'appuie sur les références statutaires réelles de l'Allemagne (les mêmes que celles utilisées par la carte pour classer les signalements), pas sur une liste internet générale.",
-    eyebrow2:"Interdit par le § 86a StGB", symbolsTitle:"Symboles et gestes",
-    symbolsLede:"L'utilisation ou l'affichage public de ceux-ci est une infraction pénale en Allemagne, sauf exceptions étroites pour l'art, la science, la recherche ou le compte-rendu historique.",
-    e1h:"La croix gammée (Hakenkreuz)", e1p:"Le symbole nazi le plus largement reconnu. Toute orientation, tout contexte hors des exceptions légales ci-dessus, est couvert par l'interdiction — y compris les versions stylisées ou partiellement masquées utilisées pour échapper à la modération.",
-    e2h:"Runes SS et tête de mort (Totenkopf)", e2p:"La double rune-éclair « Sig » associée à la SS, ainsi que l'insigne tête de mort utilisé par les unités SS, sont tous deux des symboles interdits par le même article.",
-    e3h:"Le salut hitlérien et « Sieg Heil »", e3p:"Le salut bras levé, ainsi que l'expression « Sieg Heil » prononcée ou écrite publiquement, sont tous deux des gestes/discours criminalisés — pas seulement des symboles au sens graphique.",
-    e4h:"Le Reichskriegsflagge (pavillon de guerre)", e4p:"Certaines variantes historiques du pavillon de guerre (notamment le modèle de 1938 avec la croix de fer et la croix gammée) sont interdites ; le drapeau a été adopté comme symbole de substitution par des groupes d'extrême droite plus récents précisément parce que la version simple de pavillon naval n'est pas automatiquement illégale — le contexte et la variante précise comptent.",
-    eyebrow3:"Langage codé", codesTitle:"Codes numériques et alphabétiques",
-    codesLede:"Les chiffres de substitution numérique permettent au même message de voyager sous forme de tatouage, de plaque d'immatriculation ou de pseudonyme sans déclencher de filtre à mots-clés évident. Aucun de ces nombres n'est illégal en soi — le contexte est ce qui compte — mais reconnaître le motif est l'essentiel.",
-    c88:"H est la 8e lettre — « HH » = « Heil Hitler »", c18:"« AH » = les initiales d'Adolf Hitler",
-    c14:"Le slogan suprémaciste blanc des « 14 mots », souvent associé au 88", c28:"« BH » — Blood & Honour, un réseau interdit",
-    eyebrow4:"Organisations", orgTitle:"Associations interdites",
-    orgBody:"Les gouvernements fédéral et régionaux allemands peuvent interdire, et interdisent effectivement, des organisations d'extrême droite spécifiques en vertu du Vereinsgesetz (loi sur les associations) — continuer à agir pour ou promouvoir une association interdite constitue elle-même une infraction distincte (§ 20 VereinsG). Les organisations actuellement interdites évoluent au fil des décisions des tribunaux et des ministères de l'Intérieur — la référence statutaire de la carte reste à jour quant à ce qui est classable, mais pour la liste officielle et actualisée, le Bundesamt für Verfassungsschutz (Office fédéral de protection de la Constitution) en publie une directement.",
-    safetyTitle:"Si vous voyez l'un de ces éléments",
-    safetyBody:"Un graffiti, un autocollant, un symbole en public — documentez-le à distance sûre, sur la voie publique, sans confronter personne. En cas de crime en cours ou si vous vous sentez en danger, appelez d'abord la police (110). Sinon, la carte dispose d'un parcours de signalement conçu exactement pour cela.",
-    fileBtn:"Signaler →",
-    footer:"Sources : Code pénal allemand (StGB) §§ 86, 86a, et le Vereinsgesetz. Cette page documente des faits juridiques publiquement disponibles à des fins de reconnaissance et de sécurité — ce n'est pas un conseil juridique.",
-  },
-  ar: {
-    brand:"خريطة التمييز", back:"← العودة إلى الخريطة", eyebrow1:"التوعية",
-    h1:"التعرّف على رموز اليمين المتطرف وإيماءاته ولغته المشفَّرة.",
-    lede:"ليس فهرسًا للتصفح لذاته — بل مرجع للتعرّف على ما تراه، حتى تتمكن من الإبلاغ عنه أو تجنّبه أو ببساطة فهم ما شاهدته.",
-    whyTitle:"لماذا تصف هذه الصفحة بدل أن تُظهر",
-    whyBody:"لن تجد صورًا للرموز هنا. الأوصاف النصية كافية للتعرّف، وإعادة إنتاج الصور نفسها — حتى لأغراض تعليمية — يخاطر بفعل الشيء ذاته الذي يسعى هذا المشروع لمنعه. كل ما يلي مستند إلى مواد القانون الألماني الفعلية (نفسها التي تستخدمها الخريطة لتصنيف البلاغات)، وليس إلى قائمة عامة من الإنترنت.",
-    eyebrow2:"محظور بموجب المادة 86a من قانون العقوبات", symbolsTitle:"الرموز والإيماءات",
-    symbolsLede:"استخدام هذه الرموز أو عرضها علنًا يُعدّ جريمة في ألمانيا، باستثناءات ضيقة للفن والعلم والبحث أو التغطية التاريخية.",
-    e1h:"الصليب المعقوف (Hakenkreuz)", e1p:"أكثر الرموز النازية شهرة. أي اتجاه أو سياق خارج الاستثناءات القانونية أعلاه يقع ضمن الحظر — بما في ذلك النسخ المُنمَّطة أو المموَّهة جزئيًا المستخدمة للتحايل على الإشراف.",
-    e2h:"رموز SS وجمجمة الموت (Totenkopf)", e2p:"رمز الصاعقة المزدوجة «Sig rune» المرتبط بقوات SS، وشعار الجمجمة والعظمتين المتقاطعتين الذي استخدمته وحدات SS، كلاهما رمزان محظوران بموجب المادة نفسها.",
-    e3h:"تحية هتلر وعبارة «Sieg Heil»", e3p:"تحية الذراع المرفوعة، وعبارة «Sieg Heil» المنطوقة أو المكتوبة علنًا، كلاهما إيماءة/خطاب مجرَّم — وليسا مجرد رمز بالمعنى الرسومي.",
-    e4h:"علم الرايخ الحربي (Reichskriegsflagge)", e4p:"نسخ تاريخية محددة من علم الحرب (خصوصًا نمط عام 1938 الذي يحمل الصليب الحديدي والصليب المعقوف) محظورة؛ وقد تبنّت جماعات يمين متطرف لاحقة هذا العلم كرمز بديل تحديدًا لأن نسخة العلم البحري البسيطة ليست محظورة تلقائيًا — السياق والنسخة المحددة هما ما يحدّدان ذلك.",
-    eyebrow3:"اللغة المشفَّرة", codesTitle:"الأرقام والرموز الحرفية",
-    codesLede:"شفرات الاستبدال الرقمي تسمح بنقل الرسالة نفسها كوشم أو لوحة سيارة أو اسم مستخدم دون إثارة فلتر كلمات مفتاحية واضح. لا شيء من هذه الأرقام محظور بذاته — السياق هو ما يهم — لكن التعرّف على النمط هو المقصد.",
-    c88:"الحرف H هو الحرف الثامن — «HH» = «Heil Hitler»", c18:"«AH» = الحرفان الأولان من اسم أدولف هتلر",
-    c14:"شعار تفوّق العرق الأبيض «الكلمات الأربع عشرة»، غالبًا مقترن بـ88", c28:"«BH» — Blood & Honour، شبكة محظورة",
-    eyebrow4:"المنظمات", orgTitle:"الجمعيات المحظورة",
-    orgBody:"يمكن للحكومة الفيدرالية الألمانية وحكومات الولايات حظر منظمات يمين متطرف محددة بموجب قانون الجمعيات (Vereinsgesetz) — والاستمرار في العمل لصالح جمعية محظورة أو الترويج لها يُعدّ جريمة منفصلة بذاتها (المادة 20 من قانون الجمعيات). قائمة المنظمات المحظورة حاليًا تتغيّر مع قرارات المحاكم ووزارات الداخلية — يبقى مرجع الخريطة القانوني محدَّثًا وفق ما يمكن تصنيفه، لكن للحصول على القائمة الرسمية المحدَّثة، ينشر المكتب الاتحادي لحماية الدستور (Bundesamt für Verfassungsschutz) قائمة مباشرة.",
-    safetyTitle:"إن رأيت أحد هذه",
-    safetyBody:"رسم جداري، ملصق، رمز في مكان عام — وثّقه من مسافة آمنة، على ملكية عامة، دون مواجهة أحد. إذا كانت جريمة جارية أو شعرت بعدم الأمان، اتصل بالشرطة أولًا (110). خلاف ذلك، توفّر الخريطة مسار إبلاغ مصمَّمًا لهذا بالضبط.",
-    fileBtn:"إبلاغ ←",
-    footer:"المصادر: قانون العقوبات الألماني (StGB) المواد 86 و86a، وقانون الجمعيات (Vereinsgesetz). توثّق هذه الصفحة حقائق قانونية متاحة للعامة لأغراض التعرّف والسلامة — وهي ليست استشارة قانونية.",
-  },
-};
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>(
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function applyAware(){
   const lang = I.current;
-  const d = AWARE[lang] || AWARE.en;
+  const d = window.DXMAP_AWARENESS[lang] || window.DXMAP_AWARENESS.en;
   document.documentElement.lang = lang;
   document.documentElement.dir = DXMAP_I18N[lang].dir;
-  const map = {
-    brandText:'brand', backLink:'back', 't-eyebrow1':'eyebrow1', 't-h1':'h1', 't-lede':'lede',
-    't-whyTitle':'whyTitle', 't-whyBody':'whyBody', 't-eyebrow2':'eyebrow2',
-    't-symbolsTitle':'symbolsTitle', 't-symbolsLede':'symbolsLede',
-    't-e1h':'e1h', 't-e1p':'e1p', 't-e2h':'e2h', 't-e2p':'e2p',
-    't-e3h':'e3h', 't-e3p':'e3p', 't-e4h':'e4h', 't-e4p':'e4p',
-    't-eyebrow3':'eyebrow3', 't-codesTitle':'codesTitle', 't-codesLede':'codesLede',
-    't-c88':'c88', 't-c18':'c18', 't-c14':'c14', 't-c28':'c28',
-    't-eyebrow4':'eyebrow4', 't-orgTitle':'orgTitle', 't-orgBody':'orgBody',
-    't-safetyTitle':'safetyTitle', 't-safetyBody':'safetyBody', 't-fileBtn':'fileBtn',
-    't-footer':'footer',
+  const simple = {
+    't-eyebrow':'eyebrow', 't-h1':'h1', 't-lede':'lede', 't-whyTitle':'whyTitle', 't-whyBody':'whyBody',
+    't-symbolsEyebrow':'symbolsEyebrow', 't-symbolsTitle':'symbolsTitle', 't-symbolsLede':'symbolsLede',
+    't-codesEyebrow':'codesEyebrow', 't-codesTitle':'codesTitle', 't-codesLede':'codesLede',
+    't-orgEyebrow':'orgEyebrow', 't-orgTitle':'orgTitle', 't-orgBody':'orgBody',
+    't-safetyTitle':'safetyTitle', 't-safetyBody':'safetyBody', 't-footer':'footer',
   };
-  Object.entries(map).forEach(([id,key])=>{
+  Object.entries(simple).forEach(([id,key])=>{
     const el = document.getElementById(id);
     if(el && d[key] != null) el.textContent = d[key];
   });
+  document.getElementById('t-orgLink').textContent = d.orgLink;
+  document.getElementById('t-fileBtn').textContent = d.fileBtn;
+  document.getElementById('symbolsList').innerHTML = (d.symbols||[]).map(s=>`
+    <div class="entry">
+      <span class="code">${escapeHtml(s.code)}</span>
+      <h3>${escapeHtml(s.title)}</h3>
+      <p>${escapeHtml(s.body)}</p>
+    </div>`).join('');
+  document.getElementById('codesList').innerHTML = (d.codes||[]).map(c=>`
+    <div class="codeitem"><div class="k">${escapeHtml(c.k)}</div><div class="v">${escapeHtml(c.v)}</div></div>`).join('');
 }
 function renderLangBar(){
   document.getElementById('langBar').innerHTML = I.langs.map(l=>
