@@ -2,487 +2,556 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Discrimination Map — far-right incident monitor · Germany</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1326'/%3E%3Cpath d='M11 6v20M21 6v20M11 6l10 20' stroke='%23FFB020' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M6 11c-2 .4-3.4 1.3-4 2.6 1.6-.3 2.9-.2 4 .3M26 11c2 .4 3.4 1.3 4 2.6-1.6-.3-2.9-.2-4 .3' stroke='%2335E08A' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Discrimination Map — documenting hate incidents, worldwide</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f4f7fb'/%3E%3Cpath d='M11 6v20M21 6v20M11 6l10 20' stroke='%230088cc' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M6 11c-2 .4-3.4 1.3-4 2.6 1.6-.3 2.9-.2 4 .3M26 11c2 .4 3.4 1.3 4 2.6-1.6-.3-2.9-.2-4 .3' stroke='%231F9B54' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E" />
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
 <style>
   :root{
-    /* Nabil Visual Solutions — water/day theme, matching nabilvs.com's
-       light mode. Public-facing art piece: light, legible, not a "hacker
-       terminal" aesthetic — the content should feel serious on its own. */
+    /* Light theme — a public documentation tool, not a "hacker terminal".
+       The content should feel serious on its own without a dark aesthetic
+       doing the work. See frontend/preview-light.html for the design ref. */
     --bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
     --line:#dbe3ee; --line-soft:#e8eef6;
-    --ink:#0b1326; --muted:#5b6b85; --faint:#8a97ac;
-    --agent:#B8720B;      /* scraped by the agent */
-    --user:#0088cc;        /* filed by a person — site accent */
-    --pulse:#1F9B54;       /* the heartbeat       */
-    --danger:#D6363F;
-    --rail:340px;
+    --ink:#0b1326; --muted:#5b6b85; --faint:#656F7E;
+    --agent:#9C6109; --user:#0074AE; --pulse:#197E44; --danger:#CC343C;
+    --ok:#197E44; --warn:#9C6109;
+    --rail:380px; --nav-h:60px;
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
     --disp:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
   }
   *{box-sizing:border-box}
+  :focus-visible{outline:2px solid var(--user, var(--accent));outline-offset:2px}
   html,body{height:100%;margin:0}
-  body{
-    background:var(--bg);color:var(--ink);
-    font-family:var(--disp);overflow:hidden;
-  }
-  #map{position:absolute;inset:0 0 0 var(--rail);background:#f4f7fb}
-  .leaflet-container{background:#f4f7fb}
-
-  /* ---- console rail ---- */
-  .rail{
-    position:absolute;top:0;left:0;bottom:0;width:var(--rail);
-    background:linear-gradient(180deg,var(--panel),var(--panel-2));
-    border-right:1px solid var(--line);
-    display:flex;flex-direction:column;z-index:1000;
-  }
-  .brand{padding:18px 20px 14px;border-bottom:1px solid var(--line-soft)}
-  .brand .wing{display:flex;align-items:center;gap:11px}
-  .brand svg{width:26px;height:26px;flex:none}
-  .brand h1{
-    font-size:19px;font-weight:700;letter-spacing:.14em;margin:0;
-    text-transform:uppercase;
-  }
-  .brand .sub{
-    font-family:var(--mono);font-size:10.5px;color:var(--muted);
-    letter-spacing:.06em;margin-top:5px;padding-left:37px;
-  }
-
-  /* ---- ethics / method notice ---- */
-  .notice{position:relative;margin:0;padding:12px 34px 12px 20px;
-    background:rgba(255,176,32,.08);border-bottom:1px solid var(--line-soft);
-    font-size:11.5px;line-height:1.5;color:var(--muted)}
-  .notice strong{color:var(--agent);font-weight:700}
-  .notice em{color:var(--ink);font-style:normal;text-decoration:underline dotted}
-  .notice button{position:absolute;top:8px;right:8px;background:none;border:none;
-    color:var(--faint);font-size:16px;line-height:1;cursor:pointer;padding:2px 6px}
-  .notice button:hover{color:var(--ink)}
-  .notice.hide{display:none}
-
-  /* ---- heartbeat monitor : the signature element ---- */
-  .monitor{padding:16px 20px;border-bottom:1px solid var(--line-soft)}
-  .monitor .row{display:flex;justify-content:space-between;align-items:baseline}
-  .monitor .lbl{
-    font-family:var(--mono);font-size:10px;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--faint);
-  }
-  .monitor .pulseword{
-    font-family:var(--mono);font-size:11px;color:var(--pulse);letter-spacing:.05em;
-  }
-  .ecg{
-    position:relative;height:44px;margin:10px 0 4px;overflow:hidden;
-    border-radius:6px;background:
-      radial-gradient(120% 140% at 50% 0%,rgba(53,224,138,.06),transparent 60%),
-      #0A0F18;
-    border:1px solid var(--line-soft);
-  }
-  .ecg svg{position:absolute;inset:0;width:200%;height:100%}
-  .ecg .trace{
-    fill:none;stroke:var(--pulse);stroke-width:1.6;
-    filter:drop-shadow(0 0 4px rgba(53,224,138,.55));
-    animation:scroll 4s linear infinite;
-  }
-  @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-  .beatline{display:flex;justify-content:space-between;margin-top:8px}
-  .beatline .k{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.1em}
-  .beatline .v{font-family:var(--mono);font-size:13px;color:var(--ink)}
-  .beatline .v small{color:var(--muted);font-size:10px}
-
-  /* ---- source health chips ---- */
-  .sources{padding:14px 20px;border-bottom:1px solid var(--line-soft)}
-  .sources .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--faint);margin-bottom:9px}
-  .chips{display:flex;flex-wrap:wrap;gap:7px}
-  .chip{
-    font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;
-    padding:4px 9px;border-radius:20px;border:1px solid var(--line);
-    color:var(--muted);display:flex;align-items:center;gap:6px;
-  }
-  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--faint)}
-  .chip.up{color:var(--ink);border-color:rgba(53,224,138,.35)}
-  .chip.up .dot{background:var(--pulse);box-shadow:0 0 6px var(--pulse)}
-  .chip.down{color:var(--muted);border-color:rgba(255,92,108,.3)}
-  .chip.down .dot{background:var(--danger)}
-  .chip.off{opacity:.5}
-
-  /* ---- live feed ---- */
-  .feed{flex:1;overflow-y:auto;padding:6px 0}
-  .feed .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--faint);padding:10px 20px 4px}
-  .item{
-    padding:10px 20px;border-bottom:1px solid var(--line-soft);cursor:pointer;
-    display:grid;grid-template-columns:3px 1fr;gap:11px;transition:background .15s;
-  }
-  .item:hover{background:var(--panel-2)}
-  .item .bar{border-radius:2px;background:var(--agent)}
-  .item.user .bar{background:var(--user)}
-  .item .t{font-size:12.5px;line-height:1.35;color:var(--ink);
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .item .m{font-family:var(--mono);font-size:9.5px;color:var(--faint);
-    margin-top:5px;letter-spacing:.04em;text-transform:uppercase}
-  .feed .empty{color:var(--muted);font-size:12px;padding:24px 20px;line-height:1.5}
-  .lawtag{color:var(--agent)}
-
-  /* ---- quick exit (safety) ---- */
-  .quickexit{
-    position:fixed;top:14px;right:14px;z-index:3000;
-    background:var(--danger);color:#fff;border:none;cursor:pointer;
-    font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.02em;
-    padding:9px 14px;border-radius:10px;display:flex;align-items:center;gap:7px;
-    box-shadow:0 6px 18px rgba(214,54,63,.35);
-  }
-  .quickexit:hover{background:#b82d35}
-  .quickexit svg{width:15px;height:15px}
-
-  /* ---- file-a-report button + modal ---- */
-  .fab{
-    position:absolute;right:22px;bottom:22px;z-index:1000;
-    background:var(--user);color:#062126;border:none;cursor:pointer;
-    font-family:var(--disp);font-weight:700;font-size:13.5px;letter-spacing:.03em;
-    padding:14px 20px;border-radius:12px;display:flex;align-items:center;gap:9px;
-    box-shadow:0 8px 26px rgba(0,136,204,.32);transition:transform .12s,box-shadow .12s;
-  }
-  .fab:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,136,204,.42)}
-  .fab:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
-  .fab svg{width:17px;height:17px}
-
-  .scrim{position:absolute;inset:0;z-index:2000;background:rgba(5,8,13,.7);
-    display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-  .scrim.on{display:flex}
-  .modal{
-    width:min(440px,92vw);background:var(--panel);border:1px solid var(--line);
-    border-radius:16px;padding:22px 22px 20px;
-  }
-  .modal h2{margin:0 0 4px;font-size:17px;letter-spacing:.02em}
-  .modal p.hint{margin:0 0 16px;color:var(--muted);font-size:12.5px;line-height:1.5}
-  .field{margin-bottom:13px}
-  .field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;
-    text-transform:uppercase;color:var(--faint);margin-bottom:6px}
-  .field input,.field textarea,.field select{
-    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
-    border-radius:9px;padding:10px 12px;font-family:var(--disp);font-size:13.5px;
-  }
-  .field textarea{resize:vertical;min-height:64px}
-  .field input:focus,.field textarea:focus,.field select:focus{
-    outline:none;border-color:var(--user)}
-  .coordline{font-family:var(--mono);font-size:11px;color:var(--muted);
-    background:var(--panel-2);border:1px dashed var(--line);border-radius:9px;
-    padding:9px 12px;margin-bottom:14px;display:flex;justify-content:space-between}
-  .coordline b{color:var(--user);font-weight:500}
-  .lawhint{font-size:11px;color:var(--muted);line-height:1.45;margin-top:6px;
-    padding-left:2px}
-  .lawhint b{color:var(--agent);font-weight:600}
-  .hunt{display:block;width:calc(100% - 32px);margin:0 16px 14px;padding:10px 12px;
-    background:rgba(185,131,255,.1);border:1px solid rgba(185,131,255,.3);border-radius:9px;
-    color:var(--ink);font-family:var(--disp);font-size:11.5px;text-align:left;cursor:pointer;
-    line-height:1.4}
-  .hunt:hover{background:rgba(185,131,255,.16)}
-  .hunt .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px}
-  .guide ul{margin:10px 0;padding-left:18px}
-  .guide li{font-size:12.5px;line-height:1.6;color:var(--muted);margin-bottom:4px}
-  .guide h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink);
-    margin:16px 0 4px}
-  .guide h3:first-of-type{margin-top:0}
-  .actions{display:flex;gap:10px;margin-top:4px}
-  .btn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);
-    background:transparent;color:var(--ink);font-family:var(--disp);font-weight:500;
-    font-size:13.5px;cursor:pointer}
-  .btn.primary{background:var(--user);color:#062126;border-color:var(--user);font-weight:700}
-  .btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
-  .toast{position:absolute;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
-    z-index:3000;background:var(--panel);border:1px solid var(--line);color:var(--ink);
-    font-size:12.5px;padding:11px 16px;border-radius:10px;opacity:0;transition:.25s;
-    pointer-events:none}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-  /* Leaflet markers */
-  /* Border's job is separating markers from EACH OTHER when they overlap
-     at low zoom, not contrasting against the map tile — a dark border here
-     would make overlapping clusters merge into a solid black mass instead
-     of staying legible as distinct dots (found by actually looking at it). */
-  .mk{border-radius:50%;border:2px solid rgba(255,255,255,.9);transition:filter .6s ease,opacity .6s ease,box-shadow .6s ease}
-  .mk.user{border-color:var(--user)}
-  /* Fading means "recede toward the background" — brightness direction has
-     to flip from the old dark theme (where fading darkened toward black)
-     now that the background is light. */
-  .mk.faded{border-color:rgba(255,255,255,.6);filter:grayscale(1) brightness(1.5);opacity:.55;box-shadow:none}
-  .categories{padding:14px 20px;border-bottom:1px solid var(--line-soft);max-height:190px;overflow-y:auto}
-  .categories .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--faint);margin-bottom:9px}
-  .cat{display:flex;align-items:center;gap:8px;padding:4.5px 2px;font-size:11.5px;
-    color:var(--muted);cursor:pointer;user-select:none}
-  .cat:hover{color:var(--ink)}
-  .cat .swatch{width:9px;height:9px;border-radius:50%;flex:none}
-  .cat .count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--faint)}
-  .cat.dim{opacity:.35}
+  body{background:var(--bg);color:var(--ink);font-family:var(--disp);overflow:hidden;
+    -webkit-tap-highlight-color:transparent}
+  a{color:var(--user)}
+  button{font-family:var(--disp)}
+  #map{position:absolute;inset:0;background:#eef2f8;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  .leaflet-container{background:#eef2f8}
+  .leaflet-control-zoom a{background:var(--panel)!important;color:var(--ink)!important;border-color:var(--line)!important}
   .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border-radius:10px}
   .leaflet-popup-tip{background:var(--panel)}
   .leaflet-popup-content{margin:12px 14px;font-family:var(--disp)}
   .leaflet-popup-content a{color:var(--user)}
-  .pop .src{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
-    text-transform:uppercase;color:var(--faint)}
-  .pop .ttl{font-size:13px;line-height:1.4;margin:6px 0 7px;font-weight:500}
-  .badge{display:inline-block;font-family:var(--mono);font-size:9px;
-    letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:20px;
-    margin-top:4px}
+
+  /* ---- top bar: search + lang ---- */
+  .topbar{position:absolute;top:0;left:0;right:0;z-index:1200;
+    display:flex;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 10px) 10px 0;
+    pointer-events:none}
+  .topbar > *{pointer-events:auto}
+  .searchwrap{flex:1;position:relative;max-width:520px}
+  .searchwrap svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);
+    width:16px;height:16px;color:var(--faint);pointer-events:none}
+  .searchwrap input{width:100%;background:var(--panel);border:1px solid var(--line);
+    color:var(--ink);border-radius:12px;padding:11px 14px 11px 38px;font-size:13.5px;
+    box-shadow:0 4px 18px rgba(20,30,50,.12)}
+  .searchwrap input::placeholder{color:var(--faint)}
+  .searchwrap input:focus{outline:none;border-color:var(--user)}
+  .iconbtn{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;box-shadow:0 4px 18px rgba(20,30,50,.12);flex:none;position:relative}
+  .iconbtn svg{width:18px;height:18px}
+
+  /* ---- lang switcher popover ---- */
+  .langpop{position:absolute;top:52px;right:0;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:6px;display:none;flex-direction:column;min-width:130px;
+    box-shadow:0 10px 30px rgba(20,30,50,.18);z-index:1300}
+  .langpop.on{display:flex}
+  .langpop button{background:none;border:none;color:var(--ink);text-align:left;padding:8px 10px;
+    border-radius:7px;font-size:13px;cursor:pointer}
+  html[dir=rtl] .langpop button{text-align:right}
+  .langpop button:hover{background:var(--panel-2)}
+  .langpop button.active{color:var(--user);font-weight:700}
+
+  /* ---- filter drawer + timeline (floating over map, above bottom nav) ---- */
+  /* right:72px, not 10px — leaves clearance for the locate-me/report column
+     that floats independently at the same right edge (see .locateme/.fab),
+     so the timeline's "Present" label never sits under them. */
+  .floatbar{position:absolute;left:10px;right:72px;bottom:calc(var(--nav-h) + 12px + env(safe-area-inset-bottom,0px));
+    z-index:1100;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .floatbar > *{pointer-events:auto}
+  .actionrow{display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
+  .fbtn{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 20px rgba(20,30,50,.14);cursor:pointer}
+  .fbtn svg{width:19px;height:19px}
+  /* Persistent — fixed position, never inside a per-tab container, so it
+     stays reachable on every tab regardless of which filter is active. */
+  .fab{position:absolute;right:16px;bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));
+    z-index:1300;background:var(--user);color:#fff;border:none;font-weight:700;font-size:13.5px;
+    padding:14px 20px;border-radius:14px;display:flex;align-items:center;gap:8px;cursor:pointer;
+    box-shadow:0 8px 26px rgba(0,136,204,.3)}
+  .fab svg{width:16px;height:16px}
+  @media (min-width:900px){ .fab{right:20px;bottom:20px} }
+  /* Locate-me — sits directly above the persistent Report button, same
+     right edge, so the two read as a stacked pair on every tab. */
+  .locateme{position:absolute;right:16px;bottom:calc(var(--nav-h) + 74px + env(safe-area-inset-bottom,0px));
+    z-index:1300;width:46px;height:46px;border-radius:50%;background:var(--panel);
+    border:1px solid var(--line);color:var(--ink);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;box-shadow:0 6px 20px rgba(20,30,50,.14)}
+  .locateme svg{width:20px;height:20px}
+  .locateme.active{color:var(--user);border-color:var(--user)}
+  @media (min-width:900px){ .locateme{right:20px;bottom:78px} }
+  .me-dot{width:16px;height:16px;border-radius:50%;background:var(--user);border:3px solid #fff;
+    box-shadow:0 0 0 2px var(--user),0 2px 8px rgba(20,30,50,.3)}
+  .me-dot-pulse{width:16px;height:16px;border-radius:50%;background:var(--user);opacity:.35;
+    animation:me-pulse 2s ease-out infinite}
+  @keyframes me-pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(2.6);opacity:0}}
+  .timeline{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px 12px;
+    box-shadow:0 6px 20px rgba(20,30,50,.14)}
+  .timeline .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .timeline .row b{color:var(--user);font-weight:700}
+  .timeline input[type=range]{width:100%;accent-color:var(--user)}
+
+  /* ---- filter (categories) drawer ---- */
+  .catdrawer{position:absolute;left:10px;right:10px;bottom:calc(var(--nav-h) + 90px + env(safe-area-inset-bottom,0px));
+    z-index:1150;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:12px;max-height:44vh;overflow-y:auto;display:none;box-shadow:0 10px 30px rgba(20,30,50,.18)}
+  .catdrawer.on{display:block}
+  .cat{display:flex;align-items:center;gap:9px;padding:13px 4px;min-height:44px;font-size:13px;color:var(--muted);
+    cursor:pointer;user-select:none}
+  .cat .swatch{width:10px;height:10px;border-radius:50%;flex:none}
+  .cat .count{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  html[dir=rtl] .cat .count{margin-left:0;margin-right:auto}
+  .cat.dim{opacity:.35}
+
+  /* ---- bottom nav ---- */
+  .bottomnav{position:absolute;left:0;right:0;bottom:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    background:var(--panel);border-top:1px solid var(--line);display:flex;z-index:1400}
+  .navbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    background:none;border:none;color:var(--faint);cursor:pointer;font-size:10px;letter-spacing:.01em;
+    position:relative;min-height:44px}
+  .navbtn svg{width:19px;height:19px}
+  .navbtn.active{color:var(--user)}
+
+  /* ---- side panels (Incidents / Laws / Awareness / Volunteer) ---- */
+  .panel{position:absolute;left:0;right:0;bottom:var(--nav-h);top:0;z-index:1000;
+    background:var(--bg);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+  .panel.on{display:flex}
+  .panel .phead{padding:16px 18px 10px;border-bottom:1px solid var(--line-soft)}
+  .panel .phead h2{margin:0;font-size:17px;letter-spacing:.01em}
+  .panel .plist{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .empty{color:var(--muted);font-size:12.5px;padding:30px 20px;line-height:1.6;text-align:center}
+
+  .statline{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .statline b{color:var(--ink);font-size:14px;margin-inline-end:4px}
+
+  .item{padding:12px 18px;border-bottom:1px solid var(--line-soft);cursor:pointer;
+    display:grid;grid-template-columns:3px 1fr;gap:12px;transition:background .15s}
+  .item:hover{background:var(--panel)}
+  .item .bar{border-radius:2px;background:var(--agent)}
+  .item.user .bar{background:var(--user)}
+  .item .t{font-size:13px;line-height:1.4;color:var(--ink)}
+  .item .m{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:5px;
+    letter-spacing:.04em;text-transform:uppercase}
+  .lawtag{color:var(--agent)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;padding:4px 9px;border-radius:20px;
+    border:1px solid var(--line);color:var(--muted);display:flex;align-items:center;gap:6px}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--faint)}
+  .chip.up{color:var(--ink);border-color:rgba(53,224,138,.35)}
+  .chip.up .dot{background:var(--pulse);box-shadow:0 0 6px var(--pulse)}
+  .chip.down{color:var(--muted);border-color:rgba(224,82,92,.3)}
+  .chip.down .dot{background:var(--danger)}
+
+  /* ---- notice banner (dismissible, shown atop the live feed) ---- */
+  .notice{position:relative;margin:0;padding:12px 34px 12px 18px;background:rgba(255,176,32,.09);
+    border-bottom:1px solid var(--line-soft);font-size:11.5px;line-height:1.5;color:var(--muted)}
+  .notice strong{color:var(--agent);font-weight:700}
+  .notice button{position:absolute;top:0;right:0;width:44px;height:44px;background:none;border:none;
+    color:var(--faint);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  html[dir=rtl] .notice{padding:12px 18px 12px 34px}
+  html[dir=rtl] .notice button{right:auto;left:0}
+  .notice.hide{display:none}
+  .hunt{display:block;width:calc(100% - 36px);margin:12px 18px 0;padding:11px 13px;
+    background:rgba(185,131,255,.1);border:1px solid rgba(185,131,255,.3);border-radius:10px;
+    color:var(--ink);font-size:12px;text-align:left;cursor:pointer;line-height:1.4}
+  html[dir=rtl] .hunt{text-align:right}
+  .hunt:hover{background:rgba(185,131,255,.16)}
+
+  /* ---- laws tab ---- */
+  .lawcard{margin:12px 18px;padding:13px 15px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px}
+  .lawcard-code{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--agent)}
+  .lawcard-title{font-size:13.5px;font-weight:600;color:var(--ink);margin:4px 0 6px}
+  .lawcard-summary{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .lawcard-penalty{font-size:11.5px;color:var(--faint);font-style:italic;margin-top:6px}
+
+  /* ---- incident detail bottom sheet ---- */
+  .sheet-scrim{position:absolute;inset:0;z-index:2500;background:rgba(11,19,38,.4);display:none}
+  .sheet-scrim.on{display:block}
+  .sheet{position:absolute;left:0;right:0;bottom:0;max-height:88vh;background:var(--panel);
+    border-radius:20px 20px 0 0;box-shadow:0 -10px 40px rgba(20,30,50,.18);display:flex;flex-direction:column;
+    transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+  .sheet-scrim.on .sheet{transform:translateY(0)}
+  .sheet .grabber{width:38px;height:4px;background:var(--line);border-radius:3px;margin:10px auto 4px}
+  .sheet .sbody{overflow-y:auto;padding:6px 20px calc(20px + env(safe-area-inset-bottom,0px))}
+  .badgebar{display:flex;align-items:center;justify-content:space-between;margin:8px 0 12px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:20px}
   .badge.lead{background:rgba(255,176,32,.15);color:var(--agent)}
   .badge.user{background:rgba(41,211,224,.15);color:var(--user)}
   .badge.ok{background:rgba(53,224,138,.16);color:var(--pulse)}
-  .pop .prow{display:flex;gap:8px;font-size:11.5px;margin:3px 0;line-height:1.4}
-  .pop .prow span{color:var(--faint);font-family:var(--mono);font-size:9.5px;
-    text-transform:uppercase;letter-spacing:.06em;min-width:44px;padding-top:1px}
-  .pop .prow b{color:var(--ink);font-weight:500}
-  .pop .ev{margin-top:7px}
-  .pop .evtxt{color:var(--muted);font-size:11px}
+  .badge.dismissed{background:rgba(224,82,92,.15);color:var(--danger)}
+  .sheet .repid{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .sheet .cattag{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--faint);margin-bottom:6px}
+  .sheet h2{margin:0 0 4px;font-size:19px;line-height:1.3}
+  .sheet .detected{font-family:var(--mono);font-size:11px;color:var(--faint);display:flex;align-items:center;gap:6px;margin-bottom:14px}
+  .warnbox{background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.25);border-radius:12px;
+    padding:11px 13px;margin-bottom:14px}
+  .warnbox .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--agent);margin-bottom:4px}
+  .warnbox .v{font-size:12px;color:var(--muted)}
+  .sec{margin-bottom:16px}
+  .sec h3{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--faint);margin:0 0 8px}
+  .sec .box{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:12px 13px;
+    font-size:13px;color:var(--ink);line-height:1.5}
+  .metacard{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:10px 13px;
+    margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .metacard .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .metacard .v{font-size:12.5px;color:var(--ink);text-align:right;max-width:60%}
+  html[dir=rtl] .metacard .v{text-align:left}
+  .docbox{border-left:3px solid var(--faint);background:var(--panel-2);border-radius:0 10px 10px 0;
+    padding:11px 13px;margin-bottom:16px;display:flex;gap:9px}
+  html[dir=rtl] .docbox{border-left:none;border-right:3px solid var(--faint);border-radius:10px 0 0 10px}
+  .docbox .k{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px}
+  .docbox .v{font-size:11.5px;color:var(--muted);line-height:1.5;font-style:italic}
+  .sheetactions{display:flex;gap:10px;padding-top:2px}
+  .sbtn{flex:1;padding:13px;border-radius:11px;border:1px solid var(--line);background:transparent;
+    color:var(--ink);font-weight:600;font-size:13px;cursor:pointer}
+  .sbtn.primary{background:var(--user);color:#fff;border-color:var(--user)}
+  .sbtn.danger{background:transparent;color:var(--danger);border-color:rgba(224,82,92,.4)}
+  .sbtn.ok{background:var(--pulse);color:#fff;border-color:var(--pulse)}
+  .modtip{font-size:11.5px;color:var(--faint);text-align:center;padding:6px 0 10px}
 
-  /* mobile: rail becomes a scrollable top sheet capped well under half the
-     screen, so the map — the actual point of the page — stays visible
-     underneath instead of being pushed off by an ever-taller sidebar. */
-  @media (max-width:720px){
-    :root{--rail:0px}
-    .rail{width:100%;max-height:44vh;bottom:auto;flex-direction:column;
-      border-right:none;border-bottom:1px solid var(--line);overflow-y:auto;
-      -webkit-overflow-scrolling:touch}
-    .categories{max-height:120px}
-    .feed{max-height:120px}
-    #map{inset:0}
-    .rail{background:rgba(17,23,37,.96)}
-    .fab{padding:12px 16px;font-size:13px}
+  /* ---- report modal + guide modals ---- */
+  .scrim{position:absolute;inset:0;z-index:2600;background:rgba(11,19,38,.45);display:none;
+    align-items:center;justify-content:center;backdrop-filter:blur(3px);padding:16px}
+  .scrim.on{display:flex}
+  .modal{width:min(460px,100%);max-height:90vh;overflow-y:auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px}
+  .modal h2{margin:0 0 4px;font-size:17px;letter-spacing:.02em}
+  .modal p.hint{margin:0 0 16px;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .field input,.field textarea,.field select{width:100%;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:9px;padding:10px 12px;font-family:var(--disp);font-size:13.5px}
+  .field textarea{resize:vertical;min-height:64px}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--user)}
+  .coordline{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel-2);
+    border:1px dashed var(--line);border-radius:9px;padding:9px 12px;margin-bottom:14px;
+    display:flex;justify-content:space-between}
+  .coordline b{color:var(--user);font-weight:500}
+  .lawhint{font-size:11px;color:var(--muted);line-height:1.45;margin-top:6px}
+  .lawhint b{color:var(--agent);font-weight:600}
+  .guide ul{margin:10px 0;padding-left:18px}
+  html[dir=rtl] .guide ul{padding-left:0;padding-right:18px}
+  .guide li{font-size:12.5px;line-height:1.6;color:var(--muted);margin-bottom:4px}
+  .guide h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink);margin:16px 0 4px}
+  .guide h3:first-of-type{margin-top:0}
+  .actions{display:flex;gap:10px;margin-top:4px}
+  .btn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:transparent;
+    color:var(--ink);font-weight:500;font-size:13.5px;cursor:pointer}
+  .btn.primary{background:var(--user);color:#fff;border-color:var(--user);font-weight:700}
+  .toast{position:absolute;left:50%;bottom:calc(var(--nav-h) + 20px);transform:translateX(-50%) translateY(20px);
+    z-index:3000;background:var(--panel);border:1px solid var(--line);color:var(--ink);font-size:12.5px;
+    padding:11px 16px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* markers */
+  .mk{border-radius:50%;border:2px solid rgba(255,255,255,.9);transition:filter .6s ease,opacity .6s ease}
+  .mk.user{border-color:var(--user)}
+  /* Fading means "recede toward the background" — on a light background
+     that's brightness UP (washing toward white), the opposite direction
+     from a dark theme where fading darkens toward black. */
+  .mk.faded{filter:grayscale(1) brightness(1.5);opacity:.55}
+  /* New (< 48h) reports pulse outward instead of fading — the opposite
+     visual language on purpose: fresh events announce themselves, old
+     ones recede. Never applied together (faded only kicks in after years). */
+  .mk-pulse-ring{position:absolute;inset:-3px;border-radius:50%;border:2px solid;
+    animation:mk-pulse 1.8s ease-out infinite}
+  @keyframes mk-pulse{0%{transform:scale(1);opacity:.85}100%{transform:scale(2.6);opacity:0}}
+
+  /* ---- desktop layout (>=900px): rail replaces bottom sheets/nav ---- */
+  @media (min-width:900px){
+    :root{--nav-h:0px}
+    #map{left:var(--rail)}
+    .topbar{left:calc(var(--rail) + 10px)}
+    .floatbar,.catdrawer{left:calc(var(--rail) + 10px)}
+    .floatbar{right:76px}
+    .bottomnav{display:none}
+    .rail{position:absolute;top:0;left:0;bottom:0;width:var(--rail);background:var(--panel);
+      border-right:1px solid var(--line);z-index:1400;display:flex;flex-direction:column}
+    .rail .brand{padding:18px 20px 12px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;gap:11px}
+    .rail .brand svg{width:26px;height:26px;flex:none}
+    .rail .brand h1{font-size:16px;font-weight:700;letter-spacing:.08em;margin:0;text-transform:uppercase}
+    .rail .brand .sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
+    .railnav{display:flex;border-bottom:1px solid var(--line-soft)}
+    .railnav .navbtn{flex-direction:row;gap:6px;padding:12px 0;font-size:11.5px}
+    .panel{position:static;flex:1;display:none;border-radius:0}
+    .panel.on{display:flex}
+    .sheet-scrim{background:rgba(11,19,38,.35)}
+    .sheet{left:calc(var(--rail) + 16px);right:16px;bottom:16px;max-width:460px;border-radius:16px;
+      max-height:calc(100vh - 32px)}
+    .sheet-scrim.on .sheet{transform:none}
+  }
+  @media (max-width:899px){
+    .rail{display:none}
   }
   @media (prefers-reduced-motion:reduce){
-    .ecg .trace{animation:none}
-    .fab{transition:none}
+    .mk-pulse-ring{animation:none}
+    .sheet{transition:none}
   }
 </style>
 </head>
 <body>
 
-<!-- quick exit (safety): fixed top-right, above everything, always reachable -->
-<button class="quickexit" id="quickExit" title="Immediately leave this site">
-  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5l7 7-7 7M4 12h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  Quick exit
-</button>
-
-<!-- ===================== console rail ===================== -->
-<aside class="rail">
-  <div class="brand">
-    <div class="wing">
-      <!-- winged 'N' mark -->
-      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <path d="M11 6v20M21 6v20M11 6l10 20" stroke="#B8720B" stroke-width="2.4"
-              stroke-linecap="round"/>
-        <path d="M6 11c-2 .4-3.4 1.3-4 2.6 1.6-.3 2.9-.2 4 .3M26 11c2 .4 3.4 1.3 4 2.6-1.6-.3-2.9-.2-4 .3"
-              stroke="#1F9B54" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-      <h1>Discrimination Map</h1>
-    </div>
-    <div class="sub">far-right incident monitor · Germany</div>
-  </div>
-
-  <!-- ethics / method note: keeps the tool honest and lawful -->
-  <div class="notice" id="notice">
-    <strong>Documentation, not accusation.</strong> Automated marks are
-    <em>unverified leads</em> from public posts — alleged, not proven.
-    Presumption of innocence applies. Witnessing a crime? Call police 110.
-    <button id="noticeX" aria-label="Dismiss">×</button>
-  </div>
-
-  <button class="hunt" id="aboutOpen" style="border-style:dashed">
-    <span class="dot" style="background:var(--faint)"></span>
-    What is this? Read the mission →
-  </button>
-
-  <!-- symbol hunters: recruits people to document banned-symbol graffiti/stickers -->
-  <button class="hunt" id="huntOpen">
-    <span class="dot" style="background:#8E4FD6"></span>
-    Spot a banned symbol? Become a symbol hunter →
-  </button>
-  <a class="hunt" href="/awareness" style="text-decoration:none;display:block">
-    <span class="dot" style="background:var(--user)"></span>
-    Not sure what counts? See the awareness guide →
-  </a>
-
-  <!-- signature: heartbeat monitor -->
-  <div class="monitor">
-    <div class="row">
-      <span class="lbl">agent heartbeat</span>
-      <span class="pulseword" id="beatState">listening</span>
-    </div>
-    <div class="ecg" aria-hidden="true">
-      <svg viewBox="0 0 240 44" preserveAspectRatio="none">
-        <path class="trace" d="M0 22 H30 l4 -14 l5 26 l4 -12 H70 l3 -8 l4 8 H120
-          H150 l4 -14 l5 26 l4 -12 H190 l3 -8 l4 8 H240"/>
-      </svg>
-    </div>
-    <div class="beatline">
-      <div><div class="k">LAST SCAN</div><div class="v" id="lastBeat">—</div></div>
-      <div style="text-align:right"><div class="k">NEXT IN</div>
-        <div class="v" id="nextBeat">—<small>s</small></div></div>
-      <div style="text-align:right"><div class="k">BEATS</div>
-        <div class="v" id="beatCount">0</div></div>
-    </div>
-  </div>
-
-  <!-- source health -->
-  <div class="sources">
-    <div class="lbl">sources</div>
-    <div class="chips" id="chips"><span class="chip">loading…</span></div>
-  </div>
-
-  <!-- categories: colors the map, doubles as a filter -->
-  <div class="categories">
-    <div class="lbl">categories</div>
-    <div id="catlist"><span class="chip">loading…</span></div>
-  </div>
-
-  <!-- live feed -->
-  <div class="feed">
-    <div class="lbl">live feed</div>
-    <div id="feed"><div class="empty">Waiting for the first heartbeat. The
-      monitoring agent scans German public posts for far-right signals and maps
-      located leads for review.</div></div>
-  </div>
-</aside>
-
 <div id="map"></div>
 
-<!-- file a report -->
-<button class="fab" id="fab" aria-haspopup="dialog">
-  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M12 5v14M5 12h14" stroke="#062126" stroke-width="2.6" stroke-linecap="round"/>
-  </svg>
-  File a report
+<!-- ===================== desktop rail (brand + nav) ===================== -->
+<aside class="rail">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M11 6v20M21 6v20M11 6l10 20" stroke="#FFB020" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M6 11c-2 .4-3.4 1.3-4 2.6 1.6-.3 2.9-.2 4 .3M26 11c2 .4 3.4 1.3 4 2.6-1.6-.3-2.9-.2-4 .3"
+            stroke="#35E08A" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1 data-i18n="brand.title">Discrimination Map</h1>
+      <div class="sub" data-i18n="brand.sub">Documenting hate incidents, worldwide</div>
+    </div>
+  </div>
+  <div class="railnav" id="railNav"></div>
+</aside>
+
+<!-- ===================== top bar ===================== -->
+<div class="topbar">
+  <div class="searchwrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input id="searchInput" type="text" data-i18n-placeholder="search.placeholder" placeholder="Search region or coordinates…" />
+  </div>
+  <div style="position:relative">
+    <button class="iconbtn" id="langBtn" aria-haspopup="true" title="Language">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 4 6 4 9s-1.5 6.3-4 9c-2.5-2.7-4-6-4-9s1.5-6.3 4-9z"/></svg>
+    </button>
+    <div class="langpop" id="langPop"></div>
+  </div>
+</div>
+
+<!-- ===================== category filter drawer ===================== -->
+<div class="catdrawer" id="catDrawer">
+  <div id="catlist"></div>
+</div>
+
+<!-- ===================== floating controls (map tab only) ===================== -->
+<div class="floatbar" id="mapFloatbar">
+  <div class="timeline" id="timelineBox">
+    <div class="row">
+      <span id="tlFrom">—</span>
+      <b id="tlTo" data-i18n="timeline.present">Present</b>
+    </div>
+    <input type="range" id="tlSlider" min="0" max="1000" value="1000" />
+  </div>
+  <div class="actionrow">
+    <button class="fbtn" id="filterToggle" aria-haspopup="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- persistent — visible on every tab, independent of the active filter -->
+<button class="locateme" id="locateMe" data-i18n-title="locate.button" title="Show my location">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+</button>
+<button class="fab" id="fab">
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>
+  <span data-i18n="report.button">Report</span>
 </button>
 
-<!-- report modal -->
+<!-- ===================== Incidents panel ===================== -->
+<section class="panel" id="panel-incidents">
+  <div class="phead">
+    <h2 data-i18n="incidents.title">Live feed</h2>
+    <div class="statline" id="statLine"></div>
+    <div class="chips" id="chips" style="margin-top:8px"></div>
+  </div>
+  <div class="notice" id="notice">
+    <strong data-i18n="notice.strong">Documentation, not accusation.</strong>
+    <span data-i18n="notice.body"> Automated marks are unverified leads — alleged, not proven — and nothing reaches this map without either real evidence or human review first. Presumption of innocence applies. Witnessing a crime? Contact your local emergency services.</span>
+    <button id="noticeX" data-i18n-title="notice.dismiss" aria-label="Dismiss">×</button>
+  </div>
+  <div class="plist" id="incidentsList"><div class="empty" data-i18n="incidents.empty">Loading…</div></div>
+</section>
+
+<!-- ===================== Laws panel ===================== -->
+<section class="panel" id="panel-laws">
+  <div class="phead"><h2 data-i18n="laws.title">Laws that may apply</h2></div>
+  <div class="plist" id="lawsList"><div class="empty" data-i18n="laws.empty">Loading…</div></div>
+</section>
+
+<!-- ===================== Awareness panel ===================== -->
+<section class="panel" id="panel-awareness">
+  <div class="phead">
+    <h2 data-i18n="awareness.tabTitle">Awareness guide</h2>
+  </div>
+  <div class="plist">
+    <iframe src="/awareness" title="Awareness guide" loading="lazy"
+      style="width:100%;height:56vh;border:0;display:block;background:var(--panel)"></iframe>
+    <div style="padding:16px 18px 24px">
+      <h3 style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:0 0 8px" data-i18n="symbol.title">Spot something not listed here?</h3>
+      <p class="hint" style="margin:0 0 14px;color:var(--muted);font-size:12.5px;line-height:1.5" data-i18n="symbol.hint">Tell us about a symbol, code, or gesture you've seen that isn't covered in the guide above — this goes straight to review, not the public map.</p>
+      <div class="field">
+        <label for="symDesc" data-i18n="symbol.description">What is it, and what does it look like</label>
+        <textarea id="symDesc" maxlength="1000" data-i18n-placeholder="symbol.descriptionPlaceholder" placeholder="Describe the symbol, code, gesture, or phrase"></textarea>
+      </div>
+      <div class="field">
+        <label for="symContext" data-i18n="symbol.context">Where you've seen it (optional)</label>
+        <input id="symContext" maxlength="300" data-i18n-placeholder="symbol.contextPlaceholder" placeholder="e.g. stickers, forums, a specific group" />
+      </div>
+      <div class="field">
+        <label for="symEmail" data-i18n="symbol.email">Your email (optional, in case we have questions)</label>
+        <input id="symEmail" type="email" maxlength="200" placeholder="you@example.com" />
+      </div>
+      <button class="btn primary" id="symSubmit" data-i18n="symbol.submit" style="width:100%">Submit</button>
+      <div id="symMsg" style="font-size:12px;color:var(--muted);margin-top:10px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== Volunteer panel ===================== -->
+<section class="panel" id="panel-volunteer">
+  <div class="plist">
+    <div class="phead">
+      <h2 data-i18n="apply.title">Get involved</h2>
+      <p class="hint" style="margin:8px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5" data-i18n="apply.hint">This gets more useful with more hands — moderators, translators, developers, and partner organizations. Tell us how you'd like to help.</p>
+    </div>
+    <div style="padding:4px 18px 24px">
+      <a class="hunt" href="https://nabilvs.com/projects/discrimination-map#get-involved" target="_blank" rel="noopener" style="text-decoration:none;display:block" data-i18n="apply.open">Volunteer, translate, code, or partner as an organization →</a>
+      <a class="hunt" href="/guide" style="text-decoration:none;display:block" data-i18n="guide.link">New volunteer? Read the step-by-step guide →</a>
+      <button class="hunt" id="huntOpen" data-i18n="hunt.open">Spot a banned symbol? Become a symbol hunter →</button>
+      <a class="hunt" href="/admin" style="text-decoration:none;display:block" data-i18n="account.open">Reviewer or admin? Go to /admin →</a>
+      <button class="hunt" id="aboutOpen" style="border-style:dashed" data-i18n="about.open">What is this? Read the mission →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== bottom nav (mobile) ===================== -->
+<nav class="bottomnav" id="bottomNav"></nav>
+
+<!-- ===================== incident detail sheet ===================== -->
+<div class="sheet-scrim" id="sheetScrim">
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="grabber"></div>
+    <div class="sbody" id="sheetBody"></div>
+  </div>
+</div>
+
+<!-- ===================== report modal ===================== -->
 <div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="modal">
-    <h2 id="mTitle">Report an incident</h2>
-    <p class="hint">Document a far-right incident in Germany. Give what you can —
-      the more evidence, the more useful. Reports are public, anonymous, and
-      logged as <em>unverified</em> pending review. Report crimes to police (110).</p>
+    <h2 id="mTitle" data-i18n="modal.title">Report an incident</h2>
+    <p class="hint" data-i18n="modal.hint">Document a hate incident. Give what you can — the more evidence, the more useful. Reports are public and anonymous. Report crimes to your local emergency services.</p>
+    <p class="hint" data-i18n="modal.noNames" style="margin-top:-10px">Don't include the name of any private person — victim or accused. Describe what happened, not who specifically did it.</p>
+    <p class="hint" data-i18n="modal.pinHint" style="margin-top:-10px">Tip: right-click a spot on the map (or press and hold on mobile) to pin a report right there.</p>
     <div class="coordline">
-      <span>LOCATION</span><span><b id="coordTxt">click the map or use your location</b></span>
+      <span data-i18n="modal.location">Location</span><span><b id="coordTxt" data-i18n="modal.locationHint">click the map or use your location</b></span>
     </div>
     <div class="field">
-      <label for="rReason">What happened</label>
-      <input id="rReason" maxlength="500" placeholder="e.g. Swastika sprayed on memorial" />
+      <label for="rReason" data-i18n="modal.reason">What happened</label>
+      <input id="rReason" maxlength="500" data-i18n-placeholder="modal.reasonPlaceholder" placeholder="e.g. Swastika sprayed on memorial" />
     </div>
     <div class="field">
-      <label for="rCat">Category</label>
-      <select id="rCat">
-        <option value="banned_symbol">Banned symbol / salute</option>
-        <option value="incitement">Incitement / hate speech</option>
-        <option value="propaganda">Propaganda</option>
-        <option value="threat">Threat</option>
-        <option value="violence">Assault / violence</option>
-        <option value="arson">Arson</option>
-        <option value="holocaust_denial">Holocaust denial</option>
-        <option value="assembly">March / rally</option>
-        <option value="other">Other</option>
-      </select>
+      <label for="rCat" data-i18n="modal.category">Category</label>
+      <select id="rCat"></select>
     </div>
     <div class="field">
-      <label for="rLaw">Possibly-applicable law <span style="text-transform:none;color:var(--faint)">(optional)</span></label>
-      <select id="rLaw"><option value="">— select a statute —</option></select>
+      <label for="rLaw" data-i18n="modal.law">Possibly-applicable law (optional)</label>
+      <select id="rLaw"><option value="" data-i18n="modal.lawPlaceholder">— select a statute —</option></select>
       <div id="lawHint" class="lawhint"></div>
     </div>
     <div class="field">
-      <label for="rEvidence">Evidence <span style="text-transform:none;color:var(--faint)">(link or description)</span></label>
-      <input id="rEvidence" maxlength="1000" placeholder="URL of a photo, post, or news report" />
+      <label for="rEvidence" data-i18n="modal.evidence">Evidence (link or description)</label>
+      <input id="rEvidence" maxlength="1000" data-i18n-placeholder="modal.evidencePlaceholder" placeholder="URL of a photo, post, or news report" />
     </div>
     <div class="field">
-      <label for="rImpact">Impact / harm <span style="text-transform:none;color:var(--faint)">(optional)</span></label>
-      <textarea id="rImpact" maxlength="1000" placeholder="Who was targeted and how it affected them."></textarea>
+      <label for="rImpact" data-i18n="modal.impact">Impact / harm (optional)</label>
+      <textarea id="rImpact" maxlength="1000" data-i18n-placeholder="modal.impactPlaceholder" placeholder="Who was targeted and how it affected them."></textarea>
     </div>
     <div class="actions">
-      <button class="btn" id="useLoc" type="button">Use my location</button>
-      <button class="btn primary" id="submit" type="button">Submit report</button>
+      <button class="btn" id="useLoc" type="button" data-i18n="modal.useLocation">Use my location</button>
+      <button class="btn primary" id="submit" type="button" data-i18n="modal.submit">Submit report</button>
     </div>
     <div class="actions" style="margin-top:10px">
-      <button class="btn" id="cancel" type="button">Cancel</button>
+      <button class="btn" id="cancel" type="button" data-i18n="modal.cancel">Cancel</button>
     </div>
   </div>
 </div>
 
-<!-- symbol hunter guide -->
-<div class="scrim" id="huntScrim" role="dialog" aria-modal="true" aria-labelledby="huntTitle">
+<!-- ===================== symbol hunter guide ===================== -->
+<div class="scrim" id="huntScrim" role="dialog" aria-modal="true">
   <div class="modal guide">
-    <h2 id="huntTitle">Symbol hunters</h2>
-    <p class="hint">Banned symbols — swastikas, SS runes, "88"/"18" codes, the
-      Reichskriegsflagge, banned-party logos — show up as graffiti and stickers in
-      public space constantly, and mostly go undocumented. That's the gap this fills.</p>
-
-    <h3>What counts</h3>
+    <h2 data-i18n="hunt.title">Symbol hunters</h2>
+    <p class="hint" data-i18n="hunt.hint">Banned symbols — swastikas, SS runes, "88"/"18" codes, the Reichskriegsflagge, banned-party logos — show up as graffiti and stickers in public space constantly, and mostly go undocumented. That's the gap this fills.</p>
+    <h3 data-i18n="hunt.whatCounts">What counts</h3>
     <ul>
-      <li>Graffiti, stickers, posters displaying a banned symbol (StGB §86a)</li>
-      <li>In public view — street furniture, walls, lamp posts, transit stops</li>
+      <li data-i18n="hunt.whatCounts.1">Graffiti, stickers, posters displaying a banned symbol (§ 86a StGB)</li>
+      <li data-i18n="hunt.whatCounts.2">In public view — street furniture, walls, lamp posts, transit stops</li>
     </ul>
-
-    <h3>Staying safe</h3>
+    <h3 data-i18n="hunt.stayingSafe">Staying safe</h3>
     <ul>
-      <li>Photograph from public space — you don't need to enter private property</li>
-      <li>Don't confront anyone putting these up; document and leave</li>
-      <li>Don't remove or deface the sticker/graffiti yourself — report it to the
-        property owner or city instead, and leave evidence intact for that report</li>
-      <li>If you feel unsafe in the moment, leave first, document later or not at all</li>
+      <li data-i18n="hunt.stayingSafe.1">Photograph from public space — you don't need to enter private property</li>
+      <li data-i18n="hunt.stayingSafe.2">Don't confront anyone putting these up; document and leave</li>
+      <li data-i18n="hunt.stayingSafe.3">Don't remove or deface the sticker/graffiti yourself — report it to the property owner or city instead</li>
+      <li data-i18n="hunt.stayingSafe.4">If you feel unsafe in the moment, leave first, document later or not at all</li>
     </ul>
-
-    <h3>Filing it</h3>
+    <h3 data-i18n="hunt.filing">Filing it</h3>
     <ul>
-      <li>Use "File a report" — category is already set to Banned symbol / salute</li>
-      <li>A photo link as evidence makes the report far more useful for review</li>
-      <li>Your report is public and anonymous, logged as unverified pending review</li>
+      <li data-i18n="hunt.filing.1">Use "Report" — category is already set to Banned symbol / salute</li>
+      <li data-i18n="hunt.filing.2">A photo link as evidence makes the report far more useful for review</li>
+      <li data-i18n="hunt.filing.3">Your report is public and anonymous, logged as unverified pending review</li>
     </ul>
-
     <div class="actions">
-      <button class="btn" id="huntClose">Close</button>
-      <button class="btn primary" id="huntReport">Report it now</button>
+      <button class="btn" id="huntClose" data-i18n="hunt.close">Close</button>
+      <button class="btn primary" id="huntReport" data-i18n="hunt.reportNow">Report it now</button>
     </div>
   </div>
 </div>
 
-<!-- about / mission -->
-<div class="scrim" id="aboutScrim" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+<!-- ===================== about / mission ===================== -->
+<div class="scrim" id="aboutScrim" role="dialog" aria-modal="true">
   <div class="modal guide">
-    <h2 id="aboutTitle">What this is</h2>
-    <p class="hint">Hate incidents don't stop being real when the news cycle
-      moves on. This is where the pattern stays visible.</p>
-
-    <h3>Documentation, not accusation</h3>
-    <p class="hint">Every mark is a sourced, unverified lead — never a verdict
-      about a named person. Presumption of innocence, always.</p>
-
-    <h3>History isn't deleted</h3>
-    <p class="hint">Older reports fade visually after they age but are never
-      removed. A quiet pattern is still a pattern.</p>
-
-    <h3>Built for the people in it</h3>
-    <p class="hint">Fuzzed locations for sensitive reports, a quick-exit
-      button, and real crisis resources — on every screen, not buried in a
-      footer.</p>
-
-    <h3>Three moving parts</h3>
+    <h2 data-i18n="about.title">What this is</h2>
+    <p class="hint" data-i18n="about.hint">Hate incidents don't stop being real when the news cycle moves on. This is where the pattern stays visible.</p>
+    <h3 data-i18n="about.h1">Documentation, not accusation</h3>
+    <p class="hint" data-i18n="about.p1">Every mark is a sourced, unverified lead — never a verdict about a named person. Presumption of innocence, always.</p>
+    <h3 data-i18n="about.h2">History isn't deleted</h3>
+    <p class="hint" data-i18n="about.p2">Older reports fade visually after they age but are never removed. A quiet pattern is still a pattern.</p>
+    <h3 data-i18n="about.h3">Built for the people in it</h3>
+    <p class="hint" data-i18n="about.p3b">Fuzzed locations for unverified reports and real crisis resources — on every screen, not buried in a footer.</p>
+    <h3 data-i18n="about.h5">Always anonymous</h3>
+    <p class="hint" data-i18n="about.p5">No names, faces, or addresses of private individuals appear on the map — neither the person reporting nor the person a report is about. This documents patterns and events, never people.</p>
+    <h3 data-i18n="about.h6">Nothing publishes itself</h3>
+    <p class="hint" data-i18n="about.p6">A report only reaches the public map once it either carries real, checkable evidence (a source link) or an admin/reviewer has looked at it — an anonymous claim alone is never enough on its own.</p>
+    <h3 data-i18n="about.h4">Three moving parts</h3>
     <ul>
-      <li><strong>People report directly</strong> — anyone can file a report
-        anonymously, as much or as little detail as they're comfortable
-        sharing.</li>
-      <li><strong>Public sources are scanned</strong> — free, public social
-        platforms are monitored for relevant posts, stored as unverified
-        leads pending review.</li>
-      <li><strong>The pattern becomes visible</strong> — filter by category
-        and watch how a region's pattern actually developed, not just its
-        most recent headline.</li>
+      <li><strong data-i18n="about.li1.b">People report directly</strong><span data-i18n="about.li1"> — anyone can file a report anonymously.</span></li>
+      <li><strong data-i18n="about.li2.b">Public sources are scanned</strong><span data-i18n="about.li2"> — public platforms are monitored for relevant posts.</span></li>
+      <li><strong data-i18n="about.li3.b">The pattern becomes visible</strong><span data-i18n="about.li3"> — filter by category and watch the pattern develop.</span></li>
     </ul>
-
     <div class="actions">
-      <button class="btn" id="aboutClose">Close</button>
-      <a class="btn primary" href="/awareness" style="text-decoration:none;text-align:center">Awareness guide →</a>
+      <button class="btn" id="aboutClose" data-i18n="about.close">Close</button>
+      <a class="btn primary" href="/awareness" style="text-decoration:none;text-align:center" data-i18n="about.awarenessLink">Awareness guide →</a>
     </div>
   </div>
 </div>
@@ -491,294 +560,624 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/static/i18n.js"></script>
 <script>
+const I = window.DXMAP_I18N_RUNTIME;
+const t = I.t;
+
 // ---------- map ----------
-const map = L.map('map',{zoomControl:false}).setView([51.16,10.45],6);
+const map = L.map('map',{zoomControl:false}).setView([25,15],2.4); // global view by default
 L.control.zoom({position:'topright'}).addTo(map);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19
 }).addTo(map);
+// Dedicated pane, below the default overlay pane (400) that markers use, so
+// the Ingress-style category zone shapes always sit under every marker.
+map.createPane('zonesPane');
+map.getPane('zonesPane').style.zIndex = 350;
 
-const seen = new Set();           // report ids already on the map
-let pendingPin = null;            // {lat,lon} chosen in the modal
-let pinMarker = null;
-
-// Reports don't disappear as they age — they desaturate in place, staying
-// visible as muted grey circles instead of being deleted from the record.
-const FADE_DAYS = 30;
-
-function icon(source, color, faded){
-  const cls = source === 'user' ? 'user' : 'agent';
-  // Smaller blur than the old dark-theme value — on a light background,
-  // overlapping glows at high marker density used to compound into a dark
-  // haze; a tighter glow keeps that from swallowing the actual colors.
-  const glow = faded ? 'none' : `0 0 4px ${color}b3`;
-  return L.divIcon({className:'', html:`<div class="mk ${cls}${faded?' faded':''}" style="width:13px;height:13px;background:${color};box-shadow:${glow}"></div>`,
-    iconSize:[13,13], iconAnchor:[7,7]});
-}
-
-let LAWS = {};   // code -> {title_en, summary, penalty}, from /api/laws
-let CATS = {};   // category -> {label, color}, from /api/categories
-const catGroups = {};    // category -> L.layerGroup, so a chip click can show/hide it
-const catCounts = {};    // category -> running count, shown in the legend
+let currentUser = null;   // {email, role} or null
+let allReports = [];      // everything loaded from /api/reports?all=true
+const markers = {};       // id -> L.marker
+let LAWS = {}, CATS = {};
+const catGroups = {}, catCounts = {};
+const zoneLayers = {};    // category -> L.polygon | L.polyline
 const DEFAULT_CAT_COLOR = '#8891A8';
-
-function categoryColor(cat){ return (CATS[cat] || {}).color || DEFAULT_CAT_COLOR; }
-
-function ensureGroup(cat){
-  if(!catGroups[cat]){
-    catGroups[cat] = L.layerGroup().addTo(map);
-    catCounts[cat] = 0;
-  }
-  return catGroups[cat];
-}
-
-function renderCatList(){
-  const el = document.getElementById('catlist');
-  if(!Object.keys(CATS).length){ return; }
-  el.innerHTML = Object.entries(CATS).map(([key, c])=>{
-    const count = catCounts[key] || 0;
-    return `<div class="cat" data-cat="${key}"><span class="swatch" style="background:${c.color}"></span>${escapeHtml(c.label)}<span class="count">${count}</span></div>`;
-  }).join('');
-  el.querySelectorAll('.cat').forEach(row=>{
-    row.addEventListener('click', ()=>{
-      const cat = row.dataset.cat;
-      const group = catGroups[cat];
-      if(!group) return;
-      if(map.hasLayer(group)){ map.removeLayer(group); row.classList.add('dim'); }
-      else{ map.addLayer(group); row.classList.remove('dim'); }
-    });
-  });
-}
-
-function lawShort(code){
-  const l = LAWS[code];
-  if(!l) return code || '';
-  // title_en looks like "§ 86a StGB — Use of symbols…"; take the code part.
-  return (l.title_en || code).split('—')[0].trim();
-}
-
-function statusBadge(r){
-  // scraped leads are unverified; user reports are community-submitted.
-  if(r.verified) return `<span class="badge ok">Verified</span>`;
-  if(r.source === 'user') return `<span class="badge user">Community report · unverified</span>`;
-  return `<span class="badge lead">Automated lead · unverified</span>`;
-}
-
-function addReport(r){
-  if(seen.has(r.id) || r.lat == null || r.lon == null) return;
-  seen.add(r.id);
-  const ageDays = (Date.now()/1000 - r.created_at) / 86400;
-  const faded = ageDays >= FADE_DAYS;
-  const cat = r.category || 'far_right_mention';
-  const color = categoryColor(cat);
-  const m = L.marker([r.lat,r.lon],{icon:icon(r.source, color, faded)}).addTo(ensureGroup(cat));
-  catCounts[cat] = (catCounts[cat] || 0) + 1;
-  renderCatList();
-  const reason = escapeHtml(r.reason || r.title || 'Reported incident');
-  const lawRow = r.law ? `<div class="prow"><span>Law</span><b title="${escapeHtml((LAWS[r.law]||{}).summary||'')}">${escapeHtml(lawShort(r.law))}</b></div>` : '';
-  const impactRow = r.impact ? `<div class="prow"><span>Impact</span><b>${escapeHtml(r.impact)}</b></div>` : '';
-  const ev = r.url ? `<a href="${r.url}" target="_blank" rel="noopener">evidence ↗</a>`
-                   : (r.evidence ? `<span class="evtxt">${escapeHtml(r.evidence)}</span>` : '');
-  m.bindPopup(`<div class="pop">
-    <div class="src">${r.source} · ${escapeHtml(r.place||'Germany')}</div>
-    ${statusBadge(r)}
-    <div class="ttl">${reason}</div>
-    ${lawRow}${impactRow}
-    <div class="ev">${ev}</div>
-    ${faded ? `<div class="prow"><span>Age</span><b>${Math.round(ageDays)}d — faded, still documented</b></div>` : ''}
-  </div>`);
-}
+const FADE_DAYS = 10 * 365; // history isn't deleted — fades to unsaturated after a decade, never removed
+const NEW_DAYS = 2;         // < 48h old — pulses instead of fading
+const hiddenCats = new Set();
+let earliestTs = Math.floor(Date.now()/1000) - 365*24*3600;  // updated once reports load
+let timelineCutoff = null; // null = present/no cutoff
 
 function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>(
   {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-// ---------- live feed + reports ----------
-async function refreshReports(){
-  try{
-    const res = await fetch('/api/reports?limit=300');
-    const {reports} = await res.json();
-    reports.forEach(addReport);
-    renderFeed(reports.slice(0,40));
-  }catch(e){/* keep last good state */}
-}
-
-function renderFeed(reports){
-  const el = document.getElementById('feed');
-  if(!reports.length){return;}
-  el.innerHTML = reports.map(r=>{
-    const lawTag = r.law ? ` · <span class="lawtag">${escapeHtml(lawShort(r.law))}</span>` : '';
-    return `
-    <div class="item ${r.source==='user'?'user':''}" data-lat="${r.lat}" data-lon="${r.lon}">
-      <div class="bar"></div>
-      <div>
-        <div class="t">${escapeHtml(r.reason || r.title)}</div>
-        <div class="m">${r.source} · ${escapeHtml(r.place||'DE')}${lawTag} · ${ago(r.created_at)}</div>
-      </div>
-    </div>`;}).join('');
-  el.querySelectorAll('.item').forEach(it=>it.addEventListener('click',()=>{
-    const lat=+it.dataset.lat, lon=+it.dataset.lon;
-    if(!isNaN(lat)&&!isNaN(lon)) map.flyTo([lat,lon],9,{duration:.8});
-  }));
-}
+function categoryLabel(cat){ return t('cat.'+cat) !== 'cat.'+cat ? t('cat.'+cat) : ((CATS[cat]||{}).label || cat); }
+function categoryColor(cat){ return (CATS[cat]||{}).color || DEFAULT_CAT_COLOR; }
 
 function ago(ts){
   const s = Math.max(0, Math.floor(Date.now()/1000)-ts);
-  if(s<60) return s+'s ago';
-  if(s<3600) return Math.floor(s/60)+'m ago';
-  if(s<86400) return Math.floor(s/3600)+'h ago';
-  return Math.floor(s/86400)+'d ago';
+  if(s<60) return t('detail.ago.s',{n:s});
+  if(s<3600) return t('detail.ago.m',{n:Math.floor(s/60)});
+  if(s<86400) return t('detail.ago.h',{n:Math.floor(s/3600)});
+  return t('detail.ago.d',{n:Math.floor(s/86400)});
 }
 
-// ---------- heartbeat HUD ----------
-async function refreshHeartbeat(){
+function icon(source, color, faded, isNew){
+  const cls = source === 'user' ? 'user' : 'agent';
+  const glow = faded ? 'none' : `0 0 6px ${color}b3`;
+  const ring = (isNew && !faded) ? `<div class="mk-pulse-ring" style="border-color:${color}"></div>` : '';
+  return L.divIcon({className:'', html:`<div style="position:relative;width:13px;height:13px">${ring}<div class="mk ${cls}${faded?' faded':''}" style="width:13px;height:13px;background:${color};box-shadow:${glow}"></div></div>`,
+    iconSize:[13,13], iconAnchor:[7,7]});
+}
+
+function ensureGroup(cat){
+  if(!catGroups[cat]){ catGroups[cat] = L.layerGroup().addTo(map); catCounts[cat] = 0; }
+  return catGroups[cat];
+}
+
+function withinTimeline(r){ return timelineCutoff == null || r.created_at <= timelineCutoff; }
+
+// ---------- Ingress-style category zones ----------
+// Points sharing a category get connected: a line between two, a filled
+// convex-hull "control field" for three or more. Purely visual grouping —
+// no new data, just makes a region's pattern legible at a glance.
+function convexHull(points){
+  // points: [[lat,lon], ...] -> hull as [[lat,lon], ...] (monotone chain)
+  const pts = points.map(p=>({lat:p[0],lon:p[1]})).sort((a,b)=> a.lon-b.lon || a.lat-b.lat);
+  if(pts.length < 3) return pts.map(p=>[p.lat,p.lon]);
+  const cross = (o,a,b) => (a.lon-o.lon)*(b.lat-o.lat) - (a.lat-o.lat)*(b.lon-o.lon);
+  const lower = [];
+  for(const p of pts){
+    while(lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for(let i=pts.length-1;i>=0;i--){
+    const p = pts[i];
+    while(upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop();
+    upper.push(p);
+  }
+  lower.pop(); upper.pop();
+  return lower.concat(upper).map(p=>[p.lat,p.lon]);
+}
+
+function rebuildZones(){
+  Object.values(zoneLayers).forEach(l=>map.removeLayer(l));
+  Object.keys(zoneLayers).forEach(k=>delete zoneLayers[k]);
+  const byCat = {};
+  allReports.forEach(r=>{
+    if(r.lat==null || r.lon==null) return;
+    if(!withinTimeline(r)) return;
+    const cat = r.category || 'other';
+    if(hiddenCats.has(cat)) return;
+    (byCat[cat] = byCat[cat] || []).push([r.lat, r.lon]);
+  });
+  Object.entries(byCat).forEach(([cat, pts])=>{
+    const seen = new Set();
+    const uniq = pts.filter(p=>{ const k = p.join(','); if(seen.has(k)) return false; seen.add(k); return true; });
+    if(uniq.length < 2) return;
+    const color = categoryColor(cat);
+    let layer;
+    if(uniq.length === 2){
+      layer = L.polyline(uniq, {pane:'zonesPane', color, weight:2, opacity:.5, dashArray:'4 6', interactive:false});
+    } else {
+      const hull = convexHull(uniq);
+      layer = hull.length >= 3
+        ? L.polygon(hull, {pane:'zonesPane', color, weight:1.5, opacity:.45, fillColor:color, fillOpacity:.08, interactive:false})
+        : L.polyline(uniq.slice(0,2), {pane:'zonesPane', color, weight:2, opacity:.5, dashArray:'4 6', interactive:false});
+    }
+    layer.addTo(map);
+    zoneLayers[cat] = layer;
+  });
+}
+
+function rebuildMarkers(){
+  Object.values(catGroups).forEach(g=>g.clearLayers());
+  Object.keys(catCounts).forEach(k=>catCounts[k]=0);
+  Object.keys(markers).forEach(k=>delete markers[k]);
+  rebuildZones();
+  allReports.forEach(r=>{
+    if(r.lat==null||r.lon==null) return;
+    if(!withinTimeline(r)) return;
+    const cat = r.category || 'far_right_mention';
+    const ageDays = (Date.now()/1000 - r.created_at) / 86400;
+    const faded = ageDays >= FADE_DAYS;
+    const isNew = ageDays < NEW_DAYS;
+    const color = categoryColor(cat);
+    const m = L.marker([r.lat,r.lon],{icon:icon(r.source,color,faded,isNew)}).addTo(ensureGroup(cat));
+    catCounts[cat] = (catCounts[cat]||0)+1;
+    m.on('click',()=>openSheet(r));
+    markers[r.id] = m;
+    if(hiddenCats.has(cat) && map.hasLayer(catGroups[cat])) map.removeLayer(catGroups[cat]);
+  });
+  renderCatList();
+}
+
+function renderCatList(){
+  const el = document.getElementById('catlist');
+  if(!Object.keys(CATS).length) return;
+  el.innerHTML = Object.entries(CATS).map(([key,c])=>{
+    const count = catCounts[key]||0;
+    const dim = hiddenCats.has(key) ? ' dim' : '';
+    return `<div class="cat${dim}" data-cat="${key}"><span class="swatch" style="background:${c.color}"></span>${escapeHtml(categoryLabel(key))}<span class="count">${count}</span></div>`;
+  }).join('');
+  el.querySelectorAll('.cat').forEach(row=>{
+    row.addEventListener('click',()=>{
+      const cat = row.dataset.cat;
+      const group = catGroups[cat];
+      if(hiddenCats.has(cat)){ hiddenCats.delete(cat); if(group) map.addLayer(group); }
+      else{ hiddenCats.add(cat); if(group) map.removeLayer(group); }
+      rebuildZones();
+      renderCatList();
+    });
+  });
+}
+
+// ---------- data loading ----------
+async function refreshReports(){
   try{
-    const st = await (await fetch('/api/heartbeat')).json();
-    document.getElementById('beatCount').textContent = st.beat_count ?? 0;
-    document.getElementById('nextBeat').innerHTML =
-      (st.next_beat_in ?? '—') + '<small>s</small>';
-    document.getElementById('lastBeat').textContent =
-      st.last_beat ? ago(st.last_beat) : '—';
-    const bs = document.getElementById('beatState');
-    if(st.next_beat_in <= 2){ bs.textContent='scanning…'; }
-    else { bs.textContent='listening'; }
-  }catch(e){}
+    const res = await fetch('/api/reports?limit=1000&all=true', {credentials:'include'});
+    const {reports} = await res.json();
+    allReports = reports;
+    if(reports.length){
+      earliestTs = Math.min(...reports.map(r=>r.created_at));
+      initTimelineBounds();
+    }
+    rebuildMarkers();
+    renderFeed();
+  }catch(e){/* keep last good state */}
 }
 
-async function refreshHealth(){
+function initTimelineBounds(){
+  const slider = document.getElementById('tlSlider');
+  if(slider.dataset.init) return;
+  slider.dataset.init = '1';
+  slider.min = earliestTs; slider.max = Math.floor(Date.now()/1000); slider.value = slider.max;
+  updateTimelineLabels();
+  slider.addEventListener('input', ()=>{
+    const v = +slider.value;
+    timelineCutoff = v >= +slider.max ? null : v;
+    updateTimelineLabels();
+    rebuildMarkers();
+  });
+}
+function fmtMonth(ts){
+  const d = new Date(ts*1000);
+  return d.toLocaleDateString(I.current, {month:'short', year:'numeric'});
+}
+function updateTimelineLabels(){
+  const slider = document.getElementById('tlSlider');
+  document.getElementById('tlFrom').textContent = fmtMonth(+slider.min);
+  const to = document.getElementById('tlTo');
+  if(+slider.value >= +slider.max){ to.textContent = t('timeline.present'); }
+  else { to.textContent = fmtMonth(+slider.value); }
+}
+
+function statusBadgeHtml(r){
+  if(r.status==='verified') return `<span class="badge ok">${escapeHtml(t('detail.verified'))}</span>`;
+  if(r.status==='dismissed') return `<span class="badge dismissed">${escapeHtml(t('detail.dismissed'))}</span>`;
+  if(r.source==='user') return `<span class="badge user">${escapeHtml(t('detail.communityReport'))}</span>`;
+  return `<span class="badge lead">${escapeHtml(t('detail.automatedLead'))}</span>`;
+}
+
+function renderFeed(){
+  const el = document.getElementById('incidentsList');
+  const list = allReports.filter(withinTimeline).slice(0,200);
+  if(!list.length){ el.innerHTML = `<div class="empty">${escapeHtml(t('incidents.empty'))}</div>`; return; }
+  el.innerHTML = list.map(r=>{
+    const lawTag = r.law ? ` · <span class="lawtag">${escapeHtml(lawShort(r.law))}</span>` : '';
+    return `<div class="item ${r.source==='user'?'user':''}" data-id="${r.id}">
+      <div class="bar"></div>
+      <div>
+        <div class="t">${escapeHtml(r.reason || r.title)}</div>
+        <div class="m">${escapeHtml(r.source)} · ${escapeHtml(r.place||'DE')}${lawTag} · ${ago(r.created_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.item').forEach(it=>it.addEventListener('click',()=>{
+    const r = allReports.find(x=>x.id==it.dataset.id);
+    if(r) openSheet(r);
+  }));
+}
+
+async function setStatus(id, status){
   try{
-    const h = await (await fetch('/api/health')).json();
-    const known = ['bluesky','mastodon','youtube'];
-    const chips = document.getElementById('chips');
-    chips.innerHTML = known.map(name=>{
-      const s = h.sources[name];
-      let cls='off', label=name;
-      if(s){
-        cls = s.streak_fail>=3 ? 'down' : (s.success_rate>=0.5 ? 'up' : 'down');
-      }
-      return `<span class="chip ${cls}"><span class="dot"></span>${label}</span>`;
-    }).join('');
-  }catch(e){}
-}
-
-// ---------- report modal ----------
-const scrim=document.getElementById('scrim');
-function openModal(){scrim.classList.add('on');document.getElementById('rReason').focus();}
-function closeModal(){scrim.classList.remove('on');}
-document.getElementById('fab').onclick=openModal;
-document.getElementById('cancel').onclick=closeModal;
-scrim.addEventListener('click',e=>{if(e.target===scrim)closeModal();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
-
-function setPin(lat,lon){
-  pendingPin={lat,lon};
-  document.getElementById('coordTxt').textContent = lat.toFixed(4)+', '+lon.toFixed(4);
-  if(pinMarker) map.removeLayer(pinMarker);
-  pinMarker = L.marker([lat,lon],{icon:icon('user')}).addTo(map);
-}
-map.on('click',e=>{ if(scrim.classList.contains('on')) setPin(e.latlng.lat,e.latlng.lng); });
-
-document.getElementById('useLoc').onclick=()=>{
-  if(!navigator.geolocation){toast('Geolocation not available');return;}
-  navigator.geolocation.getCurrentPosition(
-    p=>{setPin(p.coords.latitude,p.coords.longitude);map.flyTo([p.coords.latitude,p.coords.longitude],11);},
-    ()=>toast('Could not get your location'));
-};
-
-document.getElementById('submit').onclick=async()=>{
-  const reason=document.getElementById('rReason').value.trim();
-  if(reason.length<3){toast('Describe what happened first');return;}
-  if(!pendingPin){toast('Set a location: click the map or use your location');return;}
-  const payload={
-    title:reason.slice(0,120),
-    reason,
-    evidence:document.getElementById('rEvidence').value.trim(),
-    law:document.getElementById('rLaw').value,
-    impact:document.getElementById('rImpact').value.trim(),
-    category:document.getElementById('rCat').value,
-    lat:pendingPin.lat, lon:pendingPin.lon,
-  };
-  try{
-    const res=await fetch('/api/reports',{method:'POST',
-      headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const res = await fetch(`/api/admin/reports/${id}`, {method:'PATCH', credentials:'include',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({status})});
     if(!res.ok) throw new Error();
-    toast('Report filed — logged as unverified for review');
-    closeModal();
-    ['rReason','rEvidence','rImpact'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('rLaw').value='';
-    document.getElementById('lawHint').innerHTML='';
-    if(pinMarker){map.removeLayer(pinMarker);pinMarker=null;}
-    pendingPin=null;
-    refreshReports();
-  }catch(e){toast('Could not file report. Try again.');}
-};
+    const r = allReports.find(x=>x.id==id);
+    if(r) r.status = status;
+    renderFeed(); rebuildMarkers();
+    if (document.getElementById('sheetScrim').classList.contains('on')) closeSheet();
+    toast(t('toast.filed'));
+  }catch(e){ toast(t('toast.failed')); }
+}
 
-// ---------- statute reference (dropdown + popups) ----------
+// ---------- law reference ----------
+function lawShort(code){
+  const l = LAWS[code];
+  if(!l) return code||'';
+  return (l.title_en||code).split('—')[0].trim();
+}
+function renderLaws(){
+  const el = document.getElementById('lawsList');
+  const entries = Object.entries(LAWS);
+  if(!entries.length){ el.innerHTML = `<div class="empty">${escapeHtml(t('laws.empty'))}</div>`; return; }
+  el.innerHTML = entries.map(([code,l])=>`
+    <div class="lawcard">
+      <div class="lawcard-code">${escapeHtml(code)}</div>
+      <div class="lawcard-title">${escapeHtml(l.title_en || code)}</div>
+      <div class="lawcard-summary">${escapeHtml(l.summary || '')}</div>
+      ${l.penalty ? `<div class="lawcard-penalty">${escapeHtml(l.penalty)}</div>` : ''}
+    </div>`).join('');
+}
 async function loadLaws(){
   try{
     const {laws} = await (await fetch('/api/laws')).json();
-    LAWS = laws || {};
+    LAWS = laws||{};
     const sel = document.getElementById('rLaw');
     Object.keys(LAWS).forEach(code=>{
-      const o=document.createElement('option');
-      o.value=code; o.textContent=lawShort(code); sel.appendChild(o);
+      const o=document.createElement('option'); o.value=code; o.textContent=lawShort(code); sel.appendChild(o);
     });
     sel.addEventListener('change',()=>{
-      const l=LAWS[sel.value];
-      document.getElementById('lawHint').innerHTML =
-        l ? `<b>${escapeHtml(lawShort(sel.value))}</b> — ${escapeHtml(l.summary)} <em>${escapeHtml(l.penalty||'')}</em>` : '';
+      const l = LAWS[sel.value];
+      document.getElementById('lawHint').innerHTML = l
+        ? `<b>${escapeHtml(lawShort(sel.value))}</b> — ${escapeHtml(l.summary)} <em>${escapeHtml(l.penalty||'')}</em>` : '';
     });
+    renderLaws();
   }catch(e){}
 }
-
-// notice dismiss
-document.getElementById('noticeX').onclick=()=>
-  document.getElementById('notice').classList.add('hide');
-
-// ---------- symbol hunters ----------
-document.getElementById('huntOpen').onclick=()=>
-  document.getElementById('huntScrim').classList.add('on');
-document.getElementById('huntClose').onclick=()=>
-  document.getElementById('huntScrim').classList.remove('on');
-document.getElementById('huntReport').onclick=()=>{
-  document.getElementById('huntScrim').classList.remove('on');
-  document.getElementById('rCat').value='banned_symbol';
-  openModal();
-};
-
-// ---------- about ----------
-document.getElementById('aboutOpen').onclick=()=>
-  document.getElementById('aboutScrim').classList.add('on');
-document.getElementById('aboutClose').onclick=()=>
-  document.getElementById('aboutScrim').classList.remove('on');
-
-// ---------- quick exit (safety) ----------
-// location.replace, not href, so the back button can't return here.
-document.getElementById('quickExit').onclick=()=>{
-  window.location.replace('https://www.wikipedia.org');
-};
-
-function toast(msg){
-  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2600);
-}
-
-// ---------- category legend (colors the map + filters it) ----------
 async function loadCategories(){
   try{
     const {categories} = await (await fetch('/api/categories')).json();
-    CATS = categories || {};
+    CATS = categories||{};
+    const sel = document.getElementById('rCat');
+    sel.innerHTML = Object.keys(CATS).map(k=>`<option value="${k}">${escapeHtml(categoryLabel(k))}</option>`).join('');
     renderCatList();
   }catch(e){}
 }
 
-// ---------- polling ----------
-loadLaws();
-loadCategories().then(()=>{ refreshReports(); });
-refreshHeartbeat(); refreshHealth();
-setInterval(refreshReports, 15000);
-setInterval(refreshHeartbeat, 1000);
-setInterval(refreshHealth, 15000);
+// ---------- health / stats (folded into the Incidents tab header) ----------
+let lastStats = null;
+async function refreshHealth(){
+  try{
+    const h = await (await fetch('/api/health')).json();
+    lastStats = h.stats;
+    const known = ['bluesky','mastodon','youtube'];
+    document.getElementById('chips').innerHTML = known.map(name=>{
+      const s = h.sources[name];
+      let cls='off'; if(s){ cls = s.streak_fail>=3 ? 'down' : (s.success_rate>=0.5?'up':'down'); }
+      return `<span class="chip ${cls}"><span class="dot"></span>${name}</span>`;
+    }).join('');
+    renderStats(h.stats);
+  }catch(e){}
+}
+function renderStats(s){
+  if(!s) return;
+  const verified = (s.by_status||{}).verified || 0;
+  const dismissed = (s.by_status||{}).dismissed || 0;
+  document.getElementById('statLine').innerHTML = [
+    [s.total, t('reports.total')], [s.located, t('reports.located')],
+    [verified, t('reports.verified')], [dismissed, t('reports.dismissed')],
+  ].map(([n,l])=>`<span><b>${n}</b>${escapeHtml(l)}</span>`).join('');
+}
+
+// ---------- incident detail sheet ----------
+function openSheet(r){
+  const cutRadius = 500;
+  const methodKey = r.source === 'user' ? 'detail.methodManual' : 'detail.methodAutomated';
+  const canModerate = currentUser && (currentUser.role==='ADMIN' || currentUser.role==='VERIFIER');
+  let protectionBox = '';
+  if(r.status !== 'verified'){
+    protectionBox = r.fuzzed
+      ? `<div class="warnbox"><div class="k">${escapeHtml(t('detail.protectionProtocol'))}</div>
+          <div class="v">${escapeHtml(t('detail.locationFuzzed',{radius:cutRadius}))}</div></div>`
+      : `<div class="warnbox"><div class="k">${escapeHtml(t('detail.protectionProtocol'))}</div>
+          <div class="v">${escapeHtml(t('detail.exactLocation'))}</div></div>`;
+  }
+  const body = document.getElementById('sheetBody');
+  body.innerHTML = `
+    <div class="badgebar">${statusBadgeHtml(r)}<span class="repid">DE-${String(r.id).padStart(3,'0')}</span></div>
+    <div class="cattag">${escapeHtml(categoryLabel(r.category||'far_right_mention'))}</div>
+    <h2>${escapeHtml(r.reason || r.title)}</h2>
+    <div class="detected">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      ${escapeHtml(t('detail.detectedAgo',{time:ago(r.created_at)}))}
+    </div>
+    ${protectionBox}
+    <div class="sec"><h3>${escapeHtml(t('detail.description'))}</h3>
+      <div class="box">${escapeHtml(r.reason || r.body || r.title || '')}</div></div>
+    ${r.impact ? `<div class="sec"><h3>${escapeHtml(t('detail.impact'))}</h3><div class="box">${escapeHtml(r.impact)}</div></div>` : ''}
+    <div class="sec"><h3>${escapeHtml(t('detail.metadata'))}</h3>
+      <div class="metacard"><span class="k">${escapeHtml(t('detail.firstDetected'))}</span>
+        <span class="v">${new Date(r.created_at*1000).toLocaleString(I.current)}</span></div>
+      <div class="metacard"><span class="k">${escapeHtml(t('detail.source'))}</span>
+        <span class="v">${escapeHtml(r.place ? r.source+' · '+r.place : r.source)}</span></div>
+      <div class="metacard"><span class="k">${escapeHtml(t('detail.detectionMethod'))}</span>
+        <span class="v">${escapeHtml(t(methodKey))}</span></div>
+      ${r.law ? `<div class="metacard"><span class="k">${escapeHtml(t('detail.law'))}</span>
+        <span class="v">${escapeHtml(lawShort(r.law))}</span></div>` : ''}
+      ${(r.url||r.evidence) ? `<div class="metacard"><span class="k">${escapeHtml(t('detail.evidence'))}</span>
+        <span class="v">${r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">↗</a>` : escapeHtml(r.evidence)}</span></div>` : ''}
+    </div>
+    <div class="docbox">
+      <div>
+        <div class="k">${escapeHtml(t('detail.docNotice.title'))}</div>
+        <div class="v">${escapeHtml(t('detail.docNotice.body'))}</div>
+      </div>
+    </div>
+    ${canModerate ? `
+      <div class="sheetactions">
+        <button class="sbtn danger" id="sheetDismiss">${escapeHtml(t('detail.dismiss'))}</button>
+        <button class="sbtn ok" id="sheetVerify">${escapeHtml(r.status==='verified' ? t('detail.unverify') : t('detail.verify'))}</button>
+      </div>
+    ` : `
+      <div class="sheetactions">
+        <button class="sbtn" id="sheetClose">${escapeHtml(t('detail.close'))}</button>
+        ${r.url ? `<a class="sbtn primary" style="text-align:center;text-decoration:none" href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(t('detail.requestInfo'))}</a>` : ''}
+      </div>
+    `}
+  `;
+  if(canModerate){
+    document.getElementById('sheetDismiss').onclick = ()=>setStatus(r.id,'dismissed');
+    document.getElementById('sheetVerify').onclick = ()=>setStatus(r.id, r.status==='verified' ? 'unverified' : 'verified');
+  } else {
+    document.getElementById('sheetClose').onclick = closeSheet;
+  }
+  document.getElementById('sheetScrim').classList.add('on');
+  if(r.lat!=null && r.lon!=null) map.flyTo([r.lat,r.lon], Math.max(map.getZoom(),9), {duration:.6});
+}
+function closeSheet(){ document.getElementById('sheetScrim').classList.remove('on'); }
+document.getElementById('sheetScrim').addEventListener('click',e=>{
+  if(e.target.id==='sheetScrim') closeSheet();
+});
+
+// ---------- tabs ----------
+const TABS = [
+  {key:'map', icon:'<path d="M9 20l-6-2V6l6 2 6-2 6 2v14l-6-2-6 2z"/><path d="M9 6v14M15 8v14"/>'},
+  {key:'incidents', icon:'<path d="M4 6h16M4 12h16M4 18h10"/>'},
+  {key:'laws', icon:'<path d="M12 3v18"/><path d="M5 8l-3.2 6.2a3.2 3.2 0 0 0 6.4 0L5 8z"/><path d="M19 8l-3.2 6.2a3.2 3.2 0 0 0 6.4 0L19 8z"/><path d="M4.5 8h15M8 21h8"/>'},
+  {key:'awareness', icon:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>'},
+  {key:'volunteer', icon:'<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>'},
+];
+let activeTab = 'map';
+function navHtml(cls){
+  return TABS.map(tab=>`<button class="navbtn ${cls}" data-tab="${tab.key}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${tab.icon}</svg>
+    <span data-i18n="nav.${tab.key}">${tab.key}</span>
+  </button>`).join('');
+}
+function wireNav(container){
+  container.querySelectorAll('.navbtn').forEach(btn=>btn.addEventListener('click',()=>setTab(btn.dataset.tab)));
+}
+function setTab(key){
+  activeTab = key;
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===key));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on', p.id==='panel-'+key));
+  document.getElementById('mapFloatbar').style.display = key==='map' ? 'flex' : 'none';
+  document.getElementById('catDrawer').classList.remove('on');
+  if(key==='laws') renderLaws();
+}
+document.getElementById('bottomNav').innerHTML = navHtml('');
+document.getElementById('railNav').innerHTML = navHtml('railbtn');
+wireNav(document.getElementById('bottomNav'));
+wireNav(document.getElementById('railNav'));
+setTab('map');
+
+// ---------- filter drawer ----------
+document.getElementById('filterToggle').onclick = ()=>{
+  document.getElementById('catDrawer').classList.toggle('on');
+};
+
+// ---------- search ----------
+document.getElementById('searchInput').addEventListener('keydown', async (e)=>{
+  if(e.key !== 'Enter') return;
+  const q = e.target.value.trim();
+  if(!q) return;
+  const ql = q.toLowerCase();
+  const hit = allReports.find(r => (r.place||'').toLowerCase().includes(ql) || (r.reason||r.title||'').toLowerCase().includes(ql));
+  if(hit && hit.lat!=null){ setTab('map'); openSheet(hit); return; }
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`,
+      {headers:{'Accept':'application/json'}});
+    const results = await res.json();
+    if(results && results[0]){ setTab('map'); map.flyTo([+results[0].lat, +results[0].lon], 11, {duration:.8}); }
+    else toast(t('toast.failed'));
+  }catch(err){ /* Nominatim may rate-limit or be unreachable; fail quietly */ }
+});
+
+// ---------- language switcher ----------
+function renderLangPop(){
+  const pop = document.getElementById('langPop');
+  pop.innerHTML = I.langs.map(l=>`<button data-lang="${l}" class="${l===I.current?'active':''}">${DXMAP_I18N[l].name}</button>`).join('');
+  pop.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    I.setLang(b.dataset.lang); pop.classList.remove('on'); renderLangPop();
+  }));
+}
+renderLangPop();
+document.getElementById('langBtn').onclick = (e)=>{ e.stopPropagation(); document.getElementById('langPop').classList.toggle('on'); };
+document.addEventListener('click', ()=> document.getElementById('langPop').classList.remove('on'));
+document.addEventListener('dxmap:lang', ()=>{ renderLangPop(); updateTimelineLabels(); renderFeed(); renderStats(lastStats); renderLaws(); });
+
+// ---------- report modal ----------
+const scrim = document.getElementById('scrim');
+function openModal(){ scrim.classList.add('on'); document.getElementById('rReason').focus(); }
+function closeModal(){ scrim.classList.remove('on'); }
+document.getElementById('fab').onclick = openModal;
+document.getElementById('cancel').onclick = closeModal;
+scrim.addEventListener('click',e=>{ if(e.target===scrim) closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeSheet(); document.getElementById('huntScrim').classList.remove('on'); document.getElementById('aboutScrim').classList.remove('on'); } });
+
+let pendingPin = null, pinMarker = null;
+function setPin(lat,lon){
+  pendingPin = {lat,lon};
+  document.getElementById('coordTxt').textContent = lat.toFixed(4)+', '+lon.toFixed(4);
+  if(pinMarker) map.removeLayer(pinMarker);
+  pinMarker = L.marker([lat,lon],{icon:icon('user','#0074AE')}).addTo(map);
+}
+// Click-to-place still works once the modal is already open (e.g. via the
+// Report button) — the gestures below are the primary, faster path: they
+// open the modal AND drop the pin in one motion.
+map.on('click', e=>{ if(scrim.classList.contains('on')) setPin(e.latlng.lat, e.latlng.lng); });
+
+function openModalAtPin(latlng){
+  setTab('map');
+  openModal();
+  setPin(latlng.lat, latlng.lng);
+}
+// Desktop: right-click a spot to pin a report there. Leaflet always
+// preventDefault()s the native browser context menu on the map itself.
+map.on('contextmenu', e=>{ openModalAtPin(e.latlng); });
+
+// Mobile: press and hold (~500ms) a spot to do the same thing.
+(function(){
+  let pressTimer = null, startPt = null;
+  const el = map.getContainer();
+  const HOLD_MS = 500, MOVE_TOLERANCE = 12;
+  function clearPress(){ if(pressTimer){ clearTimeout(pressTimer); pressTimer = null; } }
+  el.addEventListener('touchstart', e=>{
+    if(e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    startPt = {x:touch.clientX, y:touch.clientY};
+    clearPress();
+    pressTimer = setTimeout(()=>{
+      pressTimer = null;
+      const rect = el.getBoundingClientRect();
+      const latlng = map.containerPointToLatLng(L.point(startPt.x - rect.left, startPt.y - rect.top));
+      if(navigator.vibrate) navigator.vibrate(25);
+      openModalAtPin(latlng);
+    }, HOLD_MS);
+  }, {passive:true});
+  el.addEventListener('touchmove', e=>{
+    if(!pressTimer || !startPt) return;
+    const touch = e.touches[0];
+    if(Math.abs(touch.clientX-startPt.x) > MOVE_TOLERANCE || Math.abs(touch.clientY-startPt.y) > MOVE_TOLERANCE) clearPress();
+  }, {passive:true});
+  el.addEventListener('touchend', clearPress);
+  el.addEventListener('touchcancel', clearPress);
+})();
+
+document.getElementById('useLoc').onclick = ()=>{
+  if(!navigator.geolocation){ toast(t('toast.noGeo')); return; }
+  navigator.geolocation.getCurrentPosition(
+    p=>{ setPin(p.coords.latitude, p.coords.longitude); map.flyTo([p.coords.latitude,p.coords.longitude],11); },
+    ()=>toast(t('toast.noGeoFail')));
+};
+document.getElementById('submit').onclick = async ()=>{
+  const reason = document.getElementById('rReason').value.trim();
+  if(reason.length<3){ toast(t('toast.describeFirst')); return; }
+  if(!pendingPin){ toast(t('toast.setLocation')); return; }
+  const payload = {
+    title: reason.slice(0,120), reason,
+    evidence: document.getElementById('rEvidence').value.trim(),
+    law: document.getElementById('rLaw').value,
+    impact: document.getElementById('rImpact').value.trim(),
+    category: document.getElementById('rCat').value,
+    lat: pendingPin.lat, lon: pendingPin.lon,
+  };
+  try{
+    const res = await fetch('/api/reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!res.ok) throw new Error();
+    toast(t('toast.filed'));
+    closeModal();
+    ['rReason','rEvidence','rImpact'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('rLaw').value=''; document.getElementById('lawHint').innerHTML='';
+    if(pinMarker){ map.removeLayer(pinMarker); pinMarker=null; }
+    pendingPin = null;
+    refreshReports();
+  }catch(e){ toast(t('toast.failed')); }
+};
+
+// ---------- symbol proposal (Awareness tab) ----------
+document.getElementById('symSubmit').onclick = async ()=>{
+  const description = document.getElementById('symDesc').value.trim();
+  const msg = document.getElementById('symMsg');
+  if(description.length < 5){ msg.textContent = t('toast.describeFirst'); return; }
+  const payload = {
+    description,
+    context: document.getElementById('symContext').value.trim(),
+    email: document.getElementById('symEmail').value.trim(),
+  };
+  try{
+    const res = await fetch('/api/propose-symbol', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    if(!res.ok) throw new Error();
+    msg.textContent = t('symbol.thanks');
+    document.getElementById('symDesc').value = '';
+    document.getElementById('symContext').value = '';
+    document.getElementById('symEmail').value = '';
+  }catch(e){ msg.textContent = t('symbol.error'); }
+};
+
+// ---------- session ----------
+// No sign-in UI on the public map by design — reviewers/admins log in at
+// /admin. If a session cookie already exists from that page, the map still
+// recognizes it (moderation controls in the incident sheet just work), it
+// just never prompts.
+async function checkSession(){
+  try{
+    const res = await fetch('/api/auth/me', {credentials:'include'});
+    if(res.ok) currentUser = await res.json();
+  }catch(e){}
+}
+
+// ---------- notice / hunt / about ----------
+document.getElementById('noticeX')?.addEventListener('click', ()=>document.getElementById('notice').classList.add('hide'));
+document.getElementById('huntOpen').onclick = ()=>document.getElementById('huntScrim').classList.add('on');
+document.getElementById('huntClose').onclick = ()=>document.getElementById('huntScrim').classList.remove('on');
+document.getElementById('huntReport').onclick = ()=>{
+  document.getElementById('huntScrim').classList.remove('on');
+  document.getElementById('rCat').value='banned_symbol';
+  setTab('map'); openModal();
+};
+document.getElementById('aboutOpen').onclick = ()=>document.getElementById('aboutScrim').classList.add('on');
+document.getElementById('aboutClose').onclick = ()=>document.getElementById('aboutScrim').classList.remove('on');
+
+// ---------- locate me (viewer's own position, separate from report-pin picker) ----------
+let myMarker = null;
+const locateBtn = document.getElementById('locateMe');
+function myPositionIcon(){
+  return L.divIcon({className:'', html:'<div style="position:relative;width:16px;height:16px">'+
+    '<div class="me-dot-pulse" style="position:absolute;inset:0"></div>'+
+    '<div class="me-dot" style="position:absolute;inset:0"></div></div>',
+    iconSize:[16,16], iconAnchor:[8,8]});
+}
+function stopLocating(){
+  if(myMarker){ map.removeLayer(myMarker); myMarker = null; }
+  locateBtn.classList.remove('active');
+}
+locateBtn.onclick = ()=>{
+  if(myMarker){ stopLocating(); return; }
+  if(!navigator.geolocation){ toast(t('toast.noGeo')); return; }
+  locateBtn.classList.add('active');
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      const ll = [p.coords.latitude, p.coords.longitude];
+      if(myMarker) map.removeLayer(myMarker);
+      myMarker = L.marker(ll, {icon: myPositionIcon(), zIndexOffset: 1000}).addTo(map);
+      map.flyTo(ll, Math.max(map.getZoom(), 12), {duration:.6});
+    },
+    ()=>{ toast(t('toast.noGeoFail')); locateBtn.classList.remove('active'); },
+    {enableHighAccuracy:true}
+  );
+};
+
+function toast(msg){
+  const el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2600);
+}
+
+// ---------- boot ----------
+(async function boot(){
+  I.apply();
+  await checkSession();
+  await loadLaws();
+  await loadCategories();
+  await refreshReports();
+  refreshHealth();
+  setInterval(refreshReports, 15000);
+  setInterval(refreshHealth, 15000);
+})();
 </script>
 </body>
 </html>

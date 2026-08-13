@@ -217,9 +217,9 @@ _NOMINATIM = "https://nominatim.openstreetmap.org/search"
 _UA = "DxMap/1.0 (far-right monitoring prototype; contact: admin@example.com)"
 _last_nominatim_call = 0.0
 
-# Restrict runtime geocoding to Germany so stray place names elsewhere don't
-# pull marks off-focus. Set DXMAP_GEO_COUNTRY="" to disable the restriction.
-_GEO_COUNTRY = os.environ.get("DXMAP_GEO_COUNTRY", "de").strip()
+# Global by default. Set DXMAP_GEO_COUNTRY="de" (or any ISO country code)
+# to restrict Nominatim geocoding to one country if you want to narrow focus.
+_GEO_COUNTRY = os.environ.get("DXMAP_GEO_COUNTRY", "").strip()
 
 
 # Generous bounding box around German territory, used to keep the map focused.

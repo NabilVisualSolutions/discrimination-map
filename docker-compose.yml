@@ -7,8 +7,13 @@ services:
         required: false
     ports:
       - "127.0.0.1:8010:8010"
+    # Mounted at /app/data, NOT /app/backend — mounting the whole backend/
+    # dir previously shadowed every code file with whatever was in the
+    # volume at its creation, silently freezing the app on old code across
+    # every later image rebuild. Requires DXMAP_DB_PATH=/app/data/dxmap.db
+    # (and optionally DXMAP_IMPROVE_LOG=/app/data/improvements.log) in .env.
     volumes:
-      - dxmap-data:/app/backend
+      - dxmap-data:/app/data
 
 volumes:
   dxmap-data:

@@ -113,6 +113,19 @@ CATEGORIES: dict[str, dict[str, str]] = {
     "banned_org":         {"label": "Banned organization activity", "color": "#0EA695"},
     "assembly":           {"label": "Far-right assembly / march", "color": "#5B6B85"},
     "far_right_mention":  {"label": "Far-right context (needs review)", "color": "#495467"},
+
+    # Broader, global taxonomy — not tied to a specific statute, colors kept
+    # identical to outreach/landing-page.html's chipcloud and
+    # frontend/preview-light.html for consistency across the whole project.
+    "racism":                 {"label": "Racism", "color": "#FF5C5C"},
+    "islamophobia":           {"label": "Islamophobia", "color": "#FFA94D"},
+    "antisemitism":           {"label": "Antisemitism", "color": "#4DA6FF"},
+    "homophobia_transphobia": {"label": "Homophobia / transphobia", "color": "#B983FF"},
+    "neo_nazi":               {"label": "Neo-Nazi activity / signs", "color": "#C99400"},
+    "xenophobia":             {"label": "Xenophobia", "color": "#4CD97B"},
+    "sexual_violence":        {"label": "Sexual violence", "color": "#2BD9C9"},
+    "harassment":             {"label": "Harassment", "color": "#E8779E"},
+    "other":                  {"label": "Other", "color": "#8891A8"},
 }
 
 # Category label -> which statute it points at, plus a human "reason" phrase.

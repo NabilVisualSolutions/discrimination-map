@@ -8,18 +8,20 @@ self-check.
 from __future__ import annotations
 
 import asyncio
+import collections
 import os
-import secrets
 import time
 from contextlib import asynccontextmanager
+from typing import Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 import agent
+import auth
 import db
 import lawref
 import selfcheck
@@ -27,21 +29,6 @@ import selfcheck
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 ENV = os.environ.get("DXMAP_ENV", "dev")
 ALLOW_ORIGINS = os.environ.get("DXMAP_ALLOW_ORIGINS", "*").split(",")
-ADMIN_TOKEN = os.environ.get("DXMAP_ADMIN_TOKEN", "").strip()
-
-
-def require_admin(authorization: str = Header(default="")) -> None:
-    """
-    Single shared-secret bearer token — this is a one-operator moderation
-    tool, not a multi-user system, so a full auth stack would be overhead
-    without adding real security. Set DXMAP_ADMIN_TOKEN in the environment;
-    unset means admin routes are disabled entirely (fail closed, not open).
-    """
-    if not ADMIN_TOKEN:
-        raise HTTPException(status_code=503, detail="Admin not configured")
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not secrets.compare_digest(token, ADMIN_TOKEN):
-        raise HTTPException(status_code=401, detail="Unauthorized")
 
 # Background task handles, so we can cancel them cleanly on shutdown.
 _tasks: list[asyncio.Task] = []
@@ -49,8 +36,9 @@ _tasks: list[asyncio.Task] = []
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Init DB and start the heartbeat + self-check loops on boot."""
+    """Init DB, bootstrap the first admin, start the heartbeat + self-check loops."""
     db.init_db()
+    auth.bootstrap_admin()
     _tasks.append(asyncio.create_task(agent.heartbeat_loop()))
     _tasks.append(asyncio.create_task(selfcheck.selfcheck_loop()))
     try:
@@ -68,6 +56,44 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
+
+
+# Best-effort per-IP rate limiting on the public write endpoints (login,
+# report/apply/symbol-proposal submission) — in-memory, single-process,
+# not a substitute for WAF-level protection but cheap defense against
+# scripted spam/brute-force against a single-container deploy. Reads the
+# client IP from X-Forwarded-For (set by the Caddy reverse proxy in front
+# of this app) so it doesn't collapse every visitor onto the proxy's IP.
+_rate_buckets: dict[str, collections.deque] = collections.defaultdict(collections.deque)
+RATE_LIMITS = {
+    "/api/auth/login": (30, 60),
+    "/api/reports": (30, 60),
+    "/api/apply": (10, 60),
+    "/api/propose-symbol": (10, 60),
+}
+
+
+def _client_ip(request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+@app.middleware("http")
+async def rate_limit(request, call_next):
+    limits = RATE_LIMITS.get(request.url.path)
+    if request.method == "POST" and limits:
+        limit, window = limits
+        key = f"{_client_ip(request)}:{request.url.path}"
+        now = time.time()
+        bucket = _rate_buckets[key]
+        while bucket and now - bucket[0] > window:
+            bucket.popleft()
+        if len(bucket) >= limit:
+            return JSONResponse({"detail": "Too many requests, try again shortly"}, status_code=429)
+        bucket.append(now)
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -125,16 +151,48 @@ class UserReport(BaseModel):
 # API                                                                           #
 # --------------------------------------------------------------------------- #
 
+# Categories that never show a tight pin to the public, even once verified —
+# a sexual-violence or harassment report can re-identify someone from
+# location alone in a way "banned symbol graffiti" can't.
+SENSITIVE_CATEGORIES = {"sexual_violence", "harassment"}
+SENSITIVE_FUZZ_RADIUS_M = 5000
+DEFAULT_FUZZ_RADIUS_M = 500
+
+
 @app.get("/api/reports")
-def get_reports(limit: int = 500, all: bool = False):
-    """Return recent reports. By default only mapped (located) ones."""
+def get_reports(limit: int = 500, all: bool = False, user: dict | None = Depends(auth.get_current_user)):
+    """
+    Return recent reports. By default only mapped (located) ones.
+    Unverified reports get their coordinates fuzzed for anyone not logged
+    in as ADMIN/VERIFIER, so a single unconfirmed post can't pinpoint a real
+    address. Sensitive categories (sexual violence, harassment) are always
+    fuzzed at a wider radius for the public regardless of verification
+    status — logged-in moderators still see the real location to review it.
+    """
     limit = max(1, min(limit, 1000))
-    return {"reports": db.list_reports(limit=limit, located_only=not all)}
+    reports = db.list_reports(limit=limit, located_only=not all)
+    if user is None:
+        for r in reports:
+            if r["lat"] is None or r["lon"] is None:
+                continue
+            sensitive = r["category"] in SENSITIVE_CATEGORIES
+            if sensitive or r["status"] != "verified":
+                radius = SENSITIVE_FUZZ_RADIUS_M if sensitive else DEFAULT_FUZZ_RADIUS_M
+                r["lat"], r["lon"] = db.fuzz_coords(r["id"], r["lat"], r["lon"], radius_m=radius)
+                r["fuzzed"] = True
+    return {"reports": reports}
 
 
 @app.post("/api/reports", status_code=201)
 def post_report(report: UserReport):
-    """Store a user-filed report. Always located (client supplies coords)."""
+    """
+    Store a user-filed report. Always located (client supplies coords).
+    No `url` is ever set for a user submission (the free-text `evidence`
+    field isn't a verifiable source), so `db.insert_report` defaults its
+    status to 'pending' — held out of the public feed until an ADMIN/
+    VERIFIER reviews it. Automated agent-scraped reports (which always cite
+    a real source url) still publish immediately as 'unverified' leads.
+    """
     new_id = db.insert_report(
         source="user",
         external_id=f"user_{int(time.time()*1000)}",
@@ -145,49 +203,222 @@ def post_report(report: UserReport):
         evidence=report.evidence,
         law=report.law or None,
         impact=report.impact,
-        verified=False,           # user reports await moderation before "verified"
         lat=report.lat, lon=report.lon,
         place="user-reported",
     )
     if new_id is None:
         raise HTTPException(status_code=409, detail="Duplicate report")
-    return {"id": new_id, "status": "stored", "verified": False}
+    return {"id": new_id, "status": "pending"}
 
 
-class VerifyUpdate(BaseModel):
-    verified: bool
+class StatusUpdate(BaseModel):
+    status: Literal["pending", "unverified", "verified", "dismissed"]
 
 
 @app.get("/api/admin/reports")
 def admin_list_reports(
-    limit: int = 100, offset: int = 0, verified: bool | None = None,
-    _: None = Depends(require_admin),
+    limit: int = 100, offset: int = 0, status: str | None = None,
+    _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
 ):
-    """Every report, located or not, for the moderation queue."""
+    """Every report, located or not, for the moderation queue. Open to both roles."""
     limit = max(1, min(limit, 500))
-    return db.list_reports_admin(limit=limit, offset=offset, verified=verified)
+    return db.list_reports_admin(limit=limit, offset=offset, status=status)
 
 
 @app.patch("/api/admin/reports/{report_id}")
-def admin_verify_report(report_id: int, body: VerifyUpdate, _: None = Depends(require_admin)):
-    """Mark a report verified (or revert it) after human review."""
-    if not db.set_verified(report_id, body.verified):
+def admin_set_report_status(
+    report_id: int, body: StatusUpdate,
+    _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+):
+    """Verify or dismiss a report after human review. Open to both roles."""
+    if not db.set_status(report_id, body.status):
         raise HTTPException(status_code=404, detail="Report not found")
-    return {"id": report_id, "verified": body.verified}
+    return {"id": report_id, "status": body.status}
 
 
 @app.delete("/api/admin/reports/{report_id}")
-def admin_delete_report(report_id: int, _: None = Depends(require_admin)):
-    """Remove a report — spam, false positive, or a takedown request."""
+def admin_delete_report(report_id: int, _: dict = Depends(auth.require_role("ADMIN"))):
+    """Permanently remove a report — ADMIN only (VERIFIER should dismiss instead)."""
     if not db.delete_report(report_id):
         raise HTTPException(status_code=404, detail="Report not found")
     return {"id": report_id, "status": "deleted"}
 
 
 @app.get("/api/admin/duplicates")
-def admin_find_duplicates(_: None = Depends(require_admin)):
+def admin_find_duplicates(_: dict = Depends(auth.require_role("ADMIN", "VERIFIER"))):
     """Reports sharing a url with an earlier row — candidates for cleanup."""
     return {"duplicates": db.find_url_duplicates()}
+
+
+# --------------------------------------------------------------------------- #
+# Auth                                                                          #
+# --------------------------------------------------------------------------- #
+
+class LoginBody(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=200)
+
+
+@app.post("/api/auth/login")
+def login(body: LoginBody, response: Response):
+    user = db.get_user_by_email(body.email)
+    if not user or not db.verify_password(body.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Wrong email or password")
+    token = db.create_session(user["id"])
+    auth.set_session_cookie(response, token)
+    return {"email": user["email"], "role": user["role"]}
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response, dxmap_session: str = Cookie(default=None)):
+    if dxmap_session:
+        db.delete_session(dxmap_session)
+    auth.clear_session_cookie(response)
+    return {"status": "logged out"}
+
+
+@app.get("/api/auth/me")
+def me(user: dict = Depends(auth.require_user)):
+    full = db.get_user_by_id(user["id"])
+    return {"email": user["email"], "role": user["role"], "provider": full["provider"] if full else "email"}
+
+
+# Public self-registration and Google sign-in were removed: applications now
+# go through nabilvs.com's own form (email verification + Cloudflare
+# Turnstile there), and an ADMIN invites reviewers directly via
+# /api/admin/users below. Only /admin has a login at all.
+
+
+# --------------------------------------------------------------------------- #
+# User / role management — ADMIN only                                          #
+# --------------------------------------------------------------------------- #
+
+class NewUserBody(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=200)
+    role: Literal["NONE", "VERIFIER", "ADMIN"]
+
+
+class RoleUpdate(BaseModel):
+    role: Literal["NONE", "VERIFIER", "ADMIN"]
+
+
+@app.get("/api/admin/users")
+def admin_list_users(_: dict = Depends(auth.require_role("ADMIN"))):
+    return {"users": db.list_users()}
+
+
+@app.post("/api/admin/users", status_code=201)
+def admin_create_user(body: NewUserBody, _: dict = Depends(auth.require_role("ADMIN"))):
+    """Invite a new user and assign their role (this is how VERIFIER access is granted)."""
+    new_id = db.create_user(body.email, body.password, body.role)
+    if new_id is None:
+        raise HTTPException(status_code=409, detail="Email already has an account")
+    return {"id": new_id, "email": body.email, "role": body.role}
+
+
+@app.patch("/api/admin/users/{user_id}")
+def admin_update_user_role(
+    user_id: int, body: RoleUpdate, current: dict = Depends(auth.require_role("ADMIN")),
+):
+    if user_id == current["id"] and body.role != "ADMIN":
+        raise HTTPException(status_code=400, detail="Cannot demote your own account")
+    if not db.update_user_role(user_id, body.role):
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"id": user_id, "role": body.role}
+
+
+@app.delete("/api/admin/users/{user_id}")
+def admin_delete_user(user_id: int, current: dict = Depends(auth.require_role("ADMIN"))):
+    if user_id == current["id"]:
+        raise HTTPException(status_code=400, detail="Cannot remove your own account")
+    target = db.get_user_by_id(user_id)
+    if target and target["role"] == "ADMIN" and db.count_users(role="ADMIN") <= 1:
+        raise HTTPException(status_code=400, detail="Cannot remove the last admin")
+    if not db.delete_user(user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"id": user_id, "status": "deleted"}
+
+
+# --------------------------------------------------------------------------- #
+# Applications — the public "Get involved" tab                                 #
+# --------------------------------------------------------------------------- #
+
+class ApplicationBody(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    email: EmailStr
+    interest: Literal["volunteer", "translator", "coder", "organization", "other"]
+    message: str = Field(default="", max_length=2000)
+
+
+@app.post("/api/apply", status_code=201)
+def apply(body: ApplicationBody):
+    """Public — volunteer/translator/coder/organization applications, reviewed from /admin."""
+    new_id = db.create_application(
+        name=body.name, email=body.email, interest=body.interest, message=body.message,
+    )
+    return {"id": new_id, "status": "received"}
+
+
+class SymbolProposalBody(BaseModel):
+    """
+    Someone spotted a possible symbol/code/gesture that isn't in the
+    awareness guide yet. Deliberately not tied to the strict `EmailStr`
+    validator the rest of the app uses — this is meant to work without an
+    account or even a real address, so email is just a loosely-checked,
+    optional contact hint rather than a verified identity.
+    """
+    description: str = Field(min_length=5, max_length=1000)
+    context: str = Field(default="", max_length=300)
+    email: str = Field(default="", max_length=200)
+
+    @field_validator("email")
+    @classmethod
+    def _loose_email_shape(cls, v: str) -> str:
+        v = v.strip()
+        if v and "@" not in v:
+            raise ValueError("doesn't look like an email address")
+        return v
+
+
+@app.post("/api/propose-symbol", status_code=201)
+def propose_symbol(body: SymbolProposalBody):
+    """
+    Public — reuses the applications table (interest='other', message
+    tagged) so a proposed symbol lands in the same /admin review queue as
+    volunteer applications, without needing a new table or migration.
+    """
+    message = f"[SYMBOL PROPOSAL] {body.description}"
+    if body.context:
+        message += f"\nContext: {body.context}"
+    new_id = db.create_application(
+        name="(symbol proposal)",
+        email=body.email or "no-reply@dxmap.local",
+        interest="other",
+        message=message,
+    )
+    return {"id": new_id, "status": "received"}
+
+
+@app.get("/api/admin/applications")
+def admin_list_applications(
+    status: str | None = None, _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+):
+    return {"applications": db.list_applications(status=status)}
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status: Literal["new", "contacted", "closed"]
+
+
+@app.patch("/api/admin/applications/{app_id}")
+def admin_set_application_status(
+    app_id: int, body: ApplicationStatusUpdate,
+    _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+):
+    if not db.set_application_status(app_id, body.status):
+        raise HTTPException(status_code=404, detail="Application not found")
+    return {"id": app_id, "status": body.status}
 
 
 @app.get("/api/laws")
@@ -241,6 +472,15 @@ def awareness_page():
     path = os.path.join(FRONTEND_DIR, "awareness.html")
     if not os.path.exists(path):
         return JSONResponse({"error": "awareness page not built"}, status_code=500)
+    return FileResponse(path)
+
+
+@app.get("/guide")
+def guide_page():
+    """Serve the public volunteer guide — public on purpose, same as /awareness."""
+    path = os.path.join(FRONTEND_DIR, "guide.html")
+    if not os.path.exists(path):
+        return JSONResponse({"error": "guide page not built"}, status_code=500)
     return FileResponse(path)
 
 

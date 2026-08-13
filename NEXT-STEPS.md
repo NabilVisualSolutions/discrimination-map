@@ -1,226 +1,230 @@
-# Next Steps: From Mockup to Real Discrimination Map
+# Next Steps: broaden Discrimination Map from the Germany prototype to the full vision
 
-This picks up where `frontend/discrimination-map-mockup.html` leaves off —
-that file is a **static preview with sample data**, not wired to the backend.
-Work through this checklist on dragon, in order; each step builds on the last.
+**Read this first if you're picking this up on dragon.** This file replaces
+the previous version (which predates everything below — auth, roles, i18n,
+Docker deploy). If anything here contradicts the live code, the code wins;
+update this file in the same session.
 
-**Scope assumption to confirm first:** this roadmap assumes you're expanding
-from the Germany-only build to a **global** map. If you actually want to
-keep it Germany-only for now and go global later, skip step 4 (geo-restriction
-removal) and step 6 (multi-region legal packs) — everything else still applies.
-
----
-
-## 0. Before writing code: decide the sensitive-data policy
-
-This isn't optional groundwork — it shapes the schema in step 1. Decide, and
-write down in `PLAN.md`:
-
-- **Does the `sexual` (rape/assault) category go live automatically, or does
-  it require human moderation before appearing on the public map?**
-  Recommendation: require moderation for this category specifically, even if
-  other categories can stay auto-visible as unverified leads. The cost of a
-  false/malicious report in this category is much higher than for, say,
-  "harassment."
-- **Location precision by category.** Decide a default fuzz radius (e.g.
-  round to ~5–10km / nearest town centroid) for `sexual` and `harassment`
-  categories specifically, applied server-side, not just as a client checkbox
-  (the mockup's checkbox is a UI placeholder — see step 3).
-- **Retention/appeals.** Who can request a report be removed, and how? Even
-  a simple "email us and we'll review within N days" is better than nothing.
-
-Write these decisions down before step 1, so the schema doesn't need a
-rewrite later.
-
-### 0.1 Data stays out of git — code doesn't
-
-Already set up in the mockup, and worth keeping as a hard rule going forward:
-`frontend/data/` is gitignored (see `.gitignore`). `sample-incidents.js`
-in that directory holds seed/real incident data and is **not** committed —
-only the loading/rendering code that reads it is. Extend this same pattern
-to the real backend:
-- `backend/dxmap.db` is already gitignored (was from the Germany build).
-- If you ever add data exports, backups, or a moderation-queue dump to disk
-  for debugging, put them under a gitignored path too — `backend/data/` or
-  similar — never alongside the tracked source files.
-- When onboarding a new contributor or moderator, they get the *code* from
-  git and the *data* through a separate, access-controlled channel (a
-  shared drive, a database dump handed over directly, etc.) — never a
-  git clone.
+**Where things actually stand (2026-08-12):**
+- Live at `https://map.nabilvs.com`, deployed via Docker on the shared VPS
+  (`ssh dxmap-vps`, `/docker/dxmap`, `docker compose build && up -d` — NOT
+  the old systemd/Nginx path some older docs describe).
+- `backend/`: FastAPI + SQLite (WAL). `reports` table has `status`
+  (`unverified` / `verified` / `dismissed`, NOT the `moderation` enum an
+  older version of this doc proposed). `users` + `sessions` tables give
+  two roles — `ADMIN` (full control incl. user management) and `VERIFIER`
+  (can verify/dismiss reports). Coordinates for non-verified reports are
+  fuzzed ~500m server-side for anyone not logged in (`db.fuzz_coords`).
+- `frontend/index.html` + `admin.html`: mobile-first, bottom nav
+  (Map/Incidents/Verify/Reports), timeline slider, incident detail sheet,
+  i18n (en/de/fr/ar, RTL for ar) via `frontend/i18n.js`. **Currently dark
+  theme — needs to switch to light, see step 1.**
+- `frontend/preview-light.html` (new, 2026-08-12): a **static, sample-data
+  preview** of the light theme + full discrimination taxonomy + 10-year
+  fade + persistent report button. This is the visual target for step 1 —
+  open it in a browser, that's the look to carry into `index.html`. It is
+  NOT wired to the API and should stay that way until it's merged into the
+  real frontend (don't deploy it as-is).
+- `backend/lawref.py` CATEGORIES is still the old Germany/far-right-only
+  set (arson, violence, threat, banned_symbol, holocaust_denial,
+  incitement, propaganda, banned_org, assembly, far_right_mention), each
+  tied to a specific StGB statute. The broader taxonomy (racism,
+  islamophobia, antisemitism, homophobia/transphobia, xenophobia, Neo-Nazi
+  signs/attacks, sexual violence, harassment, other) does **not exist in
+  the backend yet** — only in the outreach copy and the new static preview.
+- `outreach/landing-page.html` and `outreach/PITCH-SCRIPT.md` already
+  describe the full taxonomy, the 10-year fade, and the safety principles
+  accurately — they were written ahead of the code. Use them as the source
+  of truth for wording; don't rewrite them unless the plan changes.
 
 ---
 
-## 1. Update the database schema (`backend/db.py`)
+## 0. Before writing code: the sensitive-category legal gate
 
-Generalize `reports` beyond the Germany-specific shape:
+Not optional groundwork — it changes the schema in step 3. Decide, and
+write the decision into this file (not just your head) before touching
+`sexual_violence` or `harassment`:
 
-```sql
--- Replace the old `law` column's assumption (single German statute) with:
-category      TEXT NOT NULL,        -- one of the CATEGORIES keys (see step 2)
-approx_loc    INTEGER DEFAULT 0,    -- 1 if lat/lon were fuzzed before storage
-moderation    TEXT DEFAULT 'auto',  -- 'auto' | 'pending' | 'approved' | 'rejected'
+- **Sexual violence / harassment reports must not go straight to the
+  public map.** Recommendation: a new status value, `pending`, default
+  for these two categories only. Extend `db.list_reports`'s public query
+  from `WHERE status != 'dismissed'` to
+  `WHERE status NOT IN ('dismissed', 'pending')`. An ADMIN/VERIFIER
+  promotes `pending → unverified` (or straight to `verified`) after
+  review, using the same `/api/admin/reports/{id}` PATCH endpoint that
+  already exists — no new endpoint needed, just a new allowed status value
+  and a queue view that includes `pending`.
+- **This is GDPR Art. 9 special-category data** (health/sex-life-adjacent).
+  If you're taking this beyond a personal prototype, get an actual legal
+  read before public launch — this file is not legal advice, and neither
+  is the honest hedging already in `outreach/PITCH-SCRIPT.md`.
+- **Location precision.** `db.fuzz_coords(report_id, lat, lon, radius_m)`
+  already exists and defaults to 500m for any non-verified report. For
+  `sexual_violence`/`harassment` specifically, widen the default radius
+  (e.g. 5–10km) regardless of verification status — these should never
+  show a tight pin even once verified. Simplest change: add a
+  per-category radius lookup in `app.py`'s `get_reports()` instead of the
+  current flat `500`.
+- **Retention/appeals.** Decide who can request a report be taken down and
+  how (even "email the admin, reviewed within N days" is enough to start)
+  and put a line about it on the awareness/about page.
+
+---
+
+## 1. Light mode (do this first — it's the most visible gap right now)
+
+`frontend/preview-light.html` already has the exact palette to use. Port
+these CSS custom-property values into `frontend/index.html` and
+`admin.html`, replacing the current dark tokens:
+
+```css
+--bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
+--line:#dbe3ee; --line-soft:#e8eef6;
+--ink:#0b1326; --muted:#5b6b85; --faint:#8a97ac;
+--accent:#0088cc; --danger:#D6363F; --ok:#1F9B54; --warn:#B8720B;
 ```
 
-Keep `reason`, `evidence`, `impact`, `status`, `lat`, `lon`, `place`,
-`created_at` as-is — they're category-agnostic and already correct.
+Also swap the Leaflet tile layer back from `dark_all` to `light_all`
+(`https://{s}.basemaps.cartocdn.com/light_all/...`) and the `.mk.faded`
+filter direction (fading should brighten/desaturate toward the light
+background, not darken — see the comment that used to be in the very
+first version of `index.html`, in git history around commit `59f6374`,
+for the exact reasoning if you need it again).
 
-Add a migration note to `README.md` since existing deployments have the old
-schema (SQLite: `ALTER TABLE reports ADD COLUMN ...` for each new column,
-guarded with a `try/except` so re-running `init_db()` stays idempotent, same
-pattern as the existing `_SCHEMA` script).
+Keep everything else from the current build — bottom nav, rail, timeline,
+sheet, i18n wiring, role gating. This is a token swap, not a rebuild.
 
-## 2. Create `backend/categories.py`
+## 2. Make the "Report" button always reachable, independent of tab/filter
 
-Port the `CATEGORIES` array straight out of the mockup's `<script>` block —
-it's already the source of truth for keys, labels, and colors:
+`preview-light.html` already does this — the FAB is a fixed, global
+element (`position:absolute` outside `.floatbar`), not scoped to the Map
+tab. Port that structure into `index.html`: currently the fab lives
+inside `#mapFloatbar`, which is hidden on the Incidents/Verify/Reports
+tabs (`setTab()` sets `display:none` on it). Pull the `<button class="fab"
+id="fab">` out of `#mapFloatbar` to a standalone fixed element so it
+survives every tab switch, same as `#quickExit` already does.
+
+## 3. Expand the taxonomy in the backend
+
+`reports.category` is already a free-text `TEXT` column with no CHECK
+constraint — **adding new category values needs zero schema migration.**
+The work is all in `backend/lawref.py`:
 
 ```python
-CATEGORIES = {
-    "racism":       {"label": "Racism", "color": "#FF5C5C"},
-    "islamophobia": {"label": "Islamophobia", "color": "#FFA94D"},
-    "antisemitism": {"label": "Antisemitism", "color": "#4DA6FF"},
-    "homophobia":   {"label": "Homophobia / transphobia", "color": "#B983FF"},
-    "neonazi":      {"label": "Neo-Nazi attack or symbol", "color": "#FFD23F"},
-    "xenophobia":   {"label": "Xenophobia / anti-migrant", "color": "#4CD97B"},
-    "sexual":       {"label": "Rape / sexual assault", "color": "#2BD9C9",
-                      "requires_moderation": True, "fuzz_km": 10},
-    "harassment":   {"label": "Harassment", "color": "#E8779E", "fuzz_km": 5},
-    "other":        {"label": "Other discrimination", "color": "#8891A8"},
+CATEGORIES: dict[str, dict[str, str]] = {
+    # existing Germany/StGB-specific ones stay — they're good, keep them
+    "arson": {...}, "violence": {...}, ...,  # unchanged
+
+    # new, broader taxonomy — colors already chosen, keep them identical
+    # to outreach/landing-page.html's chipcloud and preview-light.html
+    "racism":                  {"label": "Racism", "color": "#FF5C5C"},
+    "islamophobia":            {"label": "Islamophobia", "color": "#FFA94D"},
+    "antisemitism":            {"label": "Antisemitism", "color": "#4DA6FF"},
+    "homophobia_transphobia":  {"label": "Homophobia / transphobia", "color": "#B983FF"},
+    "neo_nazi":                {"label": "Neo-Nazi activity / signs", "color": "#C99400"},
+    "xenophobia":              {"label": "Xenophobia", "color": "#4CD97B"},
+    "sexual_violence":         {"label": "Sexual violence", "color": "#2BD9C9"},
+    "harassment":              {"label": "Harassment", "color": "#E8779E"},
+    "other":                   {"label": "Other", "color": "#8891A8"},
 }
 ```
 
-Add a `GET /api/categories` endpoint in `app.py` that returns this dict —
-mirrors the existing `/api/laws` pattern, and lets the real frontend build
-its filter list from the backend instead of hardcoding it twice.
+Decide whether the existing far-right/StGB categories become a *subset*
+selectable only when `law` is set, or stay fully parallel/independent —
+simplest for now: keep them parallel, both show in the filter list. Revisit
+if it's confusing in practice.
 
-## 3. Server-side location fuzzing
+Extend `_INDICATORS` (the regex classifier) with English-language patterns
+for the new categories — it's currently German-only because the prototype
+was Germany-only. Don't try to cover every language on day one; start with
+English + German for 2–3 new categories, confirm signal quality, expand.
 
-This is the one item that must not stay client-side-only. In
-`db.insert_report`, before storing:
+## 4. Wire `/api/reports` to accept `as_of` (year cutoff) server-side
 
-```python
-def fuzz_coordinates(lat: float, lon: float, km: float) -> tuple[float, float]:
-    """Round to a grid cell roughly `km` wide. Deterministic, not random —
-    keeps repeat reports from the same area clustering sensibly."""
-    deg = km / 111.0  # ~111km per degree latitude, close enough for fuzzing
-    return (round(lat / deg) * deg, round(lon / deg) * deg)
+Currently the timeline filtering in `index.html` is entirely client-side
+(`timelineCutoff` + `withinTimeline()` over an already-fetched `limit=1000`
+batch). That's fine while the total row count is in the low thousands —
+revisit if it grows past what's comfortable to ship on every page load.
+Not urgent; the client-side approach in both `index.html` and
+`preview-light.html` already matches what step 7 of the old plan asked
+for, functionally. Lower priority than steps 1–3.
+
+## 5. 10-year fade (small, do alongside step 1)
+
+`index.html` currently has `const FADE_DAYS = 30;` — a leftover from the
+Germany prototype's "recent activity" framing, not the intended "history
+isn't deleted, just fades after a decade" behavior. Change to:
+
+```js
+const FADE_SECONDS = 10 * 365 * 24 * 3600;
+// and switch the age check from days to seconds accordingly
 ```
 
-Apply it automatically for any category with a `fuzz_km` entry (see step 2),
-regardless of what a client sends — never trust the client to have applied
-it. Store `approx_loc=1` on the row so the UI can show a "location
-approximated" note honestly.
+`preview-light.html` already has this correct — copy the constant and the
+`ageSeconds >= FADE_SECONDS` check straight over.
 
-## 4. Generalize `geolocate.py` (drop the hard Germany gate)
+## 6. i18n for the new categories
 
-Replace the hardcoded `_DE_BOX` bounding-box gate with a configurable
-allow-list:
+`frontend/i18n.js` has `cat.*` keys for the old 10 Germany categories in
+all 4 languages. Add `cat.racism`, `cat.islamophobia`, `cat.antisemitism`,
+`cat.homophobia_transphobia`, `cat.neo_nazi`, `cat.xenophobia`,
+`cat.sexual_violence`, `cat.harassment` (en/de/fr/ar) — the outreach page's
+English labels are a fine starting point for `en`; get real translations
+for the other three before shipping, same bar as the rest of the site.
 
-```python
-ALLOWED_REGIONS = os.environ.get("DXMAP_REGIONS", "").strip()  # "" = no restriction, global
-```
+## 7. Geography — separate decision, don't couple to the taxonomy expansion
 
-Keep the gazetteer, but expand it well beyond German cities — or better,
-switch fully to Nominatim for anything the gazetteer misses (already wired
-up) and treat the gazetteer as a fast-path cache, not the primary source.
+`backend/geolocate.py` still hard-gates to Germany (`in_germany()`
+bounding box, Nominatim `countrycodes=de`). The new taxonomy categories
+aren't Germany-specific in nature, but going global is a bigger decision
+(more moderation load, more languages, more legal jurisdictions for the
+`law`/statute feature). Recommendation: ship the taxonomy expansion
+Germany-only first, decide geography expansion as its own follow-up once
+the category work is live and you've seen real usage.
 
-## 5. Update `agent.py` search terms for multi-category, multi-language
-
-The current `SEARCH_TERMS` list is German-far-right-specific. Restructure as
-a dict keyed by category, each with terms in relevant languages:
-
-```python
-CATEGORY_TERMS = {
-    "islamophobia": ["mosque attack", "hijab harassment", "Islamophobie"],
-    "antisemitism": ["antisemitic attack", "synagogue vandalized", "Antisemitismus"],
-    # ...
-}
-```
-
-Start with 2–3 categories and a couple of languages, confirm the classifier
-(step 6) isn't producing noise, then expand. Scanning every category in every
-language from day one will both blow through your heartbeat budget and
-produce a lot of false positives to review.
-
-## 6. Turn `lawref.py` into a pluggable regional legal-reference system
-
-Don't delete the German statute work — it's good and specific. Instead:
-
-```
-backend/
-  legal/
-    __init__.py       # generic interface: classify(text) -> category + optional law_ref
-    germany.py         # move the existing lawref.py content here unchanged
-    # add more later: france.py, uk.py, us_federal.py, ...
-```
-
-The generic classifier (step 2's categories) runs everywhere; a regional pack
-like `germany.py` *additionally* tags a possibly-applicable statute when the
-report's location falls in that region. This is how you keep the excellent
-German legal detail without hardcoding it as the only legal system the whole
-app understands.
-
-## 7. Wire the timeline into the API
-
-Add an `as_of` query param to `GET /api/reports`:
-
-```python
-@app.get("/api/reports")
-def get_reports(limit: int = 500, all: bool = False, as_of: int | None = None):
-    # as_of = a year; filter to created_at <= end of that year
-```
-
-Keep the fade computation client-side (it's cheap and already correct in the
-mockup) — the API just needs to stop returning future-dated reports relative
-to `as_of`.
-
-## 8. Moderation queue for the `sexual` category (and anything else you flagged in step 0)
-
-Simplest version that's still real: reports in `moderation='pending'` are
-excluded from the public `/api/reports` response by default; add an
-authenticated `/api/moderation/queue` + `/api/moderation/{id}/approve|reject`
-pair, gated behind HTTP basic auth or a simple token to start (upgrade later).
-Don't ship the sensitive category publicly without this — see step 0.
-
-## 9. Bring the real frontend up to the mockup's UX
-
-Port the mockup's rail/timeline/fab/resources markup into `frontend/index.html`,
-replacing the sample `SAMPLE` array with real `fetch('/api/reports?as_of=...')`
-calls, and `fetch('/api/categories')` for the filter list instead of the
-hardcoded `CATEGORIES` array. Keep the quick-exit button and resources panel
-— they're not decorative, carry them over exactly.
-
-## 10. Localize the resources panel
-
-The mockup's resources modal is explicitly placeholder content. Before any
-public deployment, replace it with real, current, region-appropriate
-resources — and if you deploy to multiple regions/languages, key the content
-off the visitor's locale or a manual region switcher.
-
-## 11. Tests
+## 8. Tests
 
 Extend `tests/test_api.py`:
-- Fuzzing: assert a `sexual`-category report never returns exact submitted
-  coordinates.
-- Moderation: assert a pending `sexual` report doesn't appear in
-  `GET /api/reports` until approved.
-- Timeline: assert `as_of=2015` excludes later reports.
-- Categories: assert `/api/categories` returns all expected keys.
+- A `pending`-status report (once step 0's gate exists) is excluded from
+  `GET /api/reports` for both anonymous and logged-in-but-not-ADMIN users.
+- Widened fuzz radius for `sexual_violence`/`harassment` even once
+  `verified` (once step 0's per-category radius exists).
+- New categories appear in `GET /api/categories`.
 
-## 12. Deploy
+## 9. Deploy
 
-No changes needed to `deploy/` — same systemd/Nginx setup. Just re-run
-`git pull && systemctl restart dxmap` on the VPS per
-`DEVELOPMENT-WORKFLOW.md` once steps 1–11 are tested locally on dragon.
+Same pipeline as every deploy so far — no new mechanics needed:
+
+```bash
+rsync -az --delete --exclude .git --exclude venv --exclude .pytest_cache \
+  --exclude '__pycache__' --exclude 'backend/dxmap.db*' --exclude '.env' \
+  /home/nabil/projects/dxmap/ dxmap-vps:/docker/dxmap/
+ssh dxmap-vps "cd /docker/dxmap && docker compose build --no-cache && docker compose up -d"
+```
+
+**Use `--no-cache`.** A plain `docker compose build` bit us once already
+this cycle (BuildKit reused a stale `COPY backend/` layer despite changed
+source — root cause not fully diagnosed, `--no-cache` is the confirmed
+reliable workaround, costs ~15s). Back up `dxmap.db` first:
+`docker exec dxmap-map-1 cp /app/data/dxmap.db /app/data/dxmap.db.bak-$(date +%Y%m%d)`.
 
 ---
 
-## Suggested order to tackle this in Claude Code sessions
+## Suggested order for dragon sessions
 
-1. Steps 0–2 (one session): policy decisions + schema + categories module.
-2. Step 3 (one session): fuzzing, with tests written first.
-3. Steps 4–6 (one or two sessions): geo + terms + legal-pack refactor.
-4. Steps 7–9 (one session): API + frontend wiring.
-5. Step 8 revisited + step 10 (one session): moderation + real resources.
-6. Step 11 throughout, not saved for the end — add tests in the same session
-   as the feature per `DEVELOPMENT-WORKFLOW.md`'s Tier 1 workflow.
+1. **Step 1 + 2 + 5** (one session, low risk, no schema/backend changes):
+   light theme + persistent report button + 10-year fade. Ship this first —
+   it's the most visible gap and touches only `frontend/`.
+2. **Step 0 + 3** (one session): sensitive-category gate + taxonomy in
+   `lawref.py`. Write the `pending` status handling with tests before
+   wiring the frontend to it.
+3. **Step 6** (can run parallel to step 3 once category keys are decided):
+   i18n for new categories, all 4 languages.
+4. **Step 4 + 8** (one session): server-side timeline param + full test
+   coverage for everything shipped so far.
+5. **Step 7** (separate session, only if/when you decide to go global):
+   geography expansion.
+
+Deploy (step 9) after each session that touches `backend/` or `frontend/`
+— don't batch multiple sessions' changes into one deploy, keeps rollback
+easier if something's wrong.

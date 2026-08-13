@@ -10,179 +10,411 @@
   :root{
     --bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
     --line:#dbe3ee; --line-soft:#e8eef6;
-    --ink:#0b1326; --muted:#5b6b85; --faint:#8a97ac;
-    --accent:#0088cc; --danger:#D6363F; --ok:#1F9B54;
+    --ink:#0b1326; --muted:#5b6b85; --faint:#656F7E;
+    --accent:#0074AE; --danger:#CC343C; --ok:#197E44; --warn:#9C6109;
     --disp:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
   }
   *{box-sizing:border-box}
+  :focus-visible{outline:2px solid var(--user, var(--accent));outline-offset:2px}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--disp);font-size:14px}
-  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 80px}
-  h1{font-size:22px;margin:0 0 4px}
-  .sub{color:var(--muted);font-size:13px;margin:0 0 24px}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:20px;margin:0 0 4px}
+  h2{font-size:16px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px;line-height:1.5}
   a{color:var(--accent)}
+  .topline{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  select,input,button{font-family:var(--disp)}
 
   #gate{max-width:360px;margin:80px auto;background:var(--panel);border:1px solid var(--line);
-    border-radius:12px;padding:28px}
+    border-radius:12px;padding:28px;box-shadow:0 4px 18px rgba(20,30,50,.08)}
   #gate h2{margin:0 0 14px;font-size:17px}
-  #gate input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
-    font-family:var(--mono);font-size:13px;margin-bottom:12px}
+  #gate label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint);margin:10px 0 6px}
+  #gate input{width:100%;padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;font-size:13.5px}
   #gate button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;
-    border-radius:8px;font-weight:600;cursor:pointer;font-size:14px}
-  #gate .err{color:var(--danger);font-size:12.5px;margin-top:8px;display:none}
+    border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-top:16px}
+  #gate .err{color:var(--danger);font-size:12.5px;margin-top:10px;display:none}
 
   #app{display:none}
-  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
-  .toolbar select,.toolbar button{padding:8px 12px;border:1px solid var(--line);
-    border-radius:8px;background:var(--panel);font-family:var(--disp);font-size:13px;cursor:pointer}
-  .toolbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .section{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;margin-bottom:22px}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .toolbar select,.toolbar button{padding:8px 12px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel-2);color:var(--ink);font-size:13px;cursor:pointer}
+  .toolbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
   .toolbar .spacer{flex:1}
   .toolbar .count{color:var(--muted);font-size:13px}
 
-  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);
+  table{width:100%;border-collapse:collapse;background:var(--panel-2);border:1px solid var(--line-soft);
     border-radius:10px;overflow:hidden}
-  th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
-    padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+    padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+  html[dir=rtl] th{text-align:right}
   td{padding:10px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top;font-size:13px}
   tr:last-child td{border-bottom:none}
+  tr.pending-row{background:rgba(184,114,11,.05)}
   .title{font-weight:600;max-width:340px}
   .meta{color:var(--muted);font-size:11.5px;font-family:var(--mono)}
   .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700}
-  .badge.verified{background:rgba(31,155,84,.12);color:var(--ok)}
-  .badge.pending{background:var(--panel-2);color:var(--muted)}
+  .badge.verified{background:rgba(31,155,84,.13);color:var(--ok)}
+  .badge.unverified{background:var(--panel);color:var(--muted);border:1px solid var(--line)}
+  .badge.pending{background:rgba(184,114,11,.13);color:var(--warn)}
+  .badge.dismissed{background:rgba(214,54,63,.12);color:var(--danger)}
+  .badge.none{background:rgba(184,114,11,.13);color:var(--warn)}
   .rowbtn{padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);
-    font-size:11.5px;cursor:pointer;margin-right:5px}
+    color:var(--ink);font-size:11.5px;cursor:pointer;margin:2px 4px 2px 0}
+  html[dir=rtl] .rowbtn{margin:2px 0 2px 4px}
   .rowbtn.danger{color:var(--danger);border-color:rgba(214,54,63,.3)}
   .rowbtn.ok{color:var(--ok);border-color:rgba(31,155,84,.3)}
   .empty{padding:40px;text-align:center;color:var(--muted)}
   .pager{display:flex;gap:10px;justify-content:center;margin-top:16px}
+
+  .invite{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+  .invite .f{flex:1;min-width:160px}
+  .invite label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .invite input,.invite select{width:100%;padding:9px 11px;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;font-size:13px}
+  .invite button{padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+    font-weight:700;cursor:pointer;height:38px}
+  .langbar{display:flex;gap:6px;justify-content:flex-end;margin-bottom:10px}
+  .langbar button{padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);
+    color:var(--muted);font-size:11.5px;cursor:pointer}
+  .langbar button.active{color:var(--accent);border-color:var(--accent)}
 </style>
 </head>
 <body>
 
+<div class="wrap" style="max-width:1000px;padding-top:14px">
+  <div class="langbar" id="langBar"></div>
+</div>
+
 <div id="gate">
-  <h2>Admin login</h2>
-  <input id="tokenInput" type="password" placeholder="Admin token" autocomplete="off" />
-  <button id="loginBtn">Enter</button>
-  <div class="err" id="gateErr">Wrong token, or admin isn't configured on the server.</div>
+  <h2 data-i18n="admin.gateTitle">Admin login</h2>
+  <label for="gEmail" data-i18n="login.email">Email</label>
+  <input id="gEmail" type="email" autocomplete="username" />
+  <label for="gPassword" data-i18n="login.password">Password</label>
+  <input id="gPassword" type="password" autocomplete="current-password" />
+  <button id="loginBtn" data-i18n="login.submit">Log in</button>
+  <div class="err" id="gateErr" data-i18n="login.error">Wrong email or password.</div>
 </div>
 
 <div id="app">
   <div class="wrap">
-    <h1>Moderation queue</h1>
-    <p class="sub">Reports are unverified leads by default — mark verified after a human
-      confirms it, or delete spam and false positives. <a href="/awareness">Awareness guide</a> ·
-      <a href="/">Back to the map</a></p>
+    <div class="topline">
+      <h1 data-i18n="admin.moderationTitle">Moderation queue</h1>
+      <span class="meta" id="whoami"></span>
+    </div>
+    <p class="sub">
+      <span data-i18n="admin.moderationSub">Reports are unverified leads by default — verify after a human confirms it, or dismiss spam and false positives.</span>
+      · <a href="/awareness" data-i18n="footer.awareness">Awareness guide</a>
+      · <a href="/" data-i18n="admin.backToMap">Back to the map</a>
+      · <a href="#" id="logout" data-i18n="login.logout">Log out</a>
+    </p>
 
-    <div class="toolbar">
-      <select id="filterVerified">
-        <option value="">All reports</option>
-        <option value="false">Unverified only</option>
-        <option value="true">Verified only</option>
-      </select>
-      <button id="findDupes">Find duplicates</button>
-      <div class="spacer"></div>
-      <span class="count" id="countLabel"></span>
-      <button id="logout">Log out</button>
+    <div class="section">
+      <div class="toolbar">
+        <select id="filterStatus">
+          <option value="" data-i18n="admin.allReports">All reports</option>
+          <option value="pending" data-i18n="admin.pendingOnly">Pending (awaiting review) only</option>
+          <option value="unverified" data-i18n="admin.unverifiedOnly">Unverified only</option>
+          <option value="verified" data-i18n="admin.verifiedOnly">Verified only</option>
+          <option value="dismissed" data-i18n="admin.dismissedOnly">Dismissed only</option>
+        </select>
+        <button id="findDupes" data-i18n="admin.findDupes">Find duplicates</button>
+        <div class="spacer"></div>
+        <span class="count" id="countLabel"></span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th data-i18n="admin.colReport">Report</th>
+            <th data-i18n="admin.colCategory">Category</th>
+            <th data-i18n="admin.colSource">Source</th>
+            <th data-i18n="admin.colStatus">Status</th>
+            <th data-i18n="admin.colActions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="pager">
+        <button class="rowbtn" id="prevPage" data-i18n="admin.prev">← Prev</button>
+        <button class="rowbtn" id="nextPage" data-i18n="admin.next">Next →</button>
+      </div>
     </div>
 
-    <table>
-      <thead>
-        <tr><th>Report</th><th>Category</th><th>Source</th><th>Status</th><th>Actions</th></tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <div class="pager">
-      <button class="rowbtn" id="prevPage">← Prev</button>
-      <button class="rowbtn" id="nextPage">Next →</button>
+    <div class="section" id="usersSection" style="display:none">
+      <h2 data-i18n="admin.usersTitle">Users</h2>
+      <p class="sub" data-i18n="admin.usersSub">Invite a user and assign their role. VERIFIER can verify/dismiss reports. ADMIN can also manage users and permanently delete reports.</p>
+      <p class="sub" data-i18n="admin.usersPendingNote">Rows highlighted below have the NONE role and no access yet — assign VERIFIER to grant reviewer permissions.</p>
+      <div class="invite">
+        <div class="f"><label data-i18n="admin.inviteEmail">Email</label><input id="newEmail" type="email" /></div>
+        <div class="f"><label data-i18n="admin.invitePassword">Password (min 8 chars)</label><input id="newPassword" type="password" /></div>
+        <div class="f" style="flex:0 0 140px"><label data-i18n="admin.inviteRole">Role</label>
+          <select id="newRole"><option value="VERIFIER">VERIFIER</option><option value="ADMIN">ADMIN</option></select>
+        </div>
+        <button id="inviteBtn" data-i18n="admin.inviteBtn">Add user</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th data-i18n="admin.colEmail">Email</th>
+            <th data-i18n="admin.colProvider">Signed up via</th>
+            <th data-i18n="admin.colRole">Role</th>
+            <th data-i18n="admin.colCreated">Created</th>
+            <th data-i18n="admin.colActions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="userRows"></tbody>
+      </table>
+    </div>
+
+    <div class="section" id="applicationsSection" style="display:none">
+      <h2 data-i18n="admin.applicationsTitle">Get-involved applications</h2>
+      <p class="sub" data-i18n="admin.applicationsSub">Volunteer, translator, coder, and organization-partner applications from the public site.</p>
+      <div class="toolbar">
+        <select id="filterAppStatus">
+          <option value="" data-i18n="admin.allApplications">All</option>
+          <option value="new" data-i18n="admin.appNew">New</option>
+          <option value="contacted" data-i18n="admin.appContacted">Contacted</option>
+          <option value="closed" data-i18n="admin.appClosed">Closed</option>
+        </select>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th data-i18n="admin.colName">Name</th>
+            <th data-i18n="admin.colEmail">Email</th>
+            <th data-i18n="admin.colInterest">Interest</th>
+            <th data-i18n="admin.colStatus">Status</th>
+            <th data-i18n="admin.colActions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="appRows"></tbody>
+      </table>
     </div>
   </div>
 </div>
 
+<script src="/static/i18n.js"></script>
 <script>
-const TOKEN_KEY = 'dxmap_admin_token';
-let token = localStorage.getItem(TOKEN_KEY) || '';
+const I = window.DXMAP_I18N_RUNTIME;
+const t = I.t;
+let me = null;
 let offset = 0;
 const LIMIT = 50;
 
-function authHeaders(){ return { 'Authorization': 'Bearer ' + token }; }
+function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-async function tryEnter(t){
-  const res = await fetch('/api/admin/reports?limit=1', { headers: { 'Authorization': 'Bearer ' + t } });
-  if (res.ok) {
-    token = t;
-    localStorage.setItem(TOKEN_KEY, t);
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    loadReports();
+function renderLangBar(){
+  document.getElementById('langBar').innerHTML = I.langs.map(l=>
+    `<button data-lang="${l}" class="${l===I.current?'active':''}">${DXMAP_I18N[l].name}</button>`).join('');
+  document.querySelectorAll('#langBar button').forEach(b=>b.addEventListener('click',()=>{
+    I.setLang(b.dataset.lang); renderLangBar();
+  }));
+}
+renderLangBar();
+document.addEventListener('dxmap:lang', ()=>{ renderLangBar(); if(me) loadReports(); });
+
+async function tryEnter(email, password){
+  const res = await fetch('/api/auth/login', {method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
+  if(res.ok){
+    me = await res.json();
+    enterApp();
   } else {
     document.getElementById('gateErr').style.display = 'block';
   }
 }
 
-document.getElementById('loginBtn').onclick = () => tryEnter(document.getElementById('tokenInput').value.trim());
-document.getElementById('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryEnter(e.target.value.trim()); });
-document.getElementById('logout').onclick = () => { localStorage.removeItem(TOKEN_KEY); location.reload(); };
+function enterApp(){
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('whoami').textContent = `${me.email} · ${me.role}`;
+  document.getElementById('usersSection').style.display = me.role === 'ADMIN' ? 'block' : 'none';
+  document.getElementById('applicationsSection').style.display = 'block';
+  loadReports();
+  loadApplications();
+  if(me.role === 'ADMIN') loadUsers();
+}
 
-document.getElementById('filterVerified').onchange = () => { offset = 0; loadReports(); };
+document.getElementById('loginBtn').onclick = () =>
+  tryEnter(document.getElementById('gEmail').value.trim(), document.getElementById('gPassword').value);
+document.getElementById('gPassword').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('loginBtn').click(); });
+document.getElementById('logout').onclick = async (e) => {
+  e.preventDefault();
+  await fetch('/api/auth/logout', {method:'POST', credentials:'include'});
+  location.reload();
+};
+
+document.getElementById('filterStatus').onchange = () => { offset = 0; loadReports(); };
 document.getElementById('prevPage').onclick = () => { offset = Math.max(0, offset - LIMIT); loadReports(); };
 document.getElementById('nextPage').onclick = () => { offset += LIMIT; loadReports(); };
 
 document.getElementById('findDupes').onclick = async () => {
-  const res = await fetch('/api/admin/duplicates', { headers: authHeaders() });
+  const res = await fetch('/api/admin/duplicates', {credentials:'include'});
   const data = await res.json();
-  alert(data.duplicates.length + ' duplicate report(s) found (same URL as an earlier report). Check the console for ids.');
-  console.log('Duplicate report ids:', data.duplicates);
+  alert(data.duplicates.length + ' ' + t('admin.dupesFound'));
 };
 
-function esc(s){ return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
 async function loadReports(){
-  const verified = document.getElementById('filterVerified').value;
-  const qs = new URLSearchParams({ limit: LIMIT, offset });
-  if (verified) qs.set('verified', verified);
-  const res = await fetch('/api/admin/reports?' + qs, { headers: authHeaders() });
-  if (res.status === 401) { localStorage.removeItem(TOKEN_KEY); location.reload(); return; }
+  const status = document.getElementById('filterStatus').value;
+  const qs = new URLSearchParams({limit: LIMIT, offset});
+  if(status) qs.set('status', status);
+  const res = await fetch('/api/admin/reports?' + qs, {credentials:'include'});
+  if(res.status === 401){ location.reload(); return; }
   const data = await res.json();
   document.getElementById('countLabel').textContent = data.total + ' total';
   const rows = document.getElementById('rows');
-  if (!data.reports.length) {
-    rows.innerHTML = '<tr><td colspan="5"><div class="empty">No reports here.</div></td></tr>';
+  if(!data.reports.length){
+    rows.innerHTML = `<tr><td colspan="5"><div class="empty">${esc(t('admin.noReports'))}</div></td></tr>`;
     return;
   }
-  rows.innerHTML = data.reports.map(r => `
-    <tr data-id="${r.id}">
+  rows.innerHTML = data.reports.map(r => {
+    const actions = [];
+    if(r.status !== 'verified') actions.push(`<button class="rowbtn ok" data-act="verified">${esc(t('admin.verify'))}</button>`);
+    if(r.status === 'pending') actions.push(`<button class="rowbtn" data-act="unverified">${esc(t('admin.publish'))}</button>`);
+    if(r.status === 'verified') actions.push(`<button class="rowbtn" data-act="unverified">${esc(t('admin.unverify'))}</button>`);
+    if(r.status !== 'dismissed') actions.push(`<button class="rowbtn danger" data-act="dismissed">${esc(t('admin.dismiss'))}</button>`);
+    else actions.push(`<button class="rowbtn" data-act="unverified">${esc(t('admin.restore'))}</button>`);
+    if(me.role === 'ADMIN') actions.push(`<button class="rowbtn danger" data-act="delete">${esc(t('admin.delete'))}</button>`);
+    return `
+    <tr data-id="${r.id}" class="${r.status==='pending' ? 'pending-row' : ''}">
       <td>
         <div class="title">${esc(r.title)}</div>
-        <div class="meta">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">source ↗</a> · ` : ''}${new Date(r.created_at*1000).toLocaleString()}</div>
+        <div class="meta">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">source ↗</a> · ` : ''}${new Date(r.created_at*1000).toLocaleString(I.current)}</div>
       </td>
       <td>${esc(r.category)}</td>
       <td class="meta">${esc(r.source)}</td>
-      <td><span class="badge ${r.verified ? 'verified' : 'pending'}">${r.verified ? 'Verified' : 'Unverified'}</span></td>
-      <td>
-        <button class="rowbtn ok" onclick="setVerified(${r.id}, ${r.verified ? 'false' : 'true'})">${r.verified ? 'Unverify' : 'Verify'}</button>
-        <button class="rowbtn danger" onclick="deleteReport(${r.id})">Delete</button>
-      </td>
-    </tr>
-  `).join('');
+      <td><span class="badge ${r.status}">${esc(r.status)}</span></td>
+      <td>${actions.join('')}</td>
+    </tr>`;
+  }).join('');
+  rows.querySelectorAll('tr').forEach(tr=>{
+    const id = tr.dataset.id;
+    tr.querySelectorAll('button').forEach(btn=>btn.addEventListener('click', () => {
+      if(btn.dataset.act === 'delete') deleteReport(id);
+      else setStatus(id, btn.dataset.act);
+    }));
+  });
 }
 
-async function setVerified(id, verified){
-  await fetch('/api/admin/reports/' + id, {
-    method: 'PATCH',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ verified }),
-  });
+async function setStatus(id, status){
+  await fetch('/api/admin/reports/' + id, {method:'PATCH', credentials:'include',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({status})});
   loadReports();
 }
 
 async function deleteReport(id){
-  if (!confirm('Delete this report permanently?')) return;
-  await fetch('/api/admin/reports/' + id, { method: 'DELETE', headers: authHeaders() });
+  if(!confirm(t('admin.deleteConfirm'))) return;
+  await fetch('/api/admin/reports/' + id, {method:'DELETE', credentials:'include'});
   loadReports();
 }
 
-if (token) tryEnter(token);
+// ---------------- users (ADMIN only) ----------------
+async function loadUsers(){
+  const res = await fetch('/api/admin/users', {credentials:'include'});
+  if(!res.ok) return;
+  const {users} = await res.json();
+  const rows = document.getElementById('userRows');
+  rows.innerHTML = users.map(u => `
+    <tr data-id="${u.id}" class="${u.role==='NONE' ? 'pending-row' : ''}">
+      <td>${esc(u.email)}</td>
+      <td class="meta">${esc(u.provider||'email')}</td>
+      <td>
+        <select class="roleSelect" ${u.id===me.id ? 'disabled' : ''}>
+          <option value="NONE" ${u.role==='NONE'?'selected':''}>NONE</option>
+          <option value="VERIFIER" ${u.role==='VERIFIER'?'selected':''}>VERIFIER</option>
+          <option value="ADMIN" ${u.role==='ADMIN'?'selected':''}>ADMIN</option>
+        </select>
+      </td>
+      <td class="meta">${new Date(u.created_at*1000).toLocaleDateString(I.current)}</td>
+      <td>${u.id===me.id ? `<span class="meta">${esc(t('admin.cannotRemoveSelf'))}</span>` : `<button class="rowbtn danger" data-act="remove">${esc(t('admin.removeUser'))}</button>`}</td>
+    </tr>
+  `).join('');
+  rows.querySelectorAll('tr').forEach(tr=>{
+    const id = tr.dataset.id;
+    const sel = tr.querySelector('.roleSelect');
+    if(sel && !sel.disabled) sel.addEventListener('change', () => updateUserRole(id, sel.value));
+    const rm = tr.querySelector('[data-act=remove]');
+    if(rm) rm.addEventListener('click', () => removeUser(id));
+  });
+}
+
+async function updateUserRole(id, role){
+  await fetch('/api/admin/users/' + id, {method:'PATCH', credentials:'include',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({role})});
+  loadUsers();
+}
+
+async function removeUser(id){
+  if(!confirm(t('admin.removeConfirm'))) return;
+  await fetch('/api/admin/users/' + id, {method:'DELETE', credentials:'include'});
+  loadUsers();
+}
+
+document.getElementById('inviteBtn').onclick = async () => {
+  const email = document.getElementById('newEmail').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const role = document.getElementById('newRole').value;
+  if(!email || password.length < 8) return;
+  const res = await fetch('/api/admin/users', {method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password, role})});
+  if(res.ok){
+    document.getElementById('newEmail').value = '';
+    document.getElementById('newPassword').value = '';
+    loadUsers();
+  } else {
+    const body = await res.json().catch(()=>({}));
+    alert(body.detail || 'Could not create user');
+  }
+};
+
+// ---------------- applications (ADMIN + VERIFIER) ----------------
+document.getElementById('filterAppStatus').onchange = loadApplications;
+
+async function loadApplications(){
+  const status = document.getElementById('filterAppStatus').value;
+  const qs = status ? ('?status=' + status) : '';
+  const res = await fetch('/api/admin/applications' + qs, {credentials:'include'});
+  if(!res.ok) return;
+  const {applications} = await res.json();
+  const rows = document.getElementById('appRows');
+  if(!applications.length){
+    rows.innerHTML = `<tr><td colspan="5"><div class="empty">${esc(t('admin.noReports'))}</div></td></tr>`;
+    return;
+  }
+  rows.innerHTML = applications.map(a => `
+    <tr data-id="${a.id}">
+      <td class="title">${esc(a.name)}${a.message ? `<div class="meta" style="font-weight:400;margin-top:4px">${esc(a.message)}</div>` : ''}</td>
+      <td><a href="mailto:${esc(a.email)}">${esc(a.email)}</a></td>
+      <td>${esc(a.interest)}</td>
+      <td><span class="badge ${a.status==='new'?'pending':a.status==='closed'?'dismissed':'verified'}">${esc(a.status)}</span></td>
+      <td>
+        ${a.status!=='contacted' ? `<button class="rowbtn ok" data-act="contacted">${esc(t('admin.appContacted'))}</button>` : ''}
+        ${a.status!=='closed' ? `<button class="rowbtn" data-act="closed">${esc(t('admin.appClosed'))}</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+  rows.querySelectorAll('tr').forEach(tr=>{
+    const id = tr.dataset.id;
+    tr.querySelectorAll('button').forEach(btn=>btn.addEventListener('click', async () => {
+      await fetch('/api/admin/applications/' + id, {method:'PATCH', credentials:'include',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({status: btn.dataset.act})});
+      loadApplications();
+    }));
+  });
+}
+
+// ---------------- boot ----------------
+(async function boot(){
+  I.apply();
+  const res = await fetch('/api/auth/me', {credentials:'include'});
+  if(res.ok){ me = await res.json(); enterApp(); }
+})();
 </script>
 </body>
 </html>

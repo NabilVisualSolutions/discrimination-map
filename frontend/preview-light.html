@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Discrimination Map — light-mode preview (sample data)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f4f7fb'/%3E%3Cpath d='M11 6v20M21 6v20M11 6l10 20' stroke='%230088cc' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+<style>
+  :root{
+    /* Light theme — public-facing documentation tool, not a "hacker
+       terminal" aesthetic. Matches the original nabilvs.com water/day mode. */
+    --bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
+    --line:#dbe3ee; --line-soft:#e8eef6;
+    --ink:#0b1326; --muted:#5b6b85; --faint:#8a97ac;
+    --accent:#0088cc; --danger:#D6363F; --ok:#1F9B54; --warn:#B8720B;
+    --rail:380px; --nav-h:60px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --disp:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--disp);overflow:hidden;
+    -webkit-tap-highlight-color:transparent}
+  a{color:var(--accent)}
+  #map{position:absolute;inset:0;background:#eef2f8}
+  .leaflet-container{background:#eef2f8}
+  .leaflet-control-zoom a{background:var(--panel)!important;color:var(--ink)!important;border-color:var(--line)!important}
+  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border-radius:10px}
+  .leaflet-popup-content{margin:12px 14px;font-family:var(--disp)}
+
+  /* ---- preview banner ---- */
+  .previewbar{position:absolute;top:0;left:0;right:0;z-index:1500;background:var(--warn);
+    color:#fff;text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:.05em;
+    padding:5px 10px}
+
+  /* ---- top bar ---- */
+  .topbar{position:absolute;top:24px;left:0;right:0;z-index:1200;
+    display:flex;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 10px) 10px 0;
+    pointer-events:none}
+  .topbar > *{pointer-events:auto}
+  .searchwrap{flex:1;position:relative;max-width:520px}
+  .searchwrap svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);
+    width:16px;height:16px;color:var(--faint);pointer-events:none}
+  .searchwrap input{width:100%;background:var(--panel);border:1px solid var(--line);
+    color:var(--ink);border-radius:12px;padding:11px 14px 11px 38px;font-size:13.5px;
+    box-shadow:0 4px 18px rgba(20,30,50,.1)}
+  .searchwrap input::placeholder{color:var(--faint)}
+  .searchwrap input:focus{outline:none;border-color:var(--accent)}
+  .quickexit{background:var(--danger);border:none;color:#fff;font-weight:700;font-size:12.5px;
+    letter-spacing:.02em;border-radius:12px;padding:0 14px;display:flex;align-items:center;gap:6px;
+    cursor:pointer;box-shadow:0 4px 18px rgba(214,54,63,.3);flex:none;height:42px}
+  .quickexit svg{width:14px;height:14px}
+
+  /* ---- filter drawer + timeline ---- */
+  .floatbar{position:absolute;left:10px;right:10px;bottom:calc(var(--nav-h) + 12px + env(safe-area-inset-bottom,0px));
+    z-index:1100;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .floatbar > *{pointer-events:auto}
+  .actionrow{display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
+  .fbtn{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 20px rgba(20,30,50,.12);cursor:pointer}
+  .fbtn svg{width:19px;height:19px}
+  .timeline{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px 12px;
+    box-shadow:0 6px 20px rgba(20,30,50,.12)}
+  .timeline .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .timeline .row b{color:var(--accent);font-weight:700}
+  .timeline input[type=range]{width:100%;accent-color:var(--accent)}
+
+  .catdrawer{position:absolute;left:10px;right:10px;bottom:calc(var(--nav-h) + 90px + env(safe-area-inset-bottom,0px));
+    z-index:1150;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:12px;max-height:48vh;overflow-y:auto;display:none;box-shadow:0 10px 30px rgba(20,30,50,.18)}
+  .catdrawer.on{display:block}
+  .cat{display:flex;align-items:center;gap:9px;padding:7px 4px;font-size:13px;color:var(--muted);
+    cursor:pointer;user-select:none}
+  .cat .swatch{width:10px;height:10px;border-radius:50%;flex:none}
+  .cat .count{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .cat.dim{opacity:.35}
+
+  /* ---- persistent report FAB — visible on every tab, independent of filters ---- */
+  .fab{position:absolute;right:16px;bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));
+    z-index:1300;background:var(--accent);color:#fff;border:none;font-weight:700;font-size:13.5px;
+    padding:14px 20px;border-radius:14px;display:flex;align-items:center;gap:8px;cursor:pointer;
+    box-shadow:0 8px 26px rgba(0,136,204,.35)}
+  .fab svg{width:16px;height:16px}
+
+  /* ---- bottom nav ---- */
+  .bottomnav{position:absolute;left:0;right:0;bottom:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    background:var(--panel);border-top:1px solid var(--line);display:flex;z-index:1400}
+  .navbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    background:none;border:none;color:var(--faint);cursor:pointer;font-size:10.5px;letter-spacing:.02em}
+  .navbtn svg{width:20px;height:20px}
+  .navbtn.active{color:var(--accent)}
+
+  /* ---- panels ---- */
+  .panel{position:absolute;left:0;right:0;bottom:var(--nav-h);top:24px;z-index:1000;
+    background:var(--bg);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+  .panel.on{display:flex}
+  .panel .phead{padding:16px 18px 10px;border-bottom:1px solid var(--line-soft)}
+  .panel .phead h2{margin:0;font-size:17px}
+  .panel .plist{flex:1;overflow-y:auto}
+  .empty{color:var(--muted);font-size:12.5px;padding:30px 20px;line-height:1.6;text-align:center}
+  .item{padding:12px 18px;border-bottom:1px solid var(--line-soft);cursor:pointer;
+    display:grid;grid-template-columns:3px 1fr;gap:12px}
+  .item:hover{background:var(--panel-2)}
+  .item .bar{border-radius:2px}
+  .item .t{font-size:13px;line-height:1.4;color:var(--ink)}
+  .item .m{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:5px;
+    letter-spacing:.04em;text-transform:uppercase}
+  .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 18px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .stat .n{font-size:24px;font-weight:700;font-family:var(--mono)}
+  .stat .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);margin-top:4px}
+  .breakdown{padding:4px 18px 18px}
+  .breakdown h3{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--faint);margin:16px 0 8px}
+  .bdrow{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:6px 0;
+    border-bottom:1px solid var(--line-soft);color:var(--muted)}
+  .bdrow .swatch{width:9px;height:9px;border-radius:50%;margin-right:8px;flex:none}
+  .bdrow b{color:var(--ink);font-family:var(--mono);margin-left:auto}
+  .loginprompt{margin:30px 18px;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px;text-align:center}
+  .loginprompt p{color:var(--muted);font-size:13px;line-height:1.5;margin:0}
+
+  /* ---- notice ---- */
+  .notice{position:relative;margin:14px 18px;padding:12px 34px 12px 14px;background:rgba(184,114,11,.08);
+    border:1px solid rgba(184,114,11,.25);border-radius:10px;font-size:11.5px;line-height:1.5;color:var(--muted)}
+  .notice strong{color:var(--warn);font-weight:700}
+
+  /* ---- incident detail sheet ---- */
+  .sheet-scrim{position:absolute;inset:0;z-index:2500;background:rgba(11,19,38,.4);display:none}
+  .sheet-scrim.on{display:block}
+  .sheet{position:absolute;left:0;right:0;bottom:0;max-height:88vh;background:var(--panel);
+    border-radius:20px 20px 0 0;box-shadow:0 -10px 40px rgba(20,30,50,.25);display:flex;flex-direction:column;
+    transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+  .sheet-scrim.on .sheet{transform:translateY(0)}
+  .sheet .grabber{width:38px;height:4px;background:var(--line);border-radius:3px;margin:10px auto 4px}
+  .sheet .sbody{overflow-y:auto;padding:6px 20px calc(20px + env(safe-area-inset-bottom,0px))}
+  .badgebar{display:flex;align-items:center;justify-content:space-between;margin:8px 0 12px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:20px}
+  .badge.lead{background:rgba(184,114,11,.12);color:var(--warn)}
+  .badge.user{background:rgba(0,136,204,.12);color:var(--accent)}
+  .badge.ok{background:rgba(31,155,84,.12);color:var(--ok)}
+  .sheet .repid{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .sheet .cattag{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--faint);margin-bottom:6px}
+  .sheet h2{margin:0 0 4px;font-size:19px;line-height:1.3}
+  .sheet .detected{font-family:var(--mono);font-size:11px;color:var(--faint);display:flex;align-items:center;gap:6px;margin-bottom:14px}
+  .warnbox{background:rgba(184,114,11,.07);border:1px solid rgba(184,114,11,.22);border-radius:12px;
+    padding:11px 13px;margin-bottom:14px}
+  .warnbox .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--warn);margin-bottom:4px}
+  .warnbox .v{font-size:12px;color:var(--muted)}
+  .sec{margin-bottom:16px}
+  .sec h3{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--faint);margin:0 0 8px}
+  .sec .box{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:12px 13px;
+    font-size:13px;color:var(--ink);line-height:1.5}
+  .metacard{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:10px 13px;
+    margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .metacard .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .metacard .v{font-size:12.5px;color:var(--ink);text-align:right;max-width:60%}
+  .docbox{border-left:3px solid var(--faint);background:var(--panel-2);border-radius:0 10px 10px 0;
+    padding:11px 13px;margin-bottom:16px}
+  .docbox .k{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px}
+  .docbox .v{font-size:11.5px;color:var(--muted);line-height:1.5;font-style:italic}
+  .sheetactions{display:flex;gap:10px;padding-top:2px}
+  .sbtn{flex:1;padding:13px;border-radius:11px;border:1px solid var(--line);background:transparent;
+    color:var(--ink);font-weight:600;font-size:13px;cursor:pointer}
+  .sbtn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  /* ---- report modal ---- */
+  .scrim{position:absolute;inset:0;z-index:2600;background:rgba(11,19,38,.45);display:none;
+    align-items:center;justify-content:center;backdrop-filter:blur(3px);padding:16px}
+  .scrim.on{display:flex}
+  .modal{width:min(460px,100%);max-height:90vh;overflow-y:auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px}
+  .modal h2{margin:0 0 4px;font-size:17px}
+  .modal p.hint{margin:0 0 16px;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .field input,.field textarea,.field select{width:100%;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:9px;padding:10px 12px;font-family:var(--disp);font-size:13.5px}
+  .field textarea{resize:vertical;min-height:64px}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--accent)}
+  .coordline{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel-2);
+    border:1px dashed var(--line);border-radius:9px;padding:9px 12px;margin-bottom:14px;
+    display:flex;justify-content:space-between}
+  .coordline b{color:var(--accent);font-weight:500}
+  .actions{display:flex;gap:10px;margin-top:4px}
+  .btn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:transparent;
+    color:var(--ink);font-weight:500;font-size:13.5px;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+  .toast{position:absolute;left:50%;bottom:calc(var(--nav-h) + 20px);transform:translateX(-50%) translateY(20px);
+    z-index:3000;background:var(--panel);border:1px solid var(--line);color:var(--ink);font-size:12.5px;
+    padding:11px 16px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;max-width:90vw;text-align:center;
+    box-shadow:0 8px 24px rgba(20,30,50,.2)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .mk{border-radius:50%;border:2px solid rgba(255,255,255,.9)}
+  .mk.faded{filter:grayscale(1) brightness(1.4);opacity:.55}
+
+  /* ---- desktop layout ---- */
+  @media (min-width:900px){
+    :root{--nav-h:0px}
+    #map{left:var(--rail)}
+    .previewbar{left:0}
+    .topbar{left:calc(var(--rail) + 10px)}
+    .floatbar,.catdrawer{left:calc(var(--rail) + 10px)}
+    .bottomnav{display:none}
+    .rail{position:absolute;top:24px;left:0;bottom:0;width:var(--rail);background:var(--panel);
+      border-right:1px solid var(--line);z-index:1400;display:flex;flex-direction:column}
+    .rail .brand{padding:18px 20px 12px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;gap:11px}
+    .rail .brand svg{width:26px;height:26px;flex:none}
+    .rail .brand h1{font-size:16px;font-weight:700;letter-spacing:.04em;margin:0}
+    .rail .brand .sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
+    .railnav{display:flex;border-bottom:1px solid var(--line-soft)}
+    .railnav .navbtn{flex-direction:row;gap:6px;padding:12px 0;font-size:11.5px}
+    .panel{position:static;flex:1;display:none}
+    .panel.on{display:flex}
+    .sheet{left:calc(var(--rail) + 16px);right:16px;bottom:16px;max-width:460px;border-radius:16px;
+      max-height:calc(100vh - 40px)}
+    .sheet-scrim.on .sheet{transform:none}
+    .fab{right:20px;bottom:20px}
+  }
+  @media (max-width:899px){ .rail{display:none} }
+</style>
+</head>
+<body>
+
+<div class="previewbar">PREVIEW — sample data, not connected to the live map or its database</div>
+<div id="map"></div>
+
+<aside class="rail">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M11 6v20M21 6v20M11 6l10 20" stroke="#0088cc" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M6 11c-2 .4-3.4 1.3-4 2.6 1.6-.3 2.9-.2 4 .3M26 11c2 .4 3.4 1.3 4 2.6-1.6-.3-2.9-.2-4 .3"
+            stroke="#1F9B54" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1>Discrimination Map</h1>
+      <div class="sub">Documenting hate incidents · light mode preview</div>
+    </div>
+  </div>
+  <div class="railnav" id="railNav"></div>
+</aside>
+
+<div class="topbar">
+  <div class="searchwrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input id="searchInput" type="text" placeholder="Search region or coordinates…" />
+  </div>
+  <button class="quickexit" id="quickExit" title="Immediately leave this site">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5l7 7-7 7M4 12h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Quick exit
+  </button>
+</div>
+
+<div class="catdrawer" id="catDrawer"><div id="catlist"></div></div>
+
+<div class="floatbar" id="mapFloatbar">
+  <div class="timeline" id="timelineBox">
+    <div class="row"><span id="tlFrom">—</span><b id="tlTo">Present</b></div>
+    <input type="range" id="tlSlider" min="0" max="1000" value="1000" />
+  </div>
+  <div class="actionrow">
+    <button class="fbtn" id="filterToggle" aria-haspopup="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+    </button>
+    <div></div>
+  </div>
+</div>
+
+<!-- persistent — visible on every tab regardless of active filters -->
+<button class="fab" id="fab">
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>
+  Report
+</button>
+
+<section class="panel" id="panel-incidents">
+  <div class="phead"><h2>Live feed</h2></div>
+  <div class="plist" id="incidentsList"></div>
+</section>
+
+<section class="panel" id="panel-verify">
+  <div class="phead"><h2>Verification queue</h2></div>
+  <div class="loginprompt"><p>Preview only — verification requires a moderator login on the live site.</p></div>
+</section>
+
+<section class="panel" id="panel-reports">
+  <div class="plist">
+    <div class="phead"><h2>Reports &amp; stats</h2></div>
+    <div class="statgrid" id="statGrid"></div>
+    <div class="breakdown">
+      <h3>By category</h3>
+      <div id="byCategory"></div>
+    </div>
+    <div class="notice">
+      <strong>Documentation, not accusation.</strong> Every mark is a sourced, unverified lead —
+      never a verdict about a named person. Presumption of innocence, always. Witnessing a crime? Call your local emergency number.
+    </div>
+  </div>
+</section>
+
+<nav class="bottomnav" id="bottomNav"></nav>
+
+<div class="sheet-scrim" id="sheetScrim">
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="grabber"></div>
+    <div class="sbody" id="sheetBody"></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h2>Report an incident</h2>
+    <p class="hint">Document a hate incident. Give what you can — the more evidence, the more useful.
+      Reports are public, anonymous, and logged as unverified pending review. In immediate danger? Contact local emergency services.</p>
+    <div class="coordline"><span>LOCATION</span><span><b id="coordTxt">click the map or use your location</b></span></div>
+    <div class="field"><label>What happened</label><input id="rReason" maxlength="500" placeholder="e.g. Hijab pulled off on public transit" /></div>
+    <div class="field"><label>Category</label><select id="rCat"></select></div>
+    <div class="field"><label>Evidence <span style="text-transform:none;color:var(--faint)">(link or description, optional)</span></label>
+      <input id="rEvidence" maxlength="1000" placeholder="URL of a photo, post, or news report" /></div>
+    <div class="field"><label>Impact / harm <span style="text-transform:none;color:var(--faint)">(optional)</span></label>
+      <textarea id="rImpact" maxlength="1000" placeholder="Who was targeted and how it affected them."></textarea></div>
+    <div class="actions">
+      <button class="btn" id="useLoc" type="button">Use my location</button>
+      <button class="btn primary" id="submit" type="button">Submit report</button>
+    </div>
+    <div class="actions" style="margin-top:10px"><button class="btn" id="cancel" type="button">Cancel</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+// ================= sample-data generator (preview only) =================
+// Deterministic PRNG so the preview looks the same on every reload.
+function mulberry32(seed){ return function(){ let t=seed+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; }; }
+const rand = mulberry32(20260812);
+
+const CATS = {
+  racism:               {label:"Racism", color:"#FF5C5C"},
+  islamophobia:         {label:"Islamophobia", color:"#FFA94D"},
+  antisemitism:         {label:"Antisemitism", color:"#4DA6FF"},
+  homophobia_transphobia:{label:"Homophobia / transphobia", color:"#B983FF"},
+  neo_nazi:             {label:"Neo-Nazi activity / signs", color:"#C99400"},
+  xenophobia:           {label:"Xenophobia", color:"#4CD97B"},
+  sexual_violence:      {label:"Sexual violence", color:"#2BD9C9"},
+  harassment:           {label:"Harassment", color:"#E8779E"},
+  other:                {label:"Other", color:"#8891A8"},
+};
+const SAMPLE_TEXT = {
+  racism: ["Racial slur shouted at commuter on tram", "Racist graffiti on apartment building entrance", "Job applicant told 'we don't hire people like you'"],
+  islamophobia: ["Hijab pulled off on public transit", "Mosque door vandalized with pig's blood", "Woman in niqab refused service at shop"],
+  antisemitism: ["Star of David defaced on grave marker", "Antisemitic flyers posted near synagogue", "Verbal antisemitic abuse outside Jewish school"],
+  homophobia_transphobia: ["Same-sex couple assaulted leaving bar", "Transgender student harassed in school hallway", "Pride flag torn down and burned"],
+  neo_nazi: ["Swastika graffiti on gymnasium wall", "Neo-Nazi march announced in city center", "Banned symbol stickers found at bus stop"],
+  xenophobia: ["Refugee shelter windows smashed", "Xenophobic chants at football match", "Foreign-owned shop targeted with threats"],
+  sexual_violence: ["Report of sexual assault near train station", "Groping incident reported at festival", "Stalking and harassment following a public event"],
+  harassment: ["Repeated online harassment campaign against local activist", "Street harassment reported near university", "Coworker subjected to persistent harassment"],
+  other: ["Discriminatory sign posted at business entrance", "Discrimination complaint filed against landlord"],
+};
+const PLACES = [
+  [52.52,13.40,"Berlin"], [48.14,11.58,"Munich"], [50.94,6.96,"Cologne"], [53.55,9.99,"Hamburg"],
+  [50.11,8.68,"Frankfurt"], [51.34,12.37,"Leipzig"], [51.23,6.78,"Düsseldorf"], [48.78,9.18,"Stuttgart"],
+  [52.38,9.73,"Hanover"], [51.05,13.74,"Dresden"], [49.45,11.08,"Nuremberg"], [51.96,7.63,"Münster"],
+];
+const NOW = Math.floor(Date.now()/1000);
+const TEN_YEARS = 10*365*24*3600;
+function genSample(n){
+  const cats = Object.keys(CATS);
+  const out = [];
+  for(let i=0;i<n;i++){
+    const cat = cats[Math.floor(rand()*cats.length)];
+    const texts = SAMPLE_TEXT[cat];
+    const place = PLACES[Math.floor(rand()*PLACES.length)];
+    const ageSeconds = Math.floor(rand()*rand()*TEN_YEARS*1.3); // skew recent, some older than 10y
+    const source = rand() > 0.6 ? 'user' : 'agent';
+    out.push({
+      id: i+1, category: cat,
+      reason: texts[Math.floor(rand()*texts.length)],
+      lat: place[0] + (rand()-0.5)*1.4, lon: place[1] + (rand()-0.5)*1.4,
+      place: place[2], source,
+      status: rand() > 0.85 ? 'verified' : 'unverified',
+      created_at: NOW - ageSeconds,
+      evidence: rand() > 0.5 ? 'https://example.org/source-post' : '',
+      impact: rand() > 0.6 ? 'Targeted individual reported lasting distress and avoidance of the area since.' : '',
+    });
+  }
+  return out.sort((a,b)=>b.created_at-a.created_at);
+}
+const SAMPLE = genSample(140);
+
+// ================= map engine (same architecture as the live app) =================
+const map = L.map('map',{zoomControl:false}).setView([51.16,10.45],6);
+L.control.zoom({position:'topright'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19
+}).addTo(map);
+
+const catGroups={}, catCounts={};
+const FADE_SECONDS = TEN_YEARS; // fade to unsaturated after 10 years — never removed
+let timelineCutoff = null;
+
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function categoryLabel(c){ return (CATS[c]||{}).label || c; }
+function categoryColor(c){ return (CATS[c]||{}).color || '#8891A8'; }
+function ago(ts){
+  const s=Math.max(0,Math.floor(Date.now()/1000)-ts);
+  if(s<60) return s+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  const d=Math.floor(s/86400); if(d<365) return d+'d ago';
+  return (d/365).toFixed(1)+'y ago';
+}
+function icon(color, faded){
+  return L.divIcon({className:'', html:`<div class="mk${faded?' faded':''}" style="width:13px;height:13px;background:${color}"></div>`,
+    iconSize:[13,13], iconAnchor:[7,7]});
+}
+function withinTimeline(r){ return timelineCutoff==null || r.created_at<=timelineCutoff; }
+function ensureGroup(cat){ if(!catGroups[cat]){ catGroups[cat]=L.layerGroup().addTo(map); catCounts[cat]=0; } return catGroups[cat]; }
+const hiddenCats = new Set();
+
+function rebuildMarkers(){
+  Object.values(catGroups).forEach(g=>g.clearLayers());
+  Object.keys(catCounts).forEach(k=>catCounts[k]=0);
+  SAMPLE.forEach(r=>{
+    if(!withinTimeline(r)) return;
+    const ageSeconds = NOW - r.created_at;
+    const faded = ageSeconds >= FADE_SECONDS;
+    const color = categoryColor(r.category);
+    const m = L.marker([r.lat,r.lon],{icon:icon(color,faded)}).addTo(ensureGroup(r.category));
+    catCounts[r.category] = (catCounts[r.category]||0)+1;
+    m.on('click',()=>openSheet(r));
+    if(hiddenCats.has(r.category) && map.hasLayer(catGroups[r.category])) map.removeLayer(catGroups[r.category]);
+  });
+  renderCatList();
+}
+function renderCatList(){
+  const el = document.getElementById('catlist');
+  el.innerHTML = Object.entries(CATS).map(([key,c])=>{
+    const count = catCounts[key]||0;
+    const dim = hiddenCats.has(key) ? ' dim' : '';
+    return `<div class="cat${dim}" data-cat="${key}"><span class="swatch" style="background:${c.color}"></span>${escapeHtml(c.label)}<span class="count">${count}</span></div>`;
+  }).join('');
+  el.querySelectorAll('.cat').forEach(row=>row.addEventListener('click',()=>{
+    const cat=row.dataset.cat, group=catGroups[cat];
+    if(hiddenCats.has(cat)){ hiddenCats.delete(cat); if(group) map.addLayer(group); }
+    else{ hiddenCats.add(cat); if(group) map.removeLayer(group); }
+    renderCatList();
+  }));
+}
+
+// timeline: spans the full sample date range, default = present (no cutoff)
+const earliest = Math.min(...SAMPLE.map(r=>r.created_at));
+const slider = document.getElementById('tlSlider');
+slider.min = earliest; slider.max = NOW; slider.value = NOW;
+function fmtYear(ts){ return new Date(ts*1000).getFullYear(); }
+function updateTimelineLabels(){
+  document.getElementById('tlFrom').textContent = fmtYear(+slider.min);
+  document.getElementById('tlTo').textContent = (+slider.value>=+slider.max) ? 'Present' : fmtYear(+slider.value);
+}
+slider.addEventListener('input', ()=>{
+  const v=+slider.value; timelineCutoff = v>=+slider.max ? null : v;
+  updateTimelineLabels(); rebuildMarkers(); renderFeed(); renderStats();
+});
+updateTimelineLabels();
+
+// ================= detail sheet =================
+function statusBadgeHtml(r){
+  if(r.status==='verified') return `<span class="badge ok">Verified</span>`;
+  if(r.source==='user') return `<span class="badge user">Community report · unverified</span>`;
+  return `<span class="badge lead">Automated lead · unverified</span>`;
+}
+function openSheet(r){
+  const isSensitive = r.category==='sexual_violence' || r.category==='harassment';
+  const body = document.getElementById('sheetBody');
+  body.innerHTML = `
+    <div class="badgebar">${statusBadgeHtml(r)}<span class="repid">DM-${String(r.id).padStart(4,'0')}</span></div>
+    <div class="cattag">${escapeHtml(categoryLabel(r.category))}</div>
+    <h2>${escapeHtml(r.reason)}</h2>
+    <div class="detected">Detected ${ago(r.created_at)}</div>
+    ${(r.status!=='verified'||isSensitive) ? `<div class="warnbox"><div class="k">Protection protocol</div>
+      <div class="v">${isSensitive ? 'Location approximated — sensitive category, never shown exact.' : 'Location fuzzed: 500m radius'}</div></div>` : ''}
+    <div class="sec"><h3>Description</h3><div class="box">${escapeHtml(r.reason)}</div></div>
+    ${r.impact ? `<div class="sec"><h3>Impact</h3><div class="box">${escapeHtml(r.impact)}</div></div>` : ''}
+    <div class="sec"><h3>Investigation metadata</h3>
+      <div class="metacard"><span class="k">First detected</span><span class="v">${new Date(r.created_at*1000).toLocaleDateString()}</span></div>
+      <div class="metacard"><span class="k">Source</span><span class="v">${escapeHtml(r.source)} · ${escapeHtml(r.place)}</span></div>
+      <div class="metacard"><span class="k">Detection method</span><span class="v">${r.source==='user'?'Manual submission':'Automated keyword/regex signal match'}</span></div>
+      ${r.evidence ? `<div class="metacard"><span class="k">Evidence</span><span class="v"><a href="${escapeHtml(r.evidence)}" target="_blank" rel="noopener">↗</a></span></div>` : ''}
+    </div>
+    <div class="docbox"><div class="k">Documentation, not accusation</div>
+      <div class="v">The platform documents events and already-public reporting — it is not, and must not become, a database of private individuals.</div></div>
+    <div class="sheetactions">
+      <button class="sbtn" id="sheetClose">Close</button>
+      <a class="sbtn primary" style="text-align:center;text-decoration:none" href="#" onclick="return false">Request info</a>
+    </div>`;
+  document.getElementById('sheetClose').onclick = closeSheet;
+  document.getElementById('sheetScrim').classList.add('on');
+  map.flyTo([r.lat,r.lon], Math.max(map.getZoom(),9), {duration:.5});
+}
+function closeSheet(){ document.getElementById('sheetScrim').classList.remove('on'); }
+document.getElementById('sheetScrim').addEventListener('click',e=>{ if(e.target.id==='sheetScrim') closeSheet(); });
+
+// ================= feed / stats =================
+function renderFeed(){
+  const el = document.getElementById('incidentsList');
+  const list = SAMPLE.filter(withinTimeline).slice(0,200);
+  el.innerHTML = list.map(r=>`<div class="item" data-id="${r.id}">
+      <div class="bar" style="background:${categoryColor(r.category)}"></div>
+      <div><div class="t">${escapeHtml(r.reason)}</div>
+      <div class="m">${escapeHtml(categoryLabel(r.category))} · ${escapeHtml(r.place)} · ${ago(r.created_at)}</div></div>
+    </div>`).join('');
+  el.querySelectorAll('.item').forEach(it=>it.addEventListener('click',()=>{
+    const r = SAMPLE.find(x=>x.id==it.dataset.id); if(r) openSheet(r);
+  }));
+}
+function renderStats(){
+  const list = SAMPLE.filter(withinTimeline);
+  const verified = list.filter(r=>r.status==='verified').length;
+  document.getElementById('statGrid').innerHTML = [
+    [list.length,'Total documented'], [new Set(list.map(r=>r.place)).size,'Places'],
+    [verified,'Verified'], [list.length-verified,'Unverified'],
+  ].map(([n,l])=>`<div class="stat"><div class="n">${n}</div><div class="l">${escapeHtml(l)}</div></div>`).join('');
+  const byCat = {};
+  list.forEach(r=>byCat[r.category]=(byCat[r.category]||0)+1);
+  document.getElementById('byCategory').innerHTML = Object.entries(byCat).sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>`<div class="bdrow"><span class="swatch" style="background:${categoryColor(k)}"></span>${escapeHtml(categoryLabel(k))}<b>${v}</b></div>`).join('');
+}
+
+// ================= tabs =================
+const TABS = [
+  {key:'map', icon:'<path d="M9 20l-6-2V6l6 2 6-2 6 2v14l-6-2-6 2z"/><path d="M9 6v14M15 8v14"/>'},
+  {key:'incidents', icon:'<path d="M4 6h16M4 12h16M4 18h10"/>'},
+  {key:'verify', icon:'<path d="M20 6L9 17l-5-5"/>'},
+  {key:'reports', icon:'<rect x="4" y="10" width="4" height="10"/><rect x="10" y="4" width="4" height="16"/><rect x="16" y="7" width="4" height="13"/>'},
+];
+function navHtml(){
+  return TABS.map(t=>`<button class="navbtn" data-tab="${t.key}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.icon}</svg>
+    <span>${t.key[0].toUpperCase()+t.key.slice(1)}</span></button>`).join('');
+}
+function wireNav(c){ c.querySelectorAll('.navbtn').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab))); }
+function setTab(key){
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===key));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on', p.id==='panel-'+key));
+  document.getElementById('mapFloatbar').style.display = key==='map' ? 'flex' : 'none';
+  document.getElementById('catDrawer').classList.remove('on');
+  // fab + quick-exit stay visible regardless of tab — intentional, not tab-scoped
+}
+document.getElementById('bottomNav').innerHTML = navHtml();
+document.getElementById('railNav').innerHTML = navHtml();
+wireNav(document.getElementById('bottomNav'));
+wireNav(document.getElementById('railNav'));
+setTab('map');
+
+document.getElementById('filterToggle').onclick = ()=>document.getElementById('catDrawer').classList.toggle('on');
+
+// ================= report modal =================
+const scrim = document.getElementById('scrim');
+let pendingPin=null, pinMarker=null;
+function openModal(){ scrim.classList.add('on'); }
+function closeModal(){ scrim.classList.remove('on'); }
+document.getElementById('fab').onclick = openModal;
+document.getElementById('cancel').onclick = closeModal;
+scrim.addEventListener('click',e=>{ if(e.target===scrim) closeModal(); });
+document.getElementById('rCat').innerHTML = Object.entries(CATS).map(([k,c])=>`<option value="${k}">${escapeHtml(c.label)}</option>`).join('');
+function setPin(lat,lon){
+  pendingPin={lat,lon};
+  document.getElementById('coordTxt').textContent = lat.toFixed(4)+', '+lon.toFixed(4);
+  if(pinMarker) map.removeLayer(pinMarker);
+  pinMarker = L.marker([lat,lon],{icon:icon('#0088cc')}).addTo(map);
+}
+map.on('click', e=>{ if(scrim.classList.contains('on')) setPin(e.latlng.lat,e.latlng.lng); });
+document.getElementById('useLoc').onclick = ()=>{
+  if(!navigator.geolocation){ toast('Geolocation not available'); return; }
+  navigator.geolocation.getCurrentPosition(p=>{ setPin(p.coords.latitude,p.coords.longitude); map.flyTo([p.coords.latitude,p.coords.longitude],11); },
+    ()=>toast('Could not get your location'));
+};
+document.getElementById('submit').onclick = ()=>{
+  const reason = document.getElementById('rReason').value.trim();
+  if(reason.length<3){ toast('Describe what happened first'); return; }
+  if(!pendingPin){ toast('Set a location: click the map or use your location'); return; }
+  toast('Preview only — reports aren\'t saved here');
+  closeModal();
+};
+function toast(msg){
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2600);
+}
+document.getElementById('quickExit').onclick = ()=>{ window.location.replace('https://www.wikipedia.org'); };
+
+// ================= search =================
+document.getElementById('searchInput').addEventListener('keydown', e=>{
+  if(e.key!=='Enter') return;
+  const q=e.target.value.trim().toLowerCase(); if(!q) return;
+  const hit = SAMPLE.find(r=>r.place.toLowerCase().includes(q) || r.reason.toLowerCase().includes(q));
+  if(hit){ setTab('map'); openSheet(hit); }
+});
+
+// ================= boot =================
+rebuildMarkers(); renderFeed(); renderStats();
+</script>
+</body>
+</html>

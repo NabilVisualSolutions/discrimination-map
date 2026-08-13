@@ -216,10 +216,10 @@ def _store_item(source: str, item: dict[str, Any]) -> Optional[tuple[int, str]]:
     if not verdict["relevant"]:
         return None  # keep the map focused: skip unrelated posts
 
-    hit = geolocate.from_gazetteer(text)  # instant, offline, Germany-biased
-    # Keep the map on Germany: ignore matches that resolve outside the DE box.
-    if hit and not geolocate.in_germany(hit[0], hit[1]):
-        hit = None
+    # Gazetteer is Germany-biased (its city list is heaviest there) but not
+    # Germany-restricted — a global taxonomy shouldn't silently drop a real
+    # geocoded hit just because it falls outside Germany.
+    hit = geolocate.from_gazetteer(text)
     lat = lon = place = None
     if hit:
         lat, lon, place = hit
@@ -233,7 +233,8 @@ def _store_item(source: str, item: dict[str, Any]) -> Optional[tuple[int, str]]:
         evidence=evidence,
         law=verdict["law_code"],
         impact=None,                     # scraped: unknown until reviewed
-        verified=False,                  # scraped items are always unverified
+        # status: left to insert_report's default — 'unverified' since a
+        # scraped item always carries a real source `url` as evidence.
         lat=lat, lon=lon, place=place)
     if new_id is not None and hit is None:
         return new_id, text              # newly stored, awaiting geocode
@@ -273,7 +274,7 @@ def _geocode_pending(pending: list[tuple[int, str]], budget: int) -> int:
         if resolved >= budget:
             break
         hit = geolocate.from_nominatim(" ".join(text.split()[:8]))
-        if hit and geolocate.in_germany(hit[0], hit[1]):
+        if hit:
             db.set_location(report_id, *hit)
             resolved += 1
     return resolved
