@@ -1416,6 +1416,15 @@ function initSplash(){
   // so it's never a trap even before the 3s auto-dismiss fires.
   sloganStage.addEventListener('click', dismiss);
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') dismiss(); }, {once:true});
+
+  // Arriving from nabilvs.com (embedded iframe or an outbound link) with
+  // ?lang=<code> means the visitor already chose a language there — skip
+  // asking again and go straight to the slogan in that language.
+  const handoffLang = new URLSearchParams(location.search).get('lang');
+  if(handoffLang && I.langs.includes(handoffLang)){
+    I.setLang(handoffLang);
+    showSlogan();
+  }
 }
 
 // ---------- boot ----------
