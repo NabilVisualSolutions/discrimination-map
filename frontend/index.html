@@ -53,12 +53,11 @@
     box-shadow:0 4px 18px rgba(20,30,50,.12)}
   .searchwrap input::placeholder{color:var(--faint)}
   .searchwrap input:focus{outline:none;border-color:var(--user)}
-  /* Always reachable, every tab, no matter what's open — a moment of
-     panic is exactly when a hunt-through-menus exit fails. */
-  .quickexit{background:var(--danger);border:none;color:#fff;font-weight:700;font-size:12.5px;
+  /* Always reachable, every tab — one tap to guide/privacy/terms. */
+  .guidebtn{background:var(--user);border:none;color:#fff;font-weight:700;font-size:12.5px;
     letter-spacing:.02em;border-radius:12px;padding:0 14px;display:flex;align-items:center;gap:6px;
-    cursor:pointer;box-shadow:0 4px 18px rgba(204,52,60,.35);flex:none;height:42px}
-  .quickexit svg{width:14px;height:14px;flex:none}
+    cursor:pointer;box-shadow:0 4px 18px rgba(0,116,174,.35);flex:none;height:42px}
+  .guidebtn svg{width:14px;height:14px;flex:none}
   .iconbtn{background:var(--panel);border:1px solid var(--line);color:var(--ink);
     width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
     cursor:pointer;box-shadow:0 4px 18px rgba(20,30,50,.12);flex:none;position:relative}
@@ -316,15 +315,15 @@
      brighter, faster, glowing variant — a growing network, not a danger
      cluster. Leaflet's SVG renderer exposes each layer as a plain <path>
      via the `className` option, so plain CSS/keyframes reach it directly. */
-  .zone-link{animation:zone-fade-in .5s ease-out, zone-flow 1.6s linear infinite}
+  .zone-link{animation:zone-fade-in .5s ease-out, zone-flow 1.3s linear infinite}
   .zone-field{animation:zone-fade-in .5s ease-out, zone-glow 3s ease-in-out infinite}
-  .zone-link-solidarity{animation:zone-fade-in .5s ease-out, zone-flow .9s linear infinite;
-    filter:drop-shadow(0 0 3px #FFD23Fb3)}
+  .zone-link-solidarity{animation:zone-fade-in .5s ease-out, zone-flow .8s linear infinite;
+    filter:drop-shadow(0 0 4px #FFD23Fcc)}
   .zone-field-solidarity{animation:zone-fade-in .5s ease-out, zone-glow 2.4s ease-in-out infinite;
-    filter:drop-shadow(0 0 4px #FFD23F80)}
+    filter:drop-shadow(0 0 5px #FFD23F99)}
   @keyframes zone-fade-in{from{opacity:0}to{opacity:1}}
-  @keyframes zone-flow{to{stroke-dashoffset:-20}}
-  @keyframes zone-glow{0%,100%{fill-opacity:.08}50%{fill-opacity:.16}}
+  @keyframes zone-flow{to{stroke-dashoffset:-40}}
+  @keyframes zone-glow{0%,100%{fill-opacity:.10}50%{fill-opacity:.24}}
 
   /* ---- desktop layout (>=900px): rail replaces bottom sheets/nav ---- */
   @media (min-width:900px){
@@ -412,12 +411,9 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
     <input id="searchInput" type="text" data-i18n-placeholder="search.placeholder" placeholder="Search region or coordinates…" />
   </div>
-  <button class="quickexit" id="quickExit" data-i18n-title="quickexit.title" title="Immediately leave this site">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5l7 7-7 7M4 12h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <span data-i18n="quickexit.label">Quick exit</span>
-  </button>
-  <button class="iconbtn" id="helpOpen" data-i18n-title="about.open.short" title="What is this? Guide, privacy, terms">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1.1-1.5 2.2"/><path d="M12 17h.01"/></svg>
+  <button class="guidebtn" id="guideOpen" data-i18n-title="about.open.short" title="What is this? Guide, privacy, terms">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 0 4 22.5V5.5Z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span data-i18n="guide.button.label">Guide</span>
   </button>
   <div style="position:relative">
     <button class="iconbtn" id="langBtn" aria-haspopup="true" title="Language">
@@ -623,6 +619,11 @@
   <div class="modal guide">
     <h2 data-i18n="about.title">What this is</h2>
     <p class="hint" data-i18n="about.hint">Hate incidents don't stop being real when the news cycle moves on. This is where the pattern stays visible.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 16px">
+      <a class="btn" href="/guide" style="text-decoration:none;text-align:center" data-i18n="about.guideLink">Volunteer guide</a>
+      <a class="btn" href="/privacy" style="text-decoration:none;text-align:center" data-i18n="about.privacyLink">Privacy Policy</a>
+      <a class="btn" href="/terms" style="text-decoration:none;text-align:center" data-i18n="about.termsLink">Terms of Use</a>
+    </div>
     <h3 data-i18n="guide.howTitle">How to use this map</h3>
     <ul>
       <li data-i18n="guide.howReport">Right-click a spot on the map (press and hold on mobile) to pin a report right there — or tap Report and place the pin yourself.</li>
@@ -663,8 +664,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/i18n.js?v=20260822b"></script>
-<script src="/static/awareness-data.js?v=20260822b"></script>
+<script src="/static/i18n.js?v=20260822c"></script>
+<script src="/static/awareness-data.js?v=20260822c"></script>
 <script>
 const I = window.DXMAP_I18N_RUNTIME;
 const t = I.t;
@@ -764,11 +765,13 @@ function convexHull(points){
 // even for the ~3,300-point far_right_mention category on every rebuild.
 // 35-40km cells produced almost no clusters against real scraped data —
 // distinct flagged posts are typically 50-150km+ apart (different cities),
-// not genuinely hyper-local. 1.0deg (~100-110km, roughly Germany's federal-
-// state scale) is the smallest grid that reliably produces real multi-point
-// regional clusters instead of either "no clusters" or "one national blob".
-// Verified against local dev data: 0.35deg -> 0 clusters, 1.0deg -> 5.
-const ZONE_GRID_DEG = 1.0;
+// not genuinely hyper-local. 2.0deg (~220km, roughly a third of Germany's
+// north-south span) reads as real regional/Ingress-scale territory at a
+// whole-country zoom instead of vanishing into tiny local dots — verified
+// against live production data: 1.0deg -> 23 points covered across 11
+// clusters, 2.0deg -> 54 points across 18 clusters, still multiple distinct
+// regional zones rather than one nationwide blob.
+const ZONE_GRID_DEG = 2.0;
 function gridClusters(points){
   const buckets = new Map();
   points.forEach(p=>{
@@ -798,8 +801,8 @@ function rebuildZones(){
     const linkClass = isSolidarity ? 'zone-link-solidarity' : 'zone-link';
     const fieldClass = isSolidarity ? 'zone-field-solidarity' : 'zone-field';
     const linkOpts = isSolidarity
-      ? {pane:'zonesPane', className:linkClass, color, weight:3, opacity:.85, dashArray:'8 26', interactive:false}
-      : {pane:'zonesPane', className:linkClass, color, weight:2, opacity:.5, dashArray:'4 6', interactive:false};
+      ? {pane:'zonesPane', className:linkClass, color, weight:4, opacity:.95, dashArray:'10 20', interactive:false}
+      : {pane:'zonesPane', className:linkClass, color, weight:3.5, opacity:.85, dashArray:'8 14', interactive:false};
 
     const layers = [];
     gridClusters(uniq).forEach(cluster=>{
@@ -809,8 +812,8 @@ function rebuildZones(){
       } else {
         const hull = convexHull(cluster);
         layer = hull.length >= 3
-          ? L.polygon(hull, {pane:'zonesPane', className:fieldClass, color, weight:isSolidarity?2:1.5,
-              opacity:isSolidarity?.7:.45, fillColor:color, fillOpacity:isSolidarity?.14:.08, interactive:false})
+          ? L.polygon(hull, {pane:'zonesPane', className:fieldClass, color, weight:isSolidarity?3:2.5,
+              opacity:isSolidarity?.85:.75, fillColor:color, fillOpacity:isSolidarity?.2:.12, interactive:false})
           : L.polyline(cluster.slice(0,2), linkOpts);
       }
       layer.addTo(map);
@@ -1428,11 +1431,8 @@ document.getElementById('huntReport').onclick = ()=>{
   setTab('map'); openModal();
 };
 document.getElementById('aboutOpen').onclick = ()=>document.getElementById('aboutScrim').classList.add('on');
-document.getElementById('helpOpen').onclick = ()=>document.getElementById('aboutScrim').classList.add('on');
+document.getElementById('guideOpen').onclick = ()=>document.getElementById('aboutScrim').classList.add('on');
 document.getElementById('aboutClose').onclick = ()=>document.getElementById('aboutScrim').classList.remove('on');
-// window.location.replace (not .href) so the site never re-enters browser
-// history — back button can't return here after a quick exit.
-document.getElementById('quickExit').onclick = ()=>{ window.location.replace('https://www.wikipedia.org'); };
 
 // ---------- locate me (viewer's own position, separate from report-pin picker) ----------
 let myMarker = null;
