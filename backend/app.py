@@ -218,6 +218,27 @@ def post_report(report: UserReport):
     return {"id": new_id, "status": saved["status"], "edit_token": saved["edit_token"]}
 
 
+@app.get("/api/reports/{report_id}")
+def get_own_report(report_id: int, edit_token: str):
+    """
+    Fetch a single report by id, gated by its edit_token. This is the only
+    way an anonymous submitter can see their own report on the map again —
+    a 'pending' or 'unverified' report is invisible on /api/reports (the
+    public feed) until a moderator acts on it, so without this the map
+    would only ever show a filer their own report for the one moment right
+    after submission. Same trust model as the self-edit PATCH below: the
+    token, not an account, proves "you're the one who filed this" — so the
+    real (unfuzzed) coordinates are fine to return here.
+    """
+    existing = db.get_report(report_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not secrets.compare_digest(existing.get("edit_token") or "", edit_token):
+        raise HTTPException(status_code=403, detail="Wrong edit token")
+    existing.pop("edit_token", None)
+    return existing
+
+
 class StatusUpdate(BaseModel):
     status: Literal["pending", "unverified", "verified", "dismissed"]
 

@@ -341,6 +341,42 @@ def test_user_can_edit_own_pending_report_with_token():
     assert row["reason"] == "an edited reason text"
 
 
+def test_own_pending_report_fetchable_by_edit_token():
+    """
+    A 'pending' report never appears in /api/reports (the public feed) —
+    the edit_token is the only way the anonymous filer can see it on the
+    map again, e.g. on a later visit. GET /api/reports/{id} must return it
+    with the real (unfuzzed) coordinates when the token matches.
+    """
+    r = client.post("/api/reports", json={
+        "title": "Findable via token", "reason": "checking own-report lookup",
+        "lat": 48.85, "lon": 2.35})
+    body = r.json()
+    rid, token = body["id"], body["edit_token"]
+
+    ok = client.get(f"/api/reports/{rid}", params={"edit_token": token})
+    assert ok.status_code == 200
+    fetched = ok.json()
+    assert fetched["id"] == rid
+    assert fetched["status"] == "pending"
+    assert (fetched["lat"], fetched["lon"]) == (48.85, 2.35)
+    assert "edit_token" not in fetched
+
+
+def test_own_report_lookup_rejects_wrong_token():
+    r = client.post("/api/reports", json={
+        "title": "Wrong token test", "reason": "checking rejection path",
+        "lat": 48.85, "lon": 2.35})
+    rid = r.json()["id"]
+    resp = client.get(f"/api/reports/{rid}", params={"edit_token": "not-the-real-token"})
+    assert resp.status_code == 403
+
+
+def test_own_report_lookup_404s_for_unknown_id():
+    resp = client.get("/api/reports/999999999", params={"edit_token": "whatever"})
+    assert resp.status_code == 404
+
+
 def test_user_cannot_edit_report_after_verification():
     r = client.post("/api/reports", json={
         "title": "Locks after review", "reason": "should lock after verification",
