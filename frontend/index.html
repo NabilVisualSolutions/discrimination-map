@@ -674,8 +674,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/i18n.js?v=20260822h"></script>
-<script src="/static/awareness-data.js?v=20260822h"></script>
+<script src="/static/i18n.js?v=20260822i"></script>
+<script src="/static/awareness-data.js?v=20260822i"></script>
 <script>
 const I = window.DXMAP_I18N_RUNTIME;
 const t = I.t;
@@ -812,8 +812,14 @@ function rebuildZones(){
   allReports.forEach(r=>{
     if(r.lat==null || r.lon==null) return;
     if(!withinTimeline(r)) return;
-    if(r.status !== 'verified') return; // needs-review leads don't get drawn into a zone
     const cat = r.category || 'other';
+    // far_right_mention is the catch-all "Far-right context (needs review)"
+    // bucket — an automated hit nobody's sorted into a real category yet.
+    // Every other category was already classified against specific StGB
+    // signals, so it's not gated on moderation status (near-nothing in this
+    // project's backlog is ever marked 'verified' — gating on that emptied
+    // every zone, toggle on or off).
+    if(cat === 'far_right_mention') return;
     if(hiddenCats.has(cat)) return;
     (byCat[cat] = byCat[cat] || []).push([r.lat, r.lon]);
   });
