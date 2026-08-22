@@ -674,8 +674,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/i18n.js?v=20260822g"></script>
-<script src="/static/awareness-data.js?v=20260822g"></script>
+<script src="/static/i18n.js?v=20260822h"></script>
+<script src="/static/awareness-data.js?v=20260822h"></script>
 <script>
 const I = window.DXMAP_I18N_RUNTIME;
 const t = I.t;
@@ -812,6 +812,7 @@ function rebuildZones(){
   allReports.forEach(r=>{
     if(r.lat==null || r.lon==null) return;
     if(!withinTimeline(r)) return;
+    if(r.status !== 'verified') return; // needs-review leads don't get drawn into a zone
     const cat = r.category || 'other';
     if(hiddenCats.has(cat)) return;
     (byCat[cat] = byCat[cat] || []).push([r.lat, r.lon]);
@@ -901,7 +902,7 @@ function renderCatList(){
 // ---------- data loading ----------
 async function refreshReports(){
   try{
-    const res = await fetch('/api/reports?limit=1000&all=true', {credentials:'include'});
+    const res = await fetch('/api/reports?limit=5000&all=true', {credentials:'include'});
     const {reports} = await res.json();
     allReports = reports;
     if(reports.length){
@@ -932,6 +933,7 @@ function fmtMonth(ts){
 }
 function updateTimelineLabels(){
   const slider = document.getElementById('tlSlider');
+  if(!slider.dataset.init) return; // real report data hasn't set slider.min yet — skip, don't show the epoch
   document.getElementById('tlFrom').textContent = fmtMonth(+slider.min);
   const to = document.getElementById('tlTo');
   if(+slider.value >= +slider.max){ to.textContent = t('timeline.present'); }
@@ -1549,9 +1551,10 @@ function initSplash(){
   I.apply();
   initSplash();
   renderAwareness();
-  await checkSession();
-  await loadLaws();
-  await loadCategories();
+  // checkSession/loadLaws/loadCategories don't depend on each other — run
+  // them together instead of as 3 sequential round-trips, so the map's
+  // first paint (which only needs refreshReports) lands sooner.
+  await Promise.all([checkSession(), loadLaws(), loadCategories()]);
   await refreshReports();
   refreshHealth();
   setInterval(refreshReports, 15000);

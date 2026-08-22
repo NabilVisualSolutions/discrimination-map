@@ -175,7 +175,7 @@ def get_reports(limit: int = 500, all: bool = False, user: dict | None = Depends
     fuzzed at a wider radius for the public regardless of verification
     status — logged-in moderators still see the real location to review it.
     """
-    limit = max(1, min(limit, 1000))
+    limit = max(1, min(limit, 5000))  # headroom above the current ~3.8k public-eligible total
     reports = db.list_reports(limit=limit, located_only=not all)
     if user is None:
         for r in reports:
