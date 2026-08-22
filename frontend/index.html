@@ -53,6 +53,12 @@
     box-shadow:0 4px 18px rgba(20,30,50,.12)}
   .searchwrap input::placeholder{color:var(--faint)}
   .searchwrap input:focus{outline:none;border-color:var(--user)}
+  /* Always reachable, every tab, no matter what's open — a moment of
+     panic is exactly when a hunt-through-menus exit fails. */
+  .quickexit{background:var(--danger);border:none;color:#fff;font-weight:700;font-size:12.5px;
+    letter-spacing:.02em;border-radius:12px;padding:0 14px;display:flex;align-items:center;gap:6px;
+    cursor:pointer;box-shadow:0 4px 18px rgba(204,52,60,.35);flex:none;height:42px}
+  .quickexit svg{width:14px;height:14px;flex:none}
   .iconbtn{background:var(--panel);border:1px solid var(--line);color:var(--ink);
     width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
     cursor:pointer;box-shadow:0 4px 18px rgba(20,30,50,.12);flex:none;position:relative}
@@ -304,6 +310,22 @@
     animation:mk-pulse 1.8s ease-out infinite}
   @keyframes mk-pulse{0%{transform:scale(1);opacity:.85}100%{transform:scale(2.6);opacity:0}}
 
+  /* ---- Ingress-style zone links/fields: same-category points connected,
+     drawn with a flowing "energy" dash so the pattern reads as an active
+     network rather than a static overlay. Solidarity events get their own
+     brighter, faster, glowing variant — a growing network, not a danger
+     cluster. Leaflet's SVG renderer exposes each layer as a plain <path>
+     via the `className` option, so plain CSS/keyframes reach it directly. */
+  .zone-link, .zone-field{animation:zone-fade-in .5s ease-out}
+  .zone-link{animation:zone-fade-in .5s ease-out, zone-flow 1.6s linear infinite}
+  .zone-link-solidarity{animation:zone-fade-in .5s ease-out, zone-flow .9s linear infinite;
+    filter:drop-shadow(0 0 3px #FFD23Fb3)}
+  .zone-field-solidarity{animation:zone-fade-in .5s ease-out, zone-glow 2.4s ease-in-out infinite;
+    filter:drop-shadow(0 0 4px #FFD23F80)}
+  @keyframes zone-fade-in{from{opacity:0}to{opacity:1}}
+  @keyframes zone-flow{to{stroke-dashoffset:-20}}
+  @keyframes zone-glow{0%,100%{fill-opacity:.08}50%{fill-opacity:.18}}
+
   /* ---- desktop layout (>=900px): rail replaces bottom sheets/nav ---- */
   @media (min-width:900px){
     :root{--nav-h:0px}
@@ -336,6 +358,7 @@
     .xcard-body{transition:none}
     .xcard-head .chev{transition:none}
     .splash{transition:none}
+    .zone-link, .zone-field, .zone-link-solidarity, .zone-field-solidarity{animation:none}
   }
 
   /* ---- boot splash: language choice, then the slogan, then the map ---- */
@@ -389,6 +412,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
     <input id="searchInput" type="text" data-i18n-placeholder="search.placeholder" placeholder="Search region or coordinates…" />
   </div>
+  <button class="quickexit" id="quickExit" data-i18n-title="quickexit.title" title="Immediately leave this site">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5l7 7-7 7M4 12h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span data-i18n="quickexit.label">Quick exit</span>
+  </button>
   <div style="position:relative">
     <button class="iconbtn" id="langBtn" aria-haspopup="true" title="Language">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 4 6 4 9s-1.5 6.3-4 9c-2.5-2.7-4-6-4-9s1.5-6.3 4-9z"/></svg>
@@ -621,6 +648,11 @@
       <button class="btn" id="aboutClose" data-i18n="about.close">Close</button>
       <a class="btn primary" href="/awareness" style="text-decoration:none;text-align:center" data-i18n="about.awarenessLink">Awareness guide →</a>
     </div>
+    <p style="text-align:center;margin:14px 0 0;font-size:12px">
+      <a href="/guide" data-i18n="about.guideLink">Volunteer guide</a> ·
+      <a href="/privacy" data-i18n="about.privacyLink">Privacy Policy</a> ·
+      <a href="/terms" data-i18n="about.termsLink">Terms of Use</a>
+    </p>
   </div>
 </div>
 
@@ -672,12 +704,21 @@ function ago(ts){
   return t('detail.ago.d',{n:Math.floor(s/86400)});
 }
 
-function icon(source, color, faded, isNew){
+// Solidarity events get a star, not a dot — a different KIND of pin (a
+// positive event, not a harm incident), legible even without relying on
+// color alone. CSS clip-path star.
+const STAR_CLIP = 'polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)';
+
+function icon(source, color, faded, isNew, cat){
   const cls = source === 'user' ? 'user' : 'agent';
-  const glow = faded ? 'none' : `0 0 6px ${color}b3`;
+  const isStar = cat === 'solidarity_event';
+  const glow = faded ? 'none' : `0 0 ${isStar?9:6}px ${color}${isStar?'e6':'b3'}`;
   const ring = (isNew && !faded) ? `<div class="mk-pulse-ring" style="border-color:${color}"></div>` : '';
-  return L.divIcon({className:'', html:`<div style="position:relative;width:13px;height:13px">${ring}<div class="mk ${cls}${faded?' faded':''}" style="width:13px;height:13px;background:${color};box-shadow:${glow}"></div></div>`,
-    iconSize:[13,13], iconAnchor:[7,7]});
+  const shape = isStar
+    ? `<div class="mk mk-star ${cls}${faded?' faded':''}" style="width:16px;height:16px;background:${color};box-shadow:${glow};clip-path:${STAR_CLIP}"></div>`
+    : `<div class="mk ${cls}${faded?' faded':''}" style="width:13px;height:13px;background:${color};box-shadow:${glow}"></div>`;
+  return L.divIcon({className:'', html:`<div style="position:relative;width:16px;height:16px">${ring}${shape}</div>`,
+    iconSize:[16,16], iconAnchor:[8,8]});
 }
 
 function ensureGroup(cat){
@@ -727,14 +768,25 @@ function rebuildZones(){
     const uniq = pts.filter(p=>{ const k = p.join(','); if(seen.has(k)) return false; seen.add(k); return true; });
     if(uniq.length < 2) return;
     const color = categoryColor(cat);
+    const isSolidarity = cat === 'solidarity_event';
+    const linkClass = isSolidarity ? 'zone-link-solidarity' : 'zone-link';
+    const fieldClass = isSolidarity ? 'zone-field-solidarity' : 'zone-field';
+    // Solidarity links read as a growing network, not a danger cluster:
+    // thicker, brighter, and a short bright pulse traveling along a mostly-
+    // open line (vs. the tight marching-ants dashes on harm-category
+    // links) — energy moving between points, not a static connection.
+    const linkOpts = isSolidarity
+      ? {pane:'zonesPane', className:linkClass, color, weight:3, opacity:.85, dashArray:'8 26', interactive:false}
+      : {pane:'zonesPane', className:linkClass, color, weight:2, opacity:.5, dashArray:'4 6', interactive:false};
     let layer;
     if(uniq.length === 2){
-      layer = L.polyline(uniq, {pane:'zonesPane', color, weight:2, opacity:.5, dashArray:'4 6', interactive:false});
+      layer = L.polyline(uniq, linkOpts);
     } else {
       const hull = convexHull(uniq);
       layer = hull.length >= 3
-        ? L.polygon(hull, {pane:'zonesPane', color, weight:1.5, opacity:.45, fillColor:color, fillOpacity:.08, interactive:false})
-        : L.polyline(uniq.slice(0,2), {pane:'zonesPane', color, weight:2, opacity:.5, dashArray:'4 6', interactive:false});
+        ? L.polygon(hull, {pane:'zonesPane', className:fieldClass, color, weight:isSolidarity?2:1.5,
+            opacity:isSolidarity?.7:.45, fillColor:color, fillOpacity:isSolidarity?.14:.08, interactive:false})
+        : L.polyline(uniq.slice(0,2), linkOpts);
     }
     layer.addTo(map);
     zoneLayers[cat] = layer;
@@ -754,7 +806,7 @@ function rebuildMarkers(){
     const faded = ageDays >= FADE_DAYS;
     const isNew = ageDays < NEW_DAYS;
     const color = categoryColor(cat);
-    const m = L.marker([r.lat,r.lon],{icon:icon(r.source,color,faded,isNew)}).addTo(ensureGroup(cat));
+    const m = L.marker([r.lat,r.lon],{icon:icon(r.source,color,faded,isNew,cat)}).addTo(ensureGroup(cat));
     catCounts[cat] = (catCounts[cat]||0)+1;
     m.on('click',()=>openSheet(r));
     markers[r.id] = m;
@@ -1350,6 +1402,9 @@ document.getElementById('huntReport').onclick = ()=>{
 };
 document.getElementById('aboutOpen').onclick = ()=>document.getElementById('aboutScrim').classList.add('on');
 document.getElementById('aboutClose').onclick = ()=>document.getElementById('aboutScrim').classList.remove('on');
+// window.location.replace (not .href) so the site never re-enters browser
+// history — back button can't return here after a quick exit.
+document.getElementById('quickExit').onclick = ()=>{ window.location.replace('https://www.wikipedia.org'); };
 
 // ---------- locate me (viewer's own position, separate from report-pin picker) ----------
 let myMarker = null;

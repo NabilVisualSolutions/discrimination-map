@@ -260,20 +260,30 @@ def user_edit_report(report_id: int, body: UserReportEdit):
     if existing["status"] not in ("pending", "unverified"):
         raise HTTPException(status_code=409, detail="Already reviewed — no longer self-editable")
     fields = body.model_dump(exclude={"edit_token"}, exclude_none=True)
-    db.update_report_fields(report_id, fields)
+    db.update_report_fields(report_id, fields, edited_by="self")
     return {"id": report_id, "status": "updated"}
 
 
 @app.patch("/api/admin/reports/{report_id}/fields")
 def admin_edit_report(
     report_id: int, body: ReportEdit,
-    _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+    user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
 ):
     """Moderator correction tool — full-field edit, no token/status gate."""
     fields = body.model_dump(exclude_none=True)
-    if not db.update_report_fields(report_id, fields):
+    if not db.update_report_fields(report_id, fields, edited_by=user["email"]):
         raise HTTPException(status_code=404, detail="Report not found or nothing to update")
     return {"id": report_id, "status": "updated"}
+
+
+@app.get("/api/admin/reports/{report_id}/history")
+def admin_report_history(
+    report_id: int, _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+):
+    """Full edit trail for one report — who changed what, when."""
+    if db.get_report(report_id) is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return {"history": db.get_report_history(report_id)}
 
 
 @app.get("/api/admin/reports")
@@ -289,10 +299,10 @@ def admin_list_reports(
 @app.patch("/api/admin/reports/{report_id}")
 def admin_set_report_status(
     report_id: int, body: StatusUpdate,
-    _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+    user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
 ):
     """Verify or dismiss a report after human review. Open to both roles."""
-    if not db.set_status(report_id, body.status):
+    if not db.set_status(report_id, body.status, edited_by=user["email"]):
         raise HTTPException(status_code=404, detail="Report not found")
     return {"id": report_id, "status": body.status}
 
@@ -542,6 +552,24 @@ def guide_page():
     path = os.path.join(FRONTEND_DIR, "guide.html")
     if not os.path.exists(path):
         return JSONResponse({"error": "guide page not built"}, status_code=500)
+    return FileResponse(path)
+
+
+@app.get("/privacy")
+def privacy_page():
+    """Serve the Privacy Policy — public, linked from the map footer/report form."""
+    path = os.path.join(FRONTEND_DIR, "privacy.html")
+    if not os.path.exists(path):
+        return JSONResponse({"error": "privacy page not built"}, status_code=500)
+    return FileResponse(path)
+
+
+@app.get("/terms")
+def terms_page():
+    """Serve the Terms of Use — public, linked from the map footer/report form."""
+    path = os.path.join(FRONTEND_DIR, "terms.html")
+    if not os.path.exists(path):
+        return JSONResponse({"error": "terms page not built"}, status_code=500)
     return FileResponse(path)
 
 

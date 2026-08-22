@@ -283,6 +283,7 @@ async function loadReports(){
     if(r.status !== 'dismissed') actions.push(`<button class="rowbtn danger" data-act="dismissed">${esc(t('admin.dismiss'))}</button>`);
     else actions.push(`<button class="rowbtn" data-act="unverified">${esc(t('admin.restore'))}</button>`);
     actions.push(`<button class="rowbtn" data-act="edit">${esc(t('admin.edit'))}</button>`);
+    actions.push(`<button class="rowbtn" data-act="history">${esc(t('admin.history'))}</button>`);
     if(me.role === 'ADMIN') actions.push(`<button class="rowbtn danger" data-act="delete">${esc(t('admin.delete'))}</button>`);
     return `
     <tr data-id="${r.id}" class="${r.status==='pending' ? 'pending-row' : ''}">
@@ -301,6 +302,7 @@ async function loadReports(){
     tr.querySelectorAll('button').forEach(btn=>btn.addEventListener('click', () => {
       if(btn.dataset.act === 'delete') deleteReport(id);
       else if(btn.dataset.act === 'edit') editReport(tr, id);
+      else if(btn.dataset.act === 'history') toggleHistory(tr, id);
       else setStatus(id, btn.dataset.act);
     }));
   });
@@ -327,6 +329,26 @@ function editReport(tr, id){
     loadReports();
   };
   cell.querySelector('[data-editcancel]').onclick = () => loadReports();
+}
+
+async function toggleHistory(tr, id){
+  const existing = tr.nextElementSibling;
+  if(existing && existing.classList.contains('history-row')){ existing.remove(); return; }
+  document.querySelectorAll('.history-row').forEach(el=>el.remove());
+  const res = await fetch(`/api/admin/reports/${id}/history`, {credentials:'include'});
+  if(!res.ok) return;
+  const {history} = await res.json();
+  const html = history.length
+    ? history.map(h => `<div class="meta" style="padding:3px 0">
+        <strong>${esc(h.edited_by)}</strong> changed <strong>${esc(h.field)}</strong>:
+        "${esc(h.old_value || '—')}" → "${esc(h.new_value || '—')}"
+        · ${new Date(h.edited_at*1000).toLocaleString(I.current)}
+      </div>`).join('')
+    : `<div class="meta">${esc(t('admin.noHistory'))}</div>`;
+  const row = document.createElement('tr');
+  row.className = 'history-row';
+  row.innerHTML = `<td colspan="5" style="background:var(--panel-2)">${html}</td>`;
+  tr.after(row);
 }
 
 async function deleteReport(id){

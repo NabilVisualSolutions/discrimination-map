@@ -136,12 +136,27 @@
       <p id="t-qp">No application needed. Open the map, tap Report, category "Banned symbol / salute." Anonymous, no account.</p>
       <a class="btn" href="/" id="t-qbtn">Open the map →</a>
     </div>
+
+    <div class="step" style="margin-top:32px">
+      <div class="num" id="t-editEyebrow">Editing</div>
+      <h2 id="t-editH">Already filed a report and need to fix something?</h2>
+      <p id="t-editP1">Tap the marker you filed — it stays visible to you (and only you) right after you submit it, even while it's pending review. If an "Edit my report" button shows up, you can still change it.</p>
+      <p id="t-editP2">This only works from the same browser and device you used to file it, and only until a reviewer has looked at it — reports are anonymous by design, so there's no account we can use to recover the edit link for you later.</p>
+    </div>
+
+    <div class="step">
+      <div class="num" id="t-solEyebrow">New category</div>
+      <h2 id="t-solH">Solidarity events aren't harm reports</h2>
+      <p id="t-solP">Counter-protests, vigils, and solidarity rallies against far-right extremism get their own category — shown as a gold star on the map, not a colored dot. If you're reviewing, treat these differently from the other nine: they document a positive public event, not an alleged incident, so there's no location fuzzing and nothing to "verify" in the same sense.</p>
+    </div>
   </div>
 </section>
 
 <footer>
-  <div class="wrap" id="t-footer">
-    Questions? Reply to the confirmation email, or use the message field when you apply.
+  <div class="wrap">
+    <span id="t-footer">Questions? Reply to the confirmation email, or use the message field when you apply.</span>
+    · <a href="/privacy" id="t-privacyLink">Privacy Policy</a>
+    · <a href="/terms" id="t-termsLink">Terms of Use</a>
   </div>
 </footer>
 
@@ -162,7 +177,13 @@ const GUIDE = {
     s4h:"Check your status", s4p:"Dashboard → Volunteering. Shows whether your email is confirmed, and your application status: Pending review → In progress → Approved (or Not moving forward).",
     s5h:"If approved as a moderator", s5p:"You'll get a separate login for map.nabilvs.com/admin — the actual tool for reviewing reports. Different login from your nabilvs.com account, on purpose: a different system, kept simple and separate.",
     qh:"Just want to document a banned symbol right now?", qp:"No application needed. Open the map, tap Report, category \"Banned symbol / salute.\" Anonymous, no account.", qbtn:"Open the map →",
+    editEyebrow:"Editing", editH:"Already filed a report and need to fix something?",
+    editP1:"Tap the marker you filed — it stays visible to you (and only you) right after you submit it, even while it's pending review. If an \"Edit my report\" button shows up, you can still change it.",
+    editP2:"This only works from the same browser and device you used to file it, and only until a reviewer has looked at it — reports are anonymous by design, so there's no account we can use to recover the edit link for you later.",
+    solEyebrow:"New category", solH:"Solidarity events aren't harm reports",
+    solP:"Counter-protests, vigils, and solidarity rallies against far-right extremism get their own category — shown as a gold star on the map, not a colored dot. If you're reviewing, treat these differently from the other nine: they document a positive public event, not an alleged incident, so there's no location fuzzing and nothing to \"verify\" in the same sense.",
     footer:"Questions? Reply to the confirmation email, or use the message field when you apply.",
+    privacyLink:"Privacy Policy", termsLink:"Terms of Use",
   },
   de: {
     brand:"Diskriminierungskarte", back:"← Zurück zur Karte", eyebrow:"Leitfaden für Freiwillige",
@@ -176,7 +197,13 @@ const GUIDE = {
     s4h:"Status prüfen", s4p:"Dashboard → Mitmachen. Zeigt, ob deine E-Mail bestätigt ist, und deinen Bewerbungsstatus: Ausstehend → In Bearbeitung → Angenommen (oder Nicht weiterverfolgt).",
     s5h:"Bei Annahme als Moderator:in", s5p:"Du erhältst einen separaten Zugang für map.nabilvs.com/admin — das eigentliche Werkzeug zur Meldungsprüfung. Bewusst ein anderer Zugang als dein nabilvs.com-Konto: ein anderes, bewusst einfach gehaltenes System.",
     qh:"Willst du gerade ein verbotenes Symbol dokumentieren?", qp:"Keine Bewerbung nötig. Öffne die Karte, tippe auf Melden, Kategorie „Verbotenes Symbol / Gruß“. Anonym, ohne Konto.", qbtn:"Karte öffnen →",
+    editEyebrow:"Bearbeiten", editH:"Bereits eine Meldung eingereicht und musst etwas korrigieren?",
+    editP1:"Tippe auf die Markierung, die du eingereicht hast — sie bleibt nur für dich sichtbar, direkt nach dem Absenden, auch während sie noch aussteht. Erscheint der Button „Meine Meldung bearbeiten“, kannst du sie noch ändern.",
+    editP2:"Das funktioniert nur im selben Browser und auf demselben Gerät, mit dem du gemeldet hast, und nur bis eine Prüfperson sie sich angesehen hat — Meldungen sind bewusst anonym, daher gibt es kein Konto, über das wir dir den Bearbeitungslink später wiederherstellen könnten.",
+    solEyebrow:"Neue Kategorie", solH:"Solidaritätsveranstaltungen sind keine Vorfallsmeldungen",
+    solP:"Gegendemonstrationen, Mahnwachen und Solidaritätskundgebungen gegen Rechtsextremismus haben eine eigene Kategorie — auf der Karte als goldener Stern dargestellt, nicht als farbiger Punkt. Behandle sie bei der Prüfung anders als die übrigen neun: Sie dokumentieren ein positives öffentliches Ereignis, keinen mutmaßlichen Vorfall, daher gibt es keine Standortverfremdung und im selben Sinne nichts zu „verifizieren“.",
     footer:"Fragen? Antworte auf die Bestätigungs-E-Mail oder nutze das Nachrichtenfeld bei der Bewerbung.",
+    privacyLink:"Datenschutzerklärung", termsLink:"Nutzungsbedingungen",
   },
   fr: {
     brand:"Carte de la discrimination", back:"← Retour à la carte", eyebrow:"Guide du bénévole",
@@ -190,7 +217,13 @@ const GUIDE = {
     s4h:"Vérifiez votre statut", s4p:"Tableau de bord → S'impliquer. Affiche si votre e-mail est confirmé, et le statut de votre candidature : En attente → En cours → Approuvée (ou Non retenue).",
     s5h:"Si approuvé comme modérateur", s5p:"Vous recevrez une connexion séparée pour map.nabilvs.com/admin — l'outil réel pour examiner les signalements. Différent de votre compte nabilvs.com, volontairement : un système différent, gardé simple et séparé.",
     qh:"Vous voulez documenter un symbole interdit maintenant ?", qp:"Aucune candidature nécessaire. Ouvrez la carte, appuyez sur Signaler, catégorie « Symbole / salut interdit ». Anonyme, sans compte.", qbtn:"Ouvrir la carte →",
+    editEyebrow:"Modification", editH:"Vous avez déjà déposé un signalement et devez corriger quelque chose ?",
+    editP1:"Appuyez sur le marqueur que vous avez déposé — il reste visible pour vous (et vous seul) juste après l'envoi, même en attente d'examen. Si un bouton « Modifier mon signalement » apparaît, vous pouvez encore le modifier.",
+    editP2:"Cela ne fonctionne que depuis le même navigateur et le même appareil que ceux utilisés pour le signalement, et seulement jusqu'à ce qu'un examinateur l'ait consulté — les signalements sont anonymes par conception, il n'existe donc aucun compte permettant de vous retrouver le lien de modification plus tard.",
+    solEyebrow:"Nouvelle catégorie", solH:"Les événements de solidarité ne sont pas des signalements de préjudice",
+    solP:"Les contre-manifestations, veillées et rassemblements de solidarité contre l'extrémisme d'extrême droite ont leur propre catégorie — affichée comme une étoile dorée sur la carte, pas un point coloré. Si vous êtes examinateur, traitez-les différemment des neuf autres : ils documentent un événement public positif, pas un incident allégué, il n'y a donc pas de floutage de localisation ni rien à « vérifier » au même sens.",
     footer:"Des questions ? Répondez à l'e-mail de confirmation, ou utilisez le champ message lors de votre candidature.",
+    privacyLink:"Politique de confidentialité", termsLink:"Conditions d'utilisation",
   },
   ar: {
     brand:"خريطة التمييز", back:"← العودة إلى الخريطة", eyebrow:"دليل المتطوع",
@@ -204,7 +237,13 @@ const GUIDE = {
     s4h:"تحقّق من حالتك", s4p:"لوحة التحكم ← المشاركة التطوعية. تُظهر ما إذا كان بريدك مؤكَّدًا، وحالة طلبك: قيد الانتظار ← قيد المعالجة ← مقبول (أو لم يُتابَع).",
     s5h:"إذا قُبلت كمُراجع", s5p:"ستحصل على تسجيل دخول منفصل لـ map.nabilvs.com/admin — الأداة الفعلية لمراجعة البلاغات. مختلف عن حساب nabilvs.com عمدًا: نظام مختلف، أُبقي بسيطًا ومنفصلًا.",
     qh:"تريد توثيق رمز محظور الآن؟", qp:"لا حاجة لتقديم طلب. افتح الخريطة، اضغط «إبلاغ»، فئة «رمز / تحية محظورة». مجهول الهوية، دون حساب.", qbtn:"افتح الخريطة ←",
+    editEyebrow:"التعديل", editH:"هل أرسلت بلاغًا بالفعل وتحتاج إلى تصحيح شيء؟",
+    editP1:"اضغط على العلامة التي أرسلتها — تبقى مرئية لك أنت فقط بعد الإرسال مباشرة، حتى وهي قيد الانتظار. إن ظهر زر «تعديل بلاغي»، لا يزال بإمكانك تغييره.",
+    editP2:"يعمل هذا فقط من نفس المتصفح والجهاز اللذين استخدمتهما للإبلاغ، وفقط حتى يراجعه مُشرِف — البلاغات مجهولة الهوية بالتصميم، لذا لا يوجد حساب يمكننا من خلاله استرجاع رابط التعديل لك لاحقًا.",
+    solEyebrow:"فئة جديدة", solH:"فعاليات التضامن ليست بلاغات ضرر",
+    solP:"المظاهرات المضادة والوقفات وتجمعات التضامن ضد التطرف اليميني المتطرف لها فئة خاصة بها — تظهر كنجمة ذهبية على الخريطة، لا كنقطة ملونة. إن كنت تراجع البلاغات، تعامل معها بشكل مختلف عن الفئات التسع الأخرى: فهي توثّق فعالية عامة إيجابية، لا حادثة مزعومة، لذا لا تمويه للموقع ولا شيء «للتحقق» منه بنفس المعنى.",
     footer:"أسئلة؟ رُدّ على بريد التأكيد، أو استخدم حقل الرسالة عند التقديم.",
+    privacyLink:"سياسة الخصوصية", termsLink:"شروط الاستخدام",
   },
 };
 
@@ -219,6 +258,9 @@ function applyGuide(){
     't-s2h':'s2h', 't-s3h':'s3h', 't-s3p':'s3p',
     't-s4h':'s4h', 't-s4p':'s4p', 't-s5h':'s5h', 't-s5p':'s5p',
     't-qh':'qh', 't-qp':'qp', 't-qbtn':'qbtn', 't-footer':'footer',
+    't-editEyebrow':'editEyebrow', 't-editH':'editH', 't-editP1':'editP1', 't-editP2':'editP2',
+    't-solEyebrow':'solEyebrow', 't-solH':'solH', 't-solP':'solP',
+    't-privacyLink':'privacyLink', 't-termsLink':'termsLink',
   };
   Object.entries(textMap).forEach(([id,key])=>{
     const el = document.getElementById(id);

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dxmap",
+      "runtimeExecutable": "./run-dev.sh",
+      "runtimeArgs": [],
+      "port": 8020
+    }
+  ]
+}

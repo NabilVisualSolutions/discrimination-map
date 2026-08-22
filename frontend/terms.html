@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Terms of Use | Discrimination Map</title>
+<meta name="description" content="Acceptable use, what this map is and isn't, and the legal fine print." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f4f7fb'/%3E%3Cpath d='M11 6v20M21 6v20M11 6l10 20' stroke='%230074AE' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
+    --line:#dbe3ee; --line-soft:#e8eef6;
+    --ink:#0b1326; --muted:#5b6b85; --faint:#656F7E;
+    --accent:#0074AE; --ok:#197E44; --danger:#CC343C;
+    --disp:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --body:Georgia,'Times New Roman',serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);
+    font-size:17px;line-height:1.7}
+  h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
+  a{color:var(--accent)}
+  .wrap{max-width:720px;margin:0 auto;padding:0 24px}
+  section{padding:28px 0}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:14px}
+
+  nav{position:sticky;top:0;z-index:100;background:rgba(244,247,251,.9);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft)}
+  nav .inner{max-width:720px;margin:0 auto;padding:16px 24px;display:flex;
+    justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  nav .brand{display:flex;align-items:center;gap:9px;font-family:var(--disp);
+    font-weight:700;font-size:15px;text-decoration:none;color:var(--ink)}
+  nav .brand svg{width:20px;height:20px}
+  nav a.back{font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none}
+  nav a.back:hover{color:var(--ink)}
+  .langbar{display:flex;gap:6px}
+  .langbar button{padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);
+    color:var(--muted);font-size:11.5px;cursor:pointer;font-family:var(--disp)}
+  .langbar button.active{color:var(--accent);border-color:var(--accent)}
+
+  .hero{padding:44px 0 8px}
+  .hero h1{font-size:clamp(26px,4.4vw,38px);line-height:1.15;margin:0 0 12px;max-width:600px}
+  .hero p.lede{font-size:16px;color:var(--muted);max-width:560px;margin:0}
+  .hero .updated{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:14px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;margin-top:16px}
+  .card h2{font-size:18px;margin:0 0 8px;color:var(--ink)}
+  .card p{margin:0 0 8px;font-size:15.5px;color:var(--ink)}
+  .card p:last-child{margin-bottom:0}
+  .card ul{margin:8px 0;padding-left:20px}
+  .card li{font-size:15px;line-height:1.6;color:var(--muted);margin-bottom:6px}
+  .card li strong.ok{color:var(--ok)}
+  .card li strong.no{color:var(--danger)}
+  html[dir=rtl] .card ul{padding-left:0;padding-right:20px}
+
+  .notebox{background:rgba(0,116,174,.06);border:1px solid rgba(0,116,174,.2);
+    border-radius:14px;padding:18px 20px;margin-top:16px;font-size:14.5px;color:var(--muted)}
+  .notebox strong{color:var(--ink)}
+
+  footer{border-top:1px solid var(--line-soft);padding:32px 0;color:var(--faint);
+    font-size:13px;font-family:var(--disp)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M11 6v20M21 6v20M11 6l10 20" stroke="#0074AE" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <span id="brandText">Discrimination Map</span>
+    </a>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="langbar" id="langBar"></div>
+      <a class="back" href="/" id="backLink">← Back to the map</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow" id="t-eyebrow">Terms</div>
+    <h1 id="t-h1">Terms of Use</h1>
+    <p class="lede" id="t-lede">What this tool is, what it isn't, and what we ask of everyone who uses it.</p>
+    <div class="updated" id="t-updated">Last updated: August 2026</div>
+  </div>
+</header>
+
+<section style="padding-top:0">
+  <div class="wrap">
+
+    <div class="notebox" id="t-notice">This page explains the rules in plain language. It isn't a substitute for legal advice, and using the site means you agree to it.</div>
+
+    <div class="card">
+      <h2 id="t-c1h">What this is</h2>
+      <p id="t-c1p">Discrimination Map documents publicly-reported hate incidents and, separately, solidarity/counter-protest events. It's a pattern-visibility tool, not a court, not a database of verdicts, and not staffed for emergencies. If you or someone else is in immediate danger, contact local emergency services — not this site.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c2h">Using it responsibly</h2>
+      <ul>
+        <li id="t-c2li1"><strong class="ok">Do:</strong> report incidents and events honestly, to the best of your knowledge. Review reports carefully and fairly if you're a moderator. Cite sources where you have them.</li>
+        <li id="t-c2li2"><strong class="no">Don't:</strong> submit a report you know to be false, or file one to harass, target, or intimidate a specific private individual.</li>
+        <li id="t-c2li3"><strong class="no">Don't:</strong> use this map, or any data from it, to build a target list, dox anyone, or coordinate harassment — against anyone, on any side of a report.</li>
+        <li id="t-c2li4"><strong class="no">Don't:</strong> try to identify who filed an anonymous report, or scrape/bulk-export the map's data beyond ordinary use of the public site.</li>
+        <li id="t-c2li5"><strong class="no">Don't:</strong> attempt to bypass moderation, spam the report form, or interfere with the service (rate-limiting, security testing without permission, etc).</li>
+      </ul>
+      <p style="margin-top:10px" id="t-c2note">Violating these terms can mean a report gets removed, an account gets revoked, or — for anything unlawful — a referral to the relevant authorities.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c3h">Leads, not verdicts</h2>
+      <p id="t-c3p">Nothing on this map is a legal finding. Automated and user-submitted reports are unverified by default; presumption of innocence applies to everyone named or described in a report until an actual court says otherwise. Treat every mark as "someone reported this," not "this is proven."</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c4h">No warranty</h2>
+      <p id="t-c4p">We provide this map as-is, without guaranteeing its accuracy, completeness, or availability. It documents what was reported or found publicly — it doesn't independently verify facts on the ground, and it isn't legal, medical, or crisis advice. For real emergencies, use your local emergency number (110 in Germany).</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c5h">Liability</h2>
+      <p id="t-c5p">To the extent the law allows, we aren't liable for decisions made based on this map's content, or for content submitted by users we didn't write ourselves. We do our best to moderate responsibly, but this is a volunteer-supported documentation project, not a guaranteed accurate record.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c6h">Requesting removal</h2>
+      <p id="t-c6p">If a report about you is wrong, unfair, or should never have been public, email <strong>dxmap@nabilvs.com</strong> with the report ID (shown as "DE-###" in the detail view) and what's wrong with it. We review every request personally — this isn't automated.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c7h">Governing law</h2>
+      <p id="t-c7p">These terms are governed by German law, where the project and its primary incident coverage are based. If you're using the site from elsewhere, your own local laws may also apply to what you post or how you use the data — that's on you to know.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c8h">Changes to these terms</h2>
+      <p id="t-c8p">If these terms change in a meaningful way, we'll update the date at the top of this page.</p>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" id="t-footer">
+    Questions? Email <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. See also our <a href="/privacy" id="t-privacyLink">Privacy Policy</a>.
+  </div>
+</footer>
+
+<script src="/static/i18n.js"></script>
+<script>
+const I = window.DXMAP_I18N_RUNTIME;
+
+const TERMS = {
+  en: {
+    brand:"Discrimination Map", back:"← Back to the map", eyebrow:"Terms",
+    h1:"Terms of Use",
+    lede:"What this tool is, what it isn't, and what we ask of everyone who uses it.",
+    updated:"Last updated: August 2026",
+    notice:"This page explains the rules in plain language. It isn't a substitute for legal advice, and using the site means you agree to it.",
+    c1h:"What this is", c1p:"Discrimination Map documents publicly-reported hate incidents and, separately, solidarity/counter-protest events. It's a pattern-visibility tool, not a court, not a database of verdicts, and not staffed for emergencies. If you or someone else is in immediate danger, contact local emergency services — not this site.",
+    c2h:"Using it responsibly",
+    c2li1:'<strong class="ok">Do:</strong> report incidents and events honestly, to the best of your knowledge. Review reports carefully and fairly if you\'re a moderator. Cite sources where you have them.',
+    c2li2:'<strong class="no">Don\'t:</strong> submit a report you know to be false, or file one to harass, target, or intimidate a specific private individual.',
+    c2li3:'<strong class="no">Don\'t:</strong> use this map, or any data from it, to build a target list, dox anyone, or coordinate harassment — against anyone, on any side of a report.',
+    c2li4:'<strong class="no">Don\'t:</strong> try to identify who filed an anonymous report, or scrape/bulk-export the map\'s data beyond ordinary use of the public site.',
+    c2li5:'<strong class="no">Don\'t:</strong> attempt to bypass moderation, spam the report form, or interfere with the service (rate-limiting, security testing without permission, etc).',
+    c2note:"Violating these terms can mean a report gets removed, an account gets revoked, or — for anything unlawful — a referral to the relevant authorities.",
+    c3h:"Leads, not verdicts", c3p:'Nothing on this map is a legal finding. Automated and user-submitted reports are unverified by default; presumption of innocence applies to everyone named or described in a report until an actual court says otherwise. Treat every mark as "someone reported this," not "this is proven."',
+    c4h:"No warranty", c4p:"We provide this map as-is, without guaranteeing its accuracy, completeness, or availability. It documents what was reported or found publicly — it doesn't independently verify facts on the ground, and it isn't legal, medical, or crisis advice. For real emergencies, use your local emergency number (110 in Germany).",
+    c5h:"Liability", c5p:"To the extent the law allows, we aren't liable for decisions made based on this map's content, or for content submitted by users we didn't write ourselves. We do our best to moderate responsibly, but this is a volunteer-supported documentation project, not a guaranteed accurate record.",
+    c6h:"Requesting removal", c6p:'If a report about you is wrong, unfair, or should never have been public, email <strong>dxmap@nabilvs.com</strong> with the report ID (shown as "DE-###" in the detail view) and what\'s wrong with it. We review every request personally — this isn\'t automated.',
+    c7h:"Governing law", c7p:"These terms are governed by German law, where the project and its primary incident coverage are based. If you're using the site from elsewhere, your own local laws may also apply to what you post or how you use the data — that's on you to know.",
+    c8h:"Changes to these terms", c8p:"If these terms change in a meaningful way, we'll update the date at the top of this page.",
+    footer:'Questions? Email <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. See also our <a href="/privacy">Privacy Policy</a>.',
+  },
+  de: {
+    brand:"Diskriminierungskarte", back:"← Zurück zur Karte", eyebrow:"Nutzungsbedingungen",
+    h1:"Nutzungsbedingungen",
+    lede:"Was dieses Werkzeug ist, was nicht, und was wir von allen erwarten, die es nutzen.",
+    updated:"Zuletzt aktualisiert: August 2026",
+    notice:"Diese Seite erklärt die Regeln in einfacher Sprache. Sie ersetzt keine Rechtsberatung; die Nutzung der Seite bedeutet Zustimmung.",
+    c1h:"Was das ist", c1p:"Discrimination Map dokumentiert öffentlich gemeldete Hassvorfälle und, getrennt davon, Solidaritäts-/Gegendemonstrationen. Es ist ein Werkzeug zur Sichtbarmachung von Mustern, kein Gericht, keine Urteilsdatenbank und nicht für Notfälle besetzt. Bist du oder jemand anderes in akuter Gefahr, kontaktiere den lokalen Notruf — nicht diese Seite.",
+    c2h:"Verantwortungsvolle Nutzung",
+    c2li1:'<strong class="ok">Tu:</strong> Melde Vorfälle und Ereignisse ehrlich, nach bestem Wissen. Prüfe Meldungen sorgfältig und fair, wenn du Moderator:in bist. Gib Quellen an, wo vorhanden.',
+    c2li2:'<strong class="no">Tu nicht:</strong> Reiche keine Meldung ein, die du für falsch hältst, oder um eine bestimmte Privatperson zu belästigen, ins Visier zu nehmen oder einzuschüchtern.',
+    c2li3:'<strong class="no">Tu nicht:</strong> Nutze diese Karte oder ihre Daten nicht, um eine Zielliste zu erstellen, jemanden zu doxxen oder Belästigung zu koordinieren — gegen niemanden, auf keiner Seite einer Meldung.',
+    c2li4:'<strong class="no">Tu nicht:</strong> Versuche nicht herauszufinden, wer eine anonyme Meldung eingereicht hat, oder die Kartendaten über die normale Nutzung der öffentlichen Seite hinaus zu scrapen oder in großem Umfang zu exportieren.',
+    c2li5:'<strong class="no">Tu nicht:</strong> Versuche nicht, die Moderation zu umgehen, das Meldeformular zu spammen oder den Dienst zu stören (Rate-Limiting, Sicherheitstests ohne Erlaubnis usw.).',
+    c2note:"Ein Verstoß gegen diese Bedingungen kann bedeuten: eine Meldung wird entfernt, ein Konto wird gesperrt, oder — bei allem Rechtswidrigen — eine Meldung an die zuständigen Behörden.",
+    c3h:"Hinweise, keine Urteile", c3p:'Nichts auf dieser Karte ist eine gerichtliche Feststellung. Automatisierte und nutzergenerierte Meldungen sind standardmäßig ungeprüft; die Unschuldsvermutung gilt für jede in einer Meldung genannte oder beschriebene Person, bis ein tatsächliches Gericht etwas anderes feststellt. Behandle jede Markierung als „das hat jemand gemeldet", nicht als „das ist bewiesen".',
+    c4h:"Kein Gewähr", c4p:"Wir stellen diese Karte wie besehen bereit, ohne Garantie für Richtigkeit, Vollständigkeit oder Verfügbarkeit. Sie dokumentiert, was gemeldet oder öffentlich gefunden wurde — sie überprüft keine Fakten vor Ort unabhängig und ist keine Rechts-, Medizin- oder Krisenberatung. Bei echten Notfällen nutze den lokalen Notruf (110 in Deutschland).",
+    c5h:"Haftung", c5p:"Soweit gesetzlich zulässig, haften wir nicht für Entscheidungen, die auf Basis der Karteninhalte getroffen werden, noch für von Nutzer:innen eingereichte Inhalte, die wir nicht selbst verfasst haben. Wir moderieren nach bestem Wissen und Gewissen, aber dies ist ein ehrenamtlich getragenes Dokumentationsprojekt, kein garantiert korrektes Register.",
+    c6h:"Entfernung beantragen", c6p:'Ist eine Meldung über dich falsch, unfair oder hätte nie öffentlich sein dürfen, schreib an <strong>dxmap@nabilvs.com</strong> mit der Meldungs-ID (angezeigt als „DE-###" in der Detailansicht) und was daran falsch ist. Wir prüfen jede Anfrage persönlich — nichts davon ist automatisiert.',
+    c7h:"Anwendbares Recht", c7p:"Diese Bedingungen unterliegen deutschem Recht, dem Sitz des Projekts und seiner primären Vorfallabdeckung. Nutzt du die Seite von anderswo, können auch deine eigenen lokalen Gesetze für das gelten, was du postest oder wie du die Daten nutzt — das liegt in deiner Verantwortung.",
+    c8h:"Änderungen dieser Bedingungen", c8p:"Ändern sich diese Bedingungen wesentlich, aktualisieren wir das Datum oben auf dieser Seite.",
+    footer:'Fragen? Schreib an <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. Siehe auch unsere <a href="/privacy">Datenschutzerklärung</a>.',
+  },
+  fr: {
+    brand:"Carte de la discrimination", back:"← Retour à la carte", eyebrow:"Conditions",
+    h1:"Conditions d'utilisation",
+    lede:"Ce qu'est cet outil, ce qu'il n'est pas, et ce que nous demandons à chacun de ses utilisateurs.",
+    updated:"Dernière mise à jour : août 2026",
+    notice:"Cette page explique les règles en langage clair. Elle ne remplace pas un conseil juridique ; utiliser le site signifie que vous les acceptez.",
+    c1h:"Ce que c'est", c1p:"Discrimination Map documente des incidents haineux signalés publiquement et, séparément, des événements de solidarité/contre-manifestation. C'est un outil de visibilité des schémas, pas un tribunal, pas une base de verdicts, et non doté de personnel pour les urgences. En cas de danger immédiat, contactez les services d'urgence locaux — pas ce site.",
+    c2h:"Une utilisation responsable",
+    c2li1:'<strong class="ok">À faire :</strong> signaler incidents et événements honnêtement, au mieux de vos connaissances. Examiner les signalements avec soin et équité si vous êtes modérateur. Citer vos sources quand vous en avez.',
+    c2li2:'<strong class="no">À ne pas faire :</strong> soumettre un signalement que vous savez faux, ou en déposer un pour harceler, cibler ou intimider une personne privée précise.',
+    c2li3:'<strong class="no">À ne pas faire :</strong> utiliser cette carte, ou toute donnée qui en provient, pour constituer une liste de cibles, doxxer quiconque, ou coordonner du harcèlement — contre qui que ce soit, quel que soit le côté d\'un signalement.',
+    c2li4:'<strong class="no">À ne pas faire :</strong> tenter d\'identifier qui a déposé un signalement anonyme, ou extraire/exporter en masse les données de la carte au-delà d\'un usage normal du site public.',
+    c2li5:'<strong class="no">À ne pas faire :</strong> tenter de contourner la modération, spammer le formulaire de signalement, ou perturber le service (limitation de débit, tests de sécurité sans autorisation, etc).',
+    c2note:"Violer ces conditions peut entraîner le retrait d'un signalement, la révocation d'un compte, ou — pour tout acte illégal — un signalement aux autorités compétentes.",
+    c3h:"Des pistes, pas des verdicts", c3p:"Rien sur cette carte n'est une conclusion juridique. Les signalements automatisés et soumis par les utilisateurs sont non vérifiés par défaut ; la présomption d'innocence s'applique à toute personne nommée ou décrite dans un signalement jusqu'à ce qu'un tribunal réel en décide autrement. Considérez chaque marque comme « quelqu'un a signalé ceci », pas comme « ceci est prouvé ».",
+    c4h:"Aucune garantie", c4p:"Nous fournissons cette carte telle quelle, sans garantir son exactitude, son exhaustivité ou sa disponibilité. Elle documente ce qui a été signalé ou trouvé publiquement — elle ne vérifie pas les faits sur le terrain de manière indépendante, et ne constitue pas un conseil juridique, médical ou de crise. En cas d'urgence réelle, utilisez votre numéro d'urgence local (110 en Allemagne).",
+    c5h:"Responsabilité", c5p:"Dans la mesure permise par la loi, nous ne sommes pas responsables des décisions prises sur la base du contenu de cette carte, ni du contenu soumis par des utilisateurs que nous n'avons pas rédigé nous-mêmes. Nous faisons de notre mieux pour modérer de manière responsable, mais il s'agit d'un projet de documentation soutenu par des bénévoles, pas d'un registre garanti exact.",
+    c6h:"Demander un retrait", c6p:'Si un signalement vous concernant est faux, injuste, ou n\'aurait jamais dû être public, écrivez à <strong>dxmap@nabilvs.com</strong> avec l\'identifiant du signalement (affiché « DE-### » dans la vue détaillée) et ce qui ne va pas. Nous examinons chaque demande personnellement — rien n\'est automatisé.',
+    c7h:"Droit applicable", c7p:"Ces conditions sont régies par le droit allemand, où le projet et sa couverture principale d'incidents sont basés. Si vous utilisez le site depuis ailleurs, vos propres lois locales peuvent aussi s'appliquer à ce que vous publiez ou à votre usage des données — cela relève de votre responsabilité.",
+    c8h:"Modifications de ces conditions", c8p:"Si ces conditions changent de manière significative, nous mettrons à jour la date en haut de cette page.",
+    footer:'Des questions ? Écrivez à <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. Voir aussi notre <a href="/privacy">Politique de confidentialité</a>.',
+  },
+  ar: {
+    brand:"خريطة التمييز", back:"← العودة إلى الخريطة", eyebrow:"الشروط",
+    h1:"شروط الاستخدام",
+    lede:"ما هذه الأداة، وما ليست عليه، وما نطلبه من كل من يستخدمها.",
+    updated:"آخر تحديث: أغسطس 2026",
+    notice:"توضح هذه الصفحة القواعد بلغة بسيطة. لا تُغني عن الاستشارة القانونية، واستخدام الموقع يعني موافقتك عليها.",
+    c1h:"ما هذا", c1p:"توثّق خريطة التمييز حوادث الكراهية المُبلَّغ عنها علنًا، وبشكل منفصل، فعاليات التضامن/المظاهرات المضادة. إنها أداة لإظهار الأنماط، وليست محكمة، ولا قاعدة بيانات للأحكام، ولا مزوَّدة بطاقم للطوارئ. إن كنت أنت أو أي شخص آخر في خطر مباشر، تواصل مع خدمات الطوارئ المحلية — لا هذا الموقع.",
+    c2h:"الاستخدام المسؤول",
+    c2li1:'<strong class="ok">افعل:</strong> أبلِغ عن الحوادث والفعاليات بصدق وبقدر معرفتك. راجِع البلاغات بعناية وإنصاف إن كنت مُشرِفًا. اذكر مصادرك إن توفرت.',
+    c2li2:'<strong class="no">لا تفعل:</strong> لا ترسل بلاغًا تعلم أنه كاذب، ولا ترسله لمضايقة أو استهداف أو تخويف شخص خاص محدد.',
+    c2li3:'<strong class="no">لا تفعل:</strong> لا تستخدم هذه الخريطة أو أي بيانات منها لبناء قائمة أهداف، أو كشف هوية أحد، أو تنسيق مضايقات — ضد أي شخص، على أي جانب من بلاغ.',
+    c2li4:'<strong class="no">لا تفعل:</strong> لا تحاول التعرّف على من أرسل بلاغًا مجهول الهوية، ولا تجمع بيانات الخريطة أو تُصدّرها بكميات كبيرة خارج الاستخدام العادي للموقع العام.',
+    c2li5:'<strong class="no">لا تفعل:</strong> لا تحاول تجاوز المراجعة، أو إغراق نموذج البلاغ، أو التدخل في الخدمة (تقييد المعدل، اختبارات الأمان دون إذن، إلخ).',
+    c2note:"مخالفة هذه الشروط قد تعني إزالة بلاغ، أو إلغاء حساب، أو — لأي أمر غير قانوني — إحالة إلى الجهات المختصة.",
+    c3h:"أدلة، لا أحكام", c3p:"لا شيء في هذه الخريطة يُعد حكمًا قانونيًا. البلاغات الآلية والمُرسلة من المستخدمين غير مُتحقَّق منها افتراضيًا؛ تُطبَّق قرينة البراءة على كل من ذُكر أو وُصف في بلاغ حتى تقرر محكمة فعلية غير ذلك. تعامل مع كل علامة على أنها «أبلغ أحدهم عن هذا»، لا «هذا مُثبَت».",
+    c4h:"دون ضمان", c4p:"نقدّم هذه الخريطة كما هي، دون ضمان دقتها أو اكتمالها أو توفرها. توثّق ما أُبلغ عنه أو وُجد علنًا — ولا تتحقق بشكل مستقل من الوقائع على الأرض، وليست استشارة قانونية أو طبية أو لحالات الأزمات. في حالات الطوارئ الحقيقية، استخدم رقم الطوارئ المحلي (110 في ألمانيا).",
+    c5h:"المسؤولية", c5p:"بالقدر الذي يسمح به القانون، لسنا مسؤولين عن القرارات المتخذة استنادًا إلى محتوى هذه الخريطة، ولا عن محتوى أرسله مستخدمون لم نكتبه نحن. نبذل قصارى جهدنا للمراجعة بمسؤولية، لكن هذا مشروع توثيق يدعمه متطوعون، وليس سجلًا مضمون الدقة.",
+    c6h:"طلب الإزالة", c6p:'إن كان بلاغ يخصك خاطئًا أو غير عادل أو ما كان ينبغي أن يُنشر أصلًا، راسل <strong>dxmap@nabilvs.com</strong> مع رقم تعريف البلاغ (يظهر كـ«DE-###» في عرض التفاصيل) وما الخطأ فيه. نراجع كل طلب شخصيًا — لا شيء آليًا هنا.',
+    c7h:"القانون الحاكم", c7p:"تخضع هذه الشروط للقانون الألماني، حيث يقع مقر المشروع وتغطيته الأساسية للحوادث. إن كنت تستخدم الموقع من مكان آخر، فقد تنطبق قوانينك المحلية أيضًا على ما تنشره أو كيفية استخدامك للبيانات — وهذا أمر يقع على عاتقك معرفته.",
+    c8h:"تغييرات على هذه الشروط", c8p:"إذا تغيّرت هذه الشروط بشكل جوهري، سنحدّث التاريخ أعلى هذه الصفحة.",
+    footer:'أسئلة؟ راسل <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. انظر أيضًا <a href="/privacy">سياسة الخصوصية</a>.',
+  },
+};
+
+function applyTerms(){
+  const lang = I.current;
+  const d = TERMS[lang] || TERMS.en;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = DXMAP_I18N[lang].dir;
+  const textMap = {
+    brandText:'brand', backLink:'back', 't-eyebrow':'eyebrow', 't-h1':'h1', 't-lede':'lede', 't-updated':'updated',
+    't-notice':'notice',
+    't-c1h':'c1h', 't-c2h':'c2h', 't-c3h':'c3h', 't-c4h':'c4h', 't-c5h':'c5h', 't-c6h':'c6h', 't-c7h':'c7h', 't-c8h':'c8h',
+    't-c1p':'c1p', 't-c3p':'c3p', 't-c4p':'c4p', 't-c5p':'c5p', 't-c2note':'c2note', 't-c7p':'c7p', 't-c8p':'c8p',
+  };
+  Object.entries(textMap).forEach(([id,key])=>{
+    const el = document.getElementById(id);
+    if(el && d[key] != null) el.textContent = d[key];
+  });
+  const htmlMap = {
+    't-c2li1':'c2li1', 't-c2li2':'c2li2', 't-c2li3':'c2li3', 't-c2li4':'c2li4', 't-c2li5':'c2li5',
+    't-c6p':'c6p', 't-footer':'footer',
+  };
+  Object.entries(htmlMap).forEach(([id,key])=>{
+    const el = document.getElementById(id);
+    if(el && d[key] != null) el.innerHTML = d[key];
+  });
+}
+function renderLangBar(){
+  document.getElementById('langBar').innerHTML = I.langs.map(l=>
+    `<button data-lang="${l}" class="${l===I.current?'active':''}">${DXMAP_I18N[l].name}</button>`).join('');
+  document.querySelectorAll('#langBar button').forEach(b=>b.addEventListener('click',()=>{
+    I.setLang(b.dataset.lang); renderLangBar(); applyTerms();
+  }));
+}
+renderLangBar();
+applyTerms();
+</script>
+</body>
+</html>

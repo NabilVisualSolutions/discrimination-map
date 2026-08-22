@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy | Discrimination Map</title>
+<meta name="description" content="What Discrimination Map collects, why, how long it's kept, and your rights." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f4f7fb'/%3E%3Cpath d='M11 6v20M21 6v20M11 6l10 20' stroke='%230074AE' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
+    --line:#dbe3ee; --line-soft:#e8eef6;
+    --ink:#0b1326; --muted:#5b6b85; --faint:#656F7E;
+    --accent:#0074AE; --ok:#197E44;
+    --disp:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --body:Georgia,'Times New Roman',serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);
+    font-size:17px;line-height:1.7}
+  h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
+  a{color:var(--accent)}
+  .wrap{max-width:720px;margin:0 auto;padding:0 24px}
+  section{padding:28px 0}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:14px}
+
+  nav{position:sticky;top:0;z-index:100;background:rgba(244,247,251,.9);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft)}
+  nav .inner{max-width:720px;margin:0 auto;padding:16px 24px;display:flex;
+    justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  nav .brand{display:flex;align-items:center;gap:9px;font-family:var(--disp);
+    font-weight:700;font-size:15px;text-decoration:none;color:var(--ink)}
+  nav .brand svg{width:20px;height:20px}
+  nav a.back{font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none}
+  nav a.back:hover{color:var(--ink)}
+  .langbar{display:flex;gap:6px}
+  .langbar button{padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);
+    color:var(--muted);font-size:11.5px;cursor:pointer;font-family:var(--disp)}
+  .langbar button.active{color:var(--accent);border-color:var(--accent)}
+
+  .hero{padding:44px 0 8px}
+  .hero h1{font-size:clamp(26px,4.4vw,38px);line-height:1.15;margin:0 0 12px;max-width:600px}
+  .hero p.lede{font-size:16px;color:var(--muted);max-width:560px;margin:0}
+  .hero .updated{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:14px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;margin-top:16px}
+  .card h2{font-size:18px;margin:0 0 8px;color:var(--ink)}
+  .card p{margin:0 0 8px;font-size:15.5px;color:var(--ink)}
+  .card p:last-child{margin-bottom:0}
+  .card ul{margin:8px 0;padding-left:20px}
+  .card li{font-size:15px;line-height:1.6;color:var(--muted);margin-bottom:6px}
+  html[dir=rtl] .card ul{padding-left:0;padding-right:20px}
+
+  .notebox{background:rgba(0,116,174,.06);border:1px solid rgba(0,116,174,.2);
+    border-radius:14px;padding:18px 20px;margin-top:16px;font-size:14.5px;color:var(--muted)}
+  .notebox strong{color:var(--ink)}
+
+  footer{border-top:1px solid var(--line-soft);padding:32px 0;color:var(--faint);
+    font-size:13px;font-family:var(--disp)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M11 6v20M21 6v20M11 6l10 20" stroke="#0074AE" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <span id="brandText">Discrimination Map</span>
+    </a>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="langbar" id="langBar"></div>
+      <a class="back" href="/" id="backLink">← Back to the map</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow" id="t-eyebrow">Privacy</div>
+    <h1 id="t-h1">Privacy Policy</h1>
+    <p class="lede" id="t-lede">What we collect, why, how long we keep it, and what you can do about it.</p>
+    <div class="updated" id="t-updated">Last updated: August 2026</div>
+  </div>
+</header>
+
+<section style="padding-top:0">
+  <div class="wrap">
+
+    <div class="notebox" id="t-notice">This page is written to be clear and complete, not to be the last word — if you have a specific legal question, talk to a lawyer in your jurisdiction. If anything here is unclear, email us and we'll explain or fix it.</div>
+
+    <div class="card">
+      <h2 id="t-c1h">Who runs this</h2>
+      <p id="t-c1p">Discrimination Map is an independent documentation project. Questions, corrections, or requests about your data go to <strong>dxmap@nabilvs.com</strong>.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c2h">What we collect</h2>
+      <ul id="t-c2list">
+        <li id="t-c2li1"><strong>Scraped public posts.</strong> Text and links from public Bluesky/Mastodon posts our monitoring agent finds — nothing private, nothing behind a login. We keep the post text, a link back to the original, and (where we can determine one) an approximate location.</li>
+        <li id="t-c2li2"><strong>Reports you submit.</strong> Whatever you type into the report form, and the location you place on the map. No name, no email, no account required — reports are anonymous by design.</li>
+        <li id="t-c2li3"><strong>Your edit link.</strong> If you submit a report, a one-time edit token is generated and saved only in your own browser's local storage — it never leaves your device again except when you use it to edit that specific report. We can't recover it for you; if you clear your browser data, that report is no longer editable by you.</li>
+        <li id="t-c2li4"><strong>Reviewer accounts.</strong> If you're invited as a moderator, we store your email and a securely hashed password (never the password itself) plus a session cookie while you're logged in.</li>
+        <li id="t-c2li5"><strong>Basic server logs.</strong> Standard technical logs (request timestamps, IP addresses) kept briefly for security and abuse prevention — not linked to reports you submit.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c3h">Why we collect it, and on what legal basis</h2>
+      <p id="t-c3p1">Documenting publicly-posted incidents and events is done under legitimate interest (GDPR Art. 6(1)(f)) — the public-interest value of making a pattern visible, weighed against minimal privacy impact since the source posts were already public. Reviewer accounts exist under the same basis, to run the moderation process at all.</p>
+      <p id="t-c3p2" style="margin-top:10px"><strong>A note on sensitive content.</strong> Some entries reference alleged criminal conduct (e.g. symbols banned under German law). We treat these strictly as unverified leads, never as an assertion of guilt, and hold anonymous, unverifiable submissions out of the public map until a human reviews them.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c4h">How long we keep it</h2>
+      <p id="t-c4p">Reports aren't deleted on a timer — the project's value is in showing patterns over years, and older entries visually fade rather than disappear so the map stays honest about what's recent versus historical. You can ask for a specific report to be removed at any time (see below); dismissed reports (spam, false positives) are kept internally for moderation records but never shown publicly.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c5h">Your rights</h2>
+      <p id="t-c5p1">Under GDPR and comparable laws, you can ask to access, correct, or delete data about you, object to or restrict our processing, and lodge a complaint with your local data protection authority (in Germany: the state DPA where you live, or the BfDI).</p>
+      <p id="t-c5p2" style="margin-top:10px">If you submitted a report yourself, self-editing is built in (see above) while it's still pending review. For anything else — including a request to remove a report you're mentioned in — email <strong>dxmap@nabilvs.com</strong> and we'll respond directly.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c6h">Sharing and security</h2>
+      <p id="t-c6p">We don't sell data or share it with advertisers. Our hosting infrastructure processes data as needed to run the service. Passwords are hashed (PBKDF2-HMAC-SHA256, never stored in plain text), sessions expire automatically, and location data for the most sensitive report categories is deliberately blurred before it's ever shown publicly.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c7h">Not for children</h2>
+      <p id="t-c7p">This project isn't directed at children, and we don't knowingly collect data from anyone under 16.</p>
+    </div>
+
+    <div class="card">
+      <h2 id="t-c8h">Changes to this policy</h2>
+      <p id="t-c8p">If this policy changes in a meaningful way, we'll update the date at the top of this page.</p>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" id="t-footer">
+    Questions about your data? Email <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. See also our <a href="/terms" id="t-termsLink">Terms of Use</a>.
+  </div>
+</footer>
+
+<script src="/static/i18n.js"></script>
+<script>
+const I = window.DXMAP_I18N_RUNTIME;
+
+const PRIVACY = {
+  en: {
+    brand:"Discrimination Map", back:"← Back to the map", eyebrow:"Privacy",
+    h1:"Privacy Policy",
+    lede:"What we collect, why, how long we keep it, and what you can do about it.",
+    updated:"Last updated: August 2026",
+    notice:"This page is written to be clear and complete, not to be the last word — if you have a specific legal question, talk to a lawyer in your jurisdiction. If anything here is unclear, email us and we'll explain or fix it.",
+    c1h:"Who runs this", c1p:"Discrimination Map is an independent documentation project. Questions, corrections, or requests about your data go to <strong>dxmap@nabilvs.com</strong>.",
+    c2h:"What we collect",
+    c2li1:"<strong>Scraped public posts.</strong> Text and links from public Bluesky/Mastodon posts our monitoring agent finds — nothing private, nothing behind a login. We keep the post text, a link back to the original, and (where we can determine one) an approximate location.",
+    c2li2:"<strong>Reports you submit.</strong> Whatever you type into the report form, and the location you place on the map. No name, no email, no account required — reports are anonymous by design.",
+    c2li3:"<strong>Your edit link.</strong> If you submit a report, a one-time edit token is generated and saved only in your own browser's local storage — it never leaves your device again except when you use it to edit that specific report. We can't recover it for you; if you clear your browser data, that report is no longer editable by you.",
+    c2li4:"<strong>Reviewer accounts.</strong> If you're invited as a moderator, we store your email and a securely hashed password (never the password itself) plus a session cookie while you're logged in.",
+    c2li5:"<strong>Basic server logs.</strong> Standard technical logs (request timestamps, IP addresses) kept briefly for security and abuse prevention — not linked to reports you submit.",
+    c3h:"Why we collect it, and on what legal basis",
+    c3p1:"Documenting publicly-posted incidents and events is done under legitimate interest (GDPR Art. 6(1)(f)) — the public-interest value of making a pattern visible, weighed against minimal privacy impact since the source posts were already public. Reviewer accounts exist under the same basis, to run the moderation process at all.",
+    c3p2:"<strong>A note on sensitive content.</strong> Some entries reference alleged criminal conduct (e.g. symbols banned under German law). We treat these strictly as unverified leads, never as an assertion of guilt, and hold anonymous, unverifiable submissions out of the public map until a human reviews them.",
+    c4h:"How long we keep it", c4p:"Reports aren't deleted on a timer — the project's value is in showing patterns over years, and older entries visually fade rather than disappear so the map stays honest about what's recent versus historical. You can ask for a specific report to be removed at any time (see below); dismissed reports (spam, false positives) are kept internally for moderation records but never shown publicly.",
+    c5h:"Your rights",
+    c5p1:"Under GDPR and comparable laws, you can ask to access, correct, or delete data about you, object to or restrict our processing, and lodge a complaint with your local data protection authority (in Germany: the state DPA where you live, or the BfDI).",
+    c5p2:"If you submitted a report yourself, self-editing is built in (see above) while it's still pending review. For anything else — including a request to remove a report you're mentioned in — email <strong>dxmap@nabilvs.com</strong> and we'll respond directly.",
+    c6h:"Sharing and security", c6p:"We don't sell data or share it with advertisers. Our hosting infrastructure processes data as needed to run the service. Passwords are hashed (PBKDF2-HMAC-SHA256, never stored in plain text), sessions expire automatically, and location data for the most sensitive report categories is deliberately blurred before it's ever shown publicly.",
+    c7h:"Not for children", c7p:"This project isn't directed at children, and we don't knowingly collect data from anyone under 16.",
+    c8h:"Changes to this policy", c8p:"If this policy changes in a meaningful way, we'll update the date at the top of this page.",
+    footer:'Questions about your data? Email <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. See also our <a href="/terms">Terms of Use</a>.',
+  },
+  de: {
+    brand:"Diskriminierungskarte", back:"← Zurück zur Karte", eyebrow:"Datenschutz",
+    h1:"Datenschutzerklärung",
+    lede:"Was wir erfassen, warum, wie lange wir es aufbewahren, und was du dagegen tun kannst.",
+    updated:"Zuletzt aktualisiert: August 2026",
+    notice:"Diese Seite soll klar und vollständig sein, aber nicht das letzte Wort haben — bei einer konkreten Rechtsfrage wende dich an eine Anwältin oder einen Anwalt in deiner Rechtsordnung. Ist etwas unklar, schreib uns, wir erklären oder korrigieren es.",
+    c1h:"Wer das betreibt", c1p:"Discrimination Map ist ein unabhängiges Dokumentationsprojekt. Fragen, Korrekturen oder Anfragen zu deinen Daten gehen an <strong>dxmap@nabilvs.com</strong>.",
+    c2h:"Was wir erfassen",
+    c2li1:"<strong>Erfasste öffentliche Beiträge.</strong> Text und Links aus öffentlichen Bluesky-/Mastodon-Beiträgen, die unser Monitoring-Agent findet — nichts Privates, nichts hinter einem Login. Wir speichern den Beitragstext, einen Link zum Original und (wo bestimmbar) einen ungefähren Ort.",
+    c2li2:"<strong>Von dir eingereichte Meldungen.</strong> Alles, was du in das Meldeformular eingibst, und der Ort, den du auf der Karte markierst. Kein Name, keine E-Mail, kein Konto erforderlich — Meldungen sind bewusst anonym.",
+    c2li3:"<strong>Dein Bearbeitungslink.</strong> Reichst du eine Meldung ein, wird ein einmaliges Bearbeitungstoken erzeugt und nur im lokalen Speicher deines Browsers gesichert — es verlässt dein Gerät nie wieder, außer wenn du es zur Bearbeitung genau dieser Meldung nutzt. Wir können es dir nicht wiederherstellen; löschst du deine Browserdaten, kannst du diese Meldung nicht mehr bearbeiten.",
+    c2li4:"<strong>Prüfer-Konten.</strong> Wirst du als Moderator:in eingeladen, speichern wir deine E-Mail und ein sicher gehashtes Passwort (nie das Passwort selbst) sowie ein Session-Cookie während der Anmeldung.",
+    c2li5:"<strong>Grundlegende Server-Logs.</strong> Übliche technische Protokolle (Zeitstempel, IP-Adressen), kurz aufbewahrt zur Sicherheit und Missbrauchsprävention — nicht mit deinen Meldungen verknüpft.",
+    c3h:"Warum wir das erfassen, und auf welcher Rechtsgrundlage",
+    c3p1:"Die Dokumentation öffentlich gepostete Vorfälle und Ereignisse erfolgt auf Grundlage berechtigten Interesses (Art. 6 Abs. 1 lit. f DSGVO) — der öffentliche Nutzen, ein Muster sichtbar zu machen, abgewogen gegen minimale Eingriffe in die Privatsphäre, da die Quellbeiträge bereits öffentlich waren. Prüfer-Konten bestehen auf derselben Grundlage, um den Moderationsprozess überhaupt zu ermöglichen.",
+    c3p2:"<strong>Hinweis zu sensiblen Inhalten.</strong> Manche Einträge beziehen sich auf mutmaßlich strafbares Verhalten (z. B. nach deutschem Recht verbotene Symbole). Wir behandeln diese strikt als ungeprüfte Hinweise, nie als Schuldfeststellung, und halten anonyme, nicht verifizierbare Einreichungen von der öffentlichen Karte fern, bis ein Mensch sie geprüft hat.",
+    c4h:"Wie lange wir es aufbewahren", c4p:"Meldungen werden nicht nach einer festen Frist gelöscht — der Wert des Projekts liegt darin, Muster über Jahre sichtbar zu machen; ältere Einträge verblassen optisch, statt zu verschwinden, damit die Karte ehrlich zwischen aktuell und historisch unterscheidet. Du kannst jederzeit die Entfernung einer bestimmten Meldung verlangen (siehe unten); abgelehnte Meldungen (Spam, Falschmeldungen) werden intern für die Moderation aufbewahrt, aber nie öffentlich angezeigt.",
+    c5h:"Deine Rechte",
+    c5p1:"Nach DSGVO und vergleichbaren Gesetzen kannst du Auskunft, Berichtigung oder Löschung deiner Daten verlangen, der Verarbeitung widersprechen oder sie einschränken lassen und dich bei deiner zuständigen Datenschutzaufsichtsbehörde beschweren (in Deutschland: die Landesbehörde deines Wohnorts, oder die BfDI).",
+    c5p2:"Hast du selbst eine Meldung eingereicht, ist Selbstbearbeitung eingebaut (siehe oben), solange sie noch aussteht. Für alles andere — auch eine Anfrage zur Entfernung einer Meldung, in der du erwähnt wirst — schreib an <strong>dxmap@nabilvs.com</strong>, wir antworten direkt.",
+    c6h:"Weitergabe und Sicherheit", c6p:"Wir verkaufen keine Daten und geben sie nicht an Werbetreibende weiter. Unsere Hosting-Infrastruktur verarbeitet Daten nur wie für den Betrieb nötig. Passwörter werden gehasht (PBKDF2-HMAC-SHA256, nie im Klartext gespeichert), Sessions laufen automatisch ab, und Standortdaten der sensibelsten Meldungskategorien werden bewusst verwischt, bevor sie öffentlich gezeigt werden.",
+    c7h:"Nicht für Kinder", c7p:"Dieses Projekt richtet sich nicht an Kinder; wir erfassen wissentlich keine Daten von Personen unter 16 Jahren.",
+    c8h:"Änderungen dieser Erklärung", c8p:"Ändert sich diese Erklärung wesentlich, aktualisieren wir das Datum oben auf dieser Seite.",
+    footer:'Fragen zu deinen Daten? Schreib an <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. Siehe auch unsere <a href="/terms">Nutzungsbedingungen</a>.',
+  },
+  fr: {
+    brand:"Carte de la discrimination", back:"← Retour à la carte", eyebrow:"Confidentialité",
+    h1:"Politique de confidentialité",
+    lede:"Ce que nous collectons, pourquoi, combien de temps nous le conservons, et ce que vous pouvez faire.",
+    updated:"Dernière mise à jour : août 2026",
+    notice:"Cette page se veut claire et complète, mais n'a pas le dernier mot — pour une question juridique précise, consultez un avocat de votre juridiction. Si quelque chose n'est pas clair, écrivez-nous et nous l'expliquerons ou le corrigerons.",
+    c1h:"Qui gère ce projet", c1p:"Discrimination Map est un projet de documentation indépendant. Questions, corrections ou demandes concernant vos données : <strong>dxmap@nabilvs.com</strong>.",
+    c2h:"Ce que nous collectons",
+    c2li1:"<strong>Publications publiques collectées.</strong> Texte et liens de publications publiques Bluesky/Mastodon trouvées par notre agent de surveillance — rien de privé, rien derrière une connexion. Nous conservons le texte, un lien vers l'original et, si possible, une localisation approximative.",
+    c2li2:"<strong>Signalements que vous soumettez.</strong> Tout ce que vous saisissez dans le formulaire et l'emplacement que vous placez sur la carte. Aucun nom, aucun e-mail, aucun compte requis — les signalements sont anonymes par conception.",
+    c2li3:"<strong>Votre lien de modification.</strong> Si vous soumettez un signalement, un jeton de modification à usage unique est généré et enregistré uniquement dans le stockage local de votre navigateur — il ne quitte plus jamais votre appareil, sauf lorsque vous l'utilisez pour modifier ce signalement précis. Nous ne pouvons pas le récupérer pour vous ; si vous effacez vos données de navigation, ce signalement ne vous sera plus modifiable.",
+    c2li4:"<strong>Comptes de modération.</strong> Si vous êtes invité comme modérateur, nous stockons votre e-mail et un mot de passe haché de façon sécurisée (jamais le mot de passe lui-même), plus un cookie de session pendant votre connexion.",
+    c2li5:"<strong>Journaux serveur de base.</strong> Journaux techniques standards (horodatages, adresses IP) conservés brièvement pour la sécurité et la prévention des abus — non liés aux signalements que vous soumettez.",
+    c3h:"Pourquoi nous les collectons, et sur quelle base légale",
+    c3p1:"La documentation d'incidents et d'événements publiés publiquement repose sur l'intérêt légitime (RGPD art. 6(1)(f)) — la valeur d'intérêt public de rendre visible un schéma, mise en balance avec un impact minimal sur la vie privée puisque les publications sources étaient déjà publiques. Les comptes de modération existent sur la même base, pour faire fonctionner le processus de modération.",
+    c3p2:"<strong>Remarque sur le contenu sensible.</strong> Certaines entrées font référence à des comportements potentiellement criminels (ex. symboles interdits par la loi allemande). Nous les traitons strictement comme des pistes non vérifiées, jamais comme une affirmation de culpabilité, et retenons les soumissions anonymes et non vérifiables hors de la carte publique jusqu'à leur examen par un humain.",
+    c4h:"Combien de temps nous les conservons", c4p:"Les signalements ne sont pas supprimés selon une minuterie — la valeur du projet réside dans la mise en évidence de schémas sur plusieurs années ; les entrées plus anciennes s'estompent visuellement plutôt que de disparaître, afin que la carte reste honnête sur ce qui est récent ou historique. Vous pouvez demander le retrait d'un signalement précis à tout moment (voir ci-dessous) ; les signalements rejetés (spam, faux positifs) sont conservés en interne à des fins de modération mais jamais affichés publiquement.",
+    c5h:"Vos droits",
+    c5p1:"Selon le RGPD et les lois comparables, vous pouvez demander l'accès, la rectification ou la suppression de vos données, vous opposer au traitement ou le restreindre, et déposer une plainte auprès de votre autorité de protection des données (en Allemagne : l'autorité de votre Land, ou la BfDI).",
+    c5p2:"Si vous avez soumis un signalement vous-même, l'auto-modification est intégrée (voir ci-dessus) tant qu'il est en attente d'examen. Pour tout le reste — y compris une demande de retrait d'un signalement vous concernant — écrivez à <strong>dxmap@nabilvs.com</strong>, nous répondrons directement.",
+    c6h:"Partage et sécurité", c6p:"Nous ne vendons pas de données et ne les partageons pas avec des annonceurs. Notre infrastructure d'hébergement traite les données selon les besoins du service. Les mots de passe sont hachés (PBKDF2-HMAC-SHA256, jamais stockés en clair), les sessions expirent automatiquement, et les données de localisation des catégories les plus sensibles sont délibérément floutées avant tout affichage public.",
+    c7h:"Pas destiné aux enfants", c7p:"Ce projet ne s'adresse pas aux enfants ; nous ne collectons pas sciemment de données de personnes de moins de 16 ans.",
+    c8h:"Modifications de cette politique", c8p:"Si cette politique change de manière significative, nous mettrons à jour la date en haut de cette page.",
+    footer:'Des questions sur vos données ? Écrivez à <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. Voir aussi nos <a href="/terms">Conditions d\'utilisation</a>.',
+  },
+  ar: {
+    brand:"خريطة التمييز", back:"← العودة إلى الخريطة", eyebrow:"الخصوصية",
+    h1:"سياسة الخصوصية",
+    lede:"ما الذي نجمعه، ولماذا، وإلى متى نحتفظ به، وما يمكنك فعله حيال ذلك.",
+    updated:"آخر تحديث: أغسطس 2026",
+    notice:"صُمِّمت هذه الصفحة لتكون واضحة وشاملة، لا لتكون الكلمة الأخيرة — إن كان لديك سؤال قانوني محدد فاستشر محاميًا في نطاقك القضائي. إن كان أي شيء غير واضح، راسلنا وسنوضحه أو نصححه.",
+    c1h:"من يدير هذا", c1p:"خريطة التمييز مشروع توثيق مستقل. الأسئلة أو التصحيحات أو الطلبات المتعلقة ببياناتك تُرسَل إلى <strong>dxmap@nabilvs.com</strong>.",
+    c2h:"ما الذي نجمعه",
+    c2li1:"<strong>منشورات عامة مجموعة آليًا.</strong> نص وروابط من منشورات عامة على Bluesky/Mastodon يعثر عليها وكيل المراقبة لدينا — لا شيء خاص، لا شيء خلف تسجيل دخول. نحتفظ بنص المنشور، ورابط للمصدر الأصلي، وموقع تقريبي إن أمكن تحديده.",
+    c2li2:"<strong>البلاغات التي ترسلها.</strong> كل ما تكتبه في نموذج البلاغ، والموقع الذي تحدده على الخريطة. لا اسم، لا بريد إلكتروني، لا حاجة لحساب — البلاغات مجهولة الهوية بالتصميم.",
+    c2li3:"<strong>رابط التعديل الخاص بك.</strong> عند إرسال بلاغ، يُنشأ رمز تعديل لمرة واحدة ويُحفظ فقط في التخزين المحلي لمتصفحك — لا يغادر جهازك مرة أخرى إلا عند استخدامه لتعديل ذلك البلاغ تحديدًا. لا يمكننا استرجاعه لك؛ إن مسحت بيانات متصفحك، لن يعود بإمكانك تعديل ذلك البلاغ.",
+    c2li4:"<strong>حسابات المراجعين.</strong> إذا دُعيت كمُشرِف، نخزّن بريدك الإلكتروني وكلمة مرور مُشفَّرة بأمان (لا كلمة المرور نفسها أبدًا) بالإضافة إلى ملف تعريف ارتباط للجلسة أثناء تسجيل دخولك.",
+    c2li5:"<strong>سجلات خادم أساسية.</strong> سجلات تقنية معتادة (طوابع زمنية، عناوين IP) تُحفظ لفترة وجيزة لأغراض الأمان ومنع إساءة الاستخدام — غير مرتبطة بالبلاغات التي ترسلها.",
+    c3h:"لماذا نجمعها، وعلى أي أساس قانوني",
+    c3p1:"يتم توثيق الحوادث والفعاليات المنشورة علنًا استنادًا إلى المصلحة المشروعة (المادة 6(1)(و) من اللائحة العامة لحماية البيانات) — القيمة العامة لإظهار نمط ما، موازَنةً بأثر ضئيل على الخصوصية بما أن المنشورات المصدر كانت عامة أصلًا. حسابات المراجعين قائمة على نفس الأساس، لتشغيل عملية المراجعة أصلًا.",
+    c3p2:"<strong>ملاحظة حول المحتوى الحساس.</strong> تشير بعض الإدخالات إلى سلوك إجرامي مزعوم (مثل رموز محظورة بموجب القانون الألماني). نتعامل معها بصرامة كأدلة غير مؤكدة، لا كإثبات للذنب أبدًا، ونُبقي البلاغات المجهولة غير القابلة للتحقق خارج الخريطة العامة حتى يراجعها إنسان.",
+    c4h:"إلى متى نحتفظ بها", c4p:"لا تُحذف البلاغات وفق مؤقّت — قيمة المشروع تكمن في إظهار الأنماط عبر السنين، والإدخالات الأقدم تتلاشى بصريًا بدلًا من الاختفاء، حتى تبقى الخريطة صادقة بشأن ما هو حديث مقابل ما هو تاريخي. يمكنك طلب إزالة بلاغ محدد في أي وقت (انظر أدناه)؛ البلاغات المرفوضة (البريد المزعج، البلاغات الكاذبة) تُحفظ داخليًا لأغراض المراجعة لكن لا تُعرض علنًا أبدًا.",
+    c5h:"حقوقك",
+    c5p1:"بموجب اللائحة العامة لحماية البيانات والقوانين المماثلة، يمكنك طلب الوصول إلى بياناتك أو تصحيحها أو حذفها، والاعتراض على معالجتها أو تقييدها، وتقديم شكوى لدى سلطة حماية البيانات المحلية لديك (في ألمانيا: سلطة الولاية التي تقيم فيها، أو BfDI).",
+    c5p2:"إن كنت قد أرسلت بلاغًا بنفسك، فالتعديل الذاتي مدمج (انظر أعلاه) طالما البلاغ قيد الانتظار. لأي شيء آخر — بما في ذلك طلب إزالة بلاغ ذُكرت فيه — راسل <strong>dxmap@nabilvs.com</strong> وسنرد مباشرة.",
+    c6h:"المشاركة والأمان", c6p:"لا نبيع البيانات ولا نشاركها مع المعلنين. تعالج بنيتنا التحتية للاستضافة البيانات فقط بقدر ما يلزم لتشغيل الخدمة. كلمات المرور مُشفَّرة (PBKDF2-HMAC-SHA256، لا تُخزَّن كنص عادي أبدًا)، الجلسات تنتهي تلقائيًا، وبيانات الموقع لأكثر فئات البلاغات حساسية تُموَّه عمدًا قبل عرضها علنًا.",
+    c7h:"ليس للأطفال", c7p:"لا يستهدف هذا المشروع الأطفال، ولا نجمع عمدًا بيانات أي شخص دون 16 عامًا.",
+    c8h:"تغييرات على هذه السياسة", c8p:"إذا تغيّرت هذه السياسة بشكل جوهري، سنحدّث التاريخ أعلى هذه الصفحة.",
+    footer:'أسئلة حول بياناتك؟ راسل <a href="mailto:dxmap@nabilvs.com">dxmap@nabilvs.com</a>. انظر أيضًا <a href="/terms">شروط الاستخدام</a>.',
+  },
+};
+
+function applyPrivacy(){
+  const lang = I.current;
+  const d = PRIVACY[lang] || PRIVACY.en;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = DXMAP_I18N[lang].dir;
+  const textMap = {
+    brandText:'brand', backLink:'back', 't-eyebrow':'eyebrow', 't-h1':'h1', 't-lede':'lede', 't-updated':'updated',
+    't-notice':'notice',
+    't-c1h':'c1h', 't-c2h':'c2h', 't-c3h':'c3h', 't-c4h':'c4h', 't-c5h':'c5h', 't-c6h':'c6h', 't-c7h':'c7h', 't-c8h':'c8h',
+    't-c4p':'c4p', 't-c6p':'c6p', 't-c7p':'c7p', 't-c8p':'c8p',
+  };
+  Object.entries(textMap).forEach(([id,key])=>{
+    const el = document.getElementById(id);
+    if(el && d[key] != null) el.textContent = d[key];
+  });
+  const htmlMap = {
+    't-c1p':'c1p', 't-c2li1':'c2li1', 't-c2li2':'c2li2', 't-c2li3':'c2li3', 't-c2li4':'c2li4', 't-c2li5':'c2li5',
+    't-c3p1':'c3p1', 't-c3p2':'c3p2', 't-c5p1':'c5p1', 't-c5p2':'c5p2', 't-footer':'footer',
+  };
+  Object.entries(htmlMap).forEach(([id,key])=>{
+    const el = document.getElementById(id);
+    if(el && d[key] != null) el.innerHTML = d[key];
+  });
+}
+function renderLangBar(){
+  document.getElementById('langBar').innerHTML = I.langs.map(l=>
+    `<button data-lang="${l}" class="${l===I.current?'active':''}">${DXMAP_I18N[l].name}</button>`).join('');
+  document.querySelectorAll('#langBar button').forEach(b=>b.addEventListener('click',()=>{
+    I.setLang(b.dataset.lang); renderLangBar(); applyPrivacy();
+  }));
+}
+renderLangBar();
+applyPrivacy();
+</script>
+</body>
+</html>

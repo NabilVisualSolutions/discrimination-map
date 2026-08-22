@@ -93,6 +93,22 @@ CREATE TABLE IF NOT EXISTS applications (
     created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_applications_created ON applications(created_at DESC);
+
+-- Append-only audit trail for report edits. One row per CHANGED field per
+-- edit call (a single PATCH touching 3 fields writes 3 rows), so a
+-- moderator can see exactly what changed, when, and by whom — without
+-- changing who is allowed to edit what (self-edit/moderator-edit rules are
+-- unchanged, this only adds a record of what happened).
+CREATE TABLE IF NOT EXISTS report_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_id   INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    edited_by   TEXT    NOT NULL,   -- 'self' (edit_token holder) or a moderator's email
+    field       TEXT    NOT NULL,
+    old_value   TEXT,
+    new_value   TEXT,
+    edited_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_report_history_report ON report_history(report_id, edited_at DESC);
 """
 
 # Additive migrations for columns added after the initial CREATE TABLE, so
@@ -359,19 +375,30 @@ def set_verified(report_id: int, verified: bool) -> bool:
 _VALID_STATUSES = {"pending", "unverified", "verified", "dismissed"}
 
 
-def set_status(report_id: int, status: str) -> bool:
+def set_status(report_id: int, status: str, edited_by: str = "unknown") -> bool:
     """
     A moderator (ADMIN or VERIFIER) sets a report's review status.
     `verified` mirrors status == 'verified' for callers still reading the
-    legacy boolean column. Returns False if no such row.
+    legacy boolean column. Returns False if no such row. Logs a
+    `report_history` row (field='status') when the status actually changes.
     """
     if status not in _VALID_STATUSES:
         raise ValueError(f"invalid status '{status}'")
     with _conn() as conn:
+        old_row = conn.execute("SELECT status FROM reports WHERE id = ?", (report_id,)).fetchone()
+        if old_row is None:
+            return False
         cur = conn.execute(
             "UPDATE reports SET status = ?, verified = ? WHERE id = ?",
             (status, 1 if status == "verified" else 0, report_id),
         )
+        if old_row["status"] != status:
+            conn.execute(
+                "INSERT INTO report_history"
+                " (report_id, edited_by, field, old_value, new_value, edited_at)"
+                " VALUES (?, ?, 'status', ?, ?, ?)",
+                (report_id, edited_by, old_row["status"], status, int(time.time())),
+            )
         return cur.rowcount > 0
 
 
@@ -384,26 +411,58 @@ def get_report(report_id: int) -> Optional[dict[str, Any]]:
     return dict(row) if row else None
 
 
+def get_report_history(report_id: int) -> list[dict[str, Any]]:
+    """Full edit trail for one report, newest first — admin/verifier only."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM report_history WHERE report_id = ? ORDER BY edited_at DESC",
+            (report_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 _EDITABLE_FIELDS = {"title", "reason", "evidence", "law", "impact", "category"}
 
 
-def update_report_fields(report_id: int, fields: dict[str, Any]) -> bool:
+def update_report_fields(report_id: int, fields: dict[str, Any], edited_by: str = "unknown") -> bool:
     """
     Partial update of a report's documentation fields — used by both the
     original submitter's self-edit (token-gated) and ADMIN/VERIFIER's
     correction tool (role-gated). Deliberately excludes status/lat/lon/
     source/etc: status has its own dedicated endpoint, and location edits
     go through a separate, more guarded path.
+
+    Diffs old vs. new per-field and writes one `report_history` row per
+    field that actually changed (a no-op edit — same value resubmitted —
+    writes nothing), in the same transaction as the update itself.
     """
     updates = {k: v for k, v in fields.items() if k in _EDITABLE_FIELDS and v is not None}
     if not updates:
         return False
     set_clause = ", ".join(f"{k} = ?" for k in updates)
     with _conn() as conn:
+        old_row = conn.execute(
+            f"SELECT {', '.join(updates.keys())} FROM reports WHERE id = ?", (report_id,)
+        ).fetchone()
+        if old_row is None:
+            return False
         cur = conn.execute(
             f"UPDATE reports SET {set_clause} WHERE id = ?",
             (*updates.values(), report_id),
         )
+        now = int(time.time())
+        history_rows = [
+            (report_id, edited_by, field, old_row[field], str(new_val), now)
+            for field, new_val in updates.items()
+            if old_row[field] != new_val
+        ]
+        if history_rows:
+            conn.executemany(
+                "INSERT INTO report_history"
+                " (report_id, edited_by, field, old_value, new_value, edited_at)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                history_rows,
+            )
         return cur.rowcount > 0
 
 

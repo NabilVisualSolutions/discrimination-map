@@ -184,6 +184,16 @@ CATEGORIES: dict[str, dict[str, str]] = {
     "sexual_violence":        {"label": "Sexual violence", "color": "#2BD9C9"},
     "harassment":             {"label": "Harassment", "color": "#E8779E"},
     "other":                  {"label": "Other", "color": "#8891A8"},
+
+    # A deliberately different KIND of pin, not a harm-incident category —
+    # counter-protests, vigils, solidarity rallies against far-right
+    # extremism. Never added to SENSITIVE_CATEGORIES in app.py: these are
+    # public events (the whole point is people finding them), so once
+    # verified they show at full precision like any other non-sensitive
+    # report — no reason to fuzz a public rally's location. Rendered as a
+    # star on the map (see frontend icon()), not a circle, so it reads as
+    # categorically different even without relying on color alone.
+    "solidarity_event": {"label": "Solidarity event / counter-protest", "color": "#FFD23F"},
 }
 
 # Category label -> which statute it points at, plus a human "reason" phrase.

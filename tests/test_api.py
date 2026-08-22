@@ -374,7 +374,90 @@ def test_admin_can_edit_report_fields_directly():
     assert row["reason"] == "corrected by admin"
 
 
+# ---------------- report edit history (audit trail) ----------------
+
+def test_self_edit_and_admin_edit_both_logged_to_history():
+    r = client.post("/api/reports", json={
+        "title": "History test", "reason": "original reason for history test",
+        "lat": 48.85, "lon": 2.35})
+    body = r.json()
+    rid, token = body["id"], body["edit_token"]
+
+    client.patch(f"/api/reports/{rid}", json={"edit_token": token, "reason": "self-edited reason"})
+
+    admin = TestClient(app_module.app)
+    admin.post("/api/auth/login", json={
+        "email": "admin@dxmap-tests.example-org.dev", "password": "adminpass123"})
+    admin.patch(f"/api/admin/reports/{rid}/fields", json={"reason": "admin-corrected reason"})
+    admin.patch(f"/api/admin/reports/{rid}", json={"status": "verified"})
+
+    hist = admin.get(f"/api/admin/reports/{rid}/history").json()["history"]
+    fields_changed = [h["field"] for h in hist]
+    assert "reason" in fields_changed and "status" in fields_changed
+    self_edits = [h for h in hist if h["edited_by"] == "self"]
+    admin_edits = [h for h in hist if h["edited_by"] == "admin@dxmap-tests.example-org.dev"]
+    assert len(self_edits) >= 1 and len(admin_edits) >= 2  # field edit + status change
+
+
+def test_no_op_edit_does_not_write_history():
+    r = client.post("/api/reports", json={
+        "title": "No-op test", "reason": "unchanged reason text",
+        "category": "racism", "lat": 48.85, "lon": 2.35})
+    body = r.json()
+    rid, token = body["id"], body["edit_token"]
+
+    client.patch(f"/api/reports/{rid}", json={"edit_token": token, "category": "racism"})
+
+    admin = TestClient(app_module.app)
+    admin.post("/api/auth/login", json={
+        "email": "admin@dxmap-tests.example-org.dev", "password": "adminpass123"})
+    hist = admin.get(f"/api/admin/reports/{rid}/history").json()["history"]
+    assert hist == []
+
+
+def test_history_endpoint_requires_moderator_role():
+    r = client.post("/api/reports", json={
+        "title": "History auth test", "reason": "checking history endpoint auth",
+        "lat": 48.85, "lon": 2.35})
+    rid = r.json()["id"]
+    assert client.get(f"/api/admin/reports/{rid}/history").status_code == 401
+
+
+# ---------------- solidarity_event category ----------------
+
+def test_solidarity_event_category_present_and_not_danger_coded():
+    cats = client.get("/api/categories").json()["categories"]
+    assert "solidarity_event" in cats
+    assert cats["solidarity_event"]["color"] == "#FFD23F"
+
+
+def test_solidarity_event_not_in_sensitive_fuzz_bucket():
+    """
+    Once verified, a solidarity event should show at full precision like any
+    other non-sensitive category — it's a public event, not a harm lead, so
+    the wide sensitive-category fuzz radius must never apply to it.
+    """
+    new_id = db.insert_report(
+        source="user", title="Solidarity rally", reason="counter-protest rally",
+        category="solidarity_event", lat=52.5200, lon=13.4000, place="Berlin",
+        status="verified",
+    )
+    listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
+    assert listed.get("fuzzed") is not True
+    assert (listed["lat"], listed["lon"]) == (52.5200, 13.4000)
+
+
+# ---------------- legal pages ----------------
+
+def test_privacy_and_terms_pages_served():
+    assert client.get("/privacy").status_code == 200
+    assert client.get("/terms").status_code == 200
+
+
 # ---------------- rate limiting ----------------
+# Kept last in the file on purpose: it permanently trips the module-level
+# login rate limiter for the test IP, so anything after it that tries to
+# log in would get 429'd instead of the response it expects.
 
 def test_login_rate_limited_after_repeated_attempts():
     rl_client = TestClient(app_module.app)
