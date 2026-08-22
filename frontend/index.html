@@ -320,7 +320,7 @@
   .zone-link-solidarity{animation:zone-fade-in .5s ease-out, zone-flow .8s linear infinite;
     filter:drop-shadow(0 0 4px #FFD23Fcc)}
   .zone-field-solidarity{animation:zone-fade-in .5s ease-out, zone-glow 2.4s ease-in-out infinite;
-    filter:drop-shadow(0 0 5px #FFD23F99)}
+    filter:drop-shadow(0 0 8px #FFD23Fb3)}
   @keyframes zone-fade-in{from{opacity:0}to{opacity:1}}
   @keyframes zone-flow{to{stroke-dashoffset:-40}}
   @keyframes zone-glow{0%,100%{fill-opacity:.10}50%{fill-opacity:.24}}
@@ -630,6 +630,7 @@
       <li data-i18n="guide.howMarker">Tap any marker for the full detail — category, evidence, status, when it was filed.</li>
       <li data-i18n="guide.howLegend">The map-key button (bottom of the map) shows what every color means, and doubles as a filter — tap a category to hide or show it.</li>
       <li data-i18n="guide.howZones">Markers in the same category connect into a colored zone, so a region's pattern is visible at a glance.</li>
+      <li data-i18n="guide.howSolidarityNetwork">Solidarity events / counter-protests are the one exception: every single one connects into one nationwide network, not just nearby ones — the whole resistance, visible as one connected web.</li>
       <li data-i18n="guide.howTabs">Incidents lists everything as a feed, Laws explains the statutes, Awareness covers symbols and codes to recognize, Volunteer is how to get involved.</li>
     </ul>
     <h3 data-i18n="about.h1">Documentation, not accusation</h3>
@@ -664,8 +665,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/i18n.js?v=20260822c"></script>
-<script src="/static/awareness-data.js?v=20260822c"></script>
+<script src="/static/i18n.js?v=20260822d"></script>
+<script src="/static/awareness-data.js?v=20260822d"></script>
 <script>
 const I = window.DXMAP_I18N_RUNTIME;
 const t = I.t;
@@ -781,6 +782,35 @@ function gridClusters(points){
   return Array.from(buckets.values()).filter(c=>c.length >= 2);
 }
 
+// Minimum spanning tree over EVERY point in a category — unlike
+// gridClusters(), every point ends up joined into one connected network,
+// long bridging edges included, instead of only linking points that
+// already share a local cell. Reserved for solidarity_event: the one
+// category where "the whole country's resistance is one visible network"
+// (Ingress-style, long crossing links) is the point, and where the point
+// count is small enough (dozens, not thousands) that a full tree stays
+// legible instead of turning into noise.
+function minSpanningTree(points){
+  if(points.length < 2) return [];
+  const dist2 = (a,b) => { const dLat=a[0]-b[0], dLon=a[1]-b[1]; return dLat*dLat + dLon*dLon; };
+  const inTree = [0];
+  const remaining = points.map((_,i)=>i).slice(1);
+  const edges = [];
+  while(remaining.length){
+    let bestD = Infinity, bestI = -1, bestJ = -1;
+    inTree.forEach(i=>{
+      remaining.forEach(j=>{
+        const d = dist2(points[i], points[j]);
+        if(d < bestD){ bestD = d; bestI = i; bestJ = j; }
+      });
+    });
+    edges.push([points[bestI], points[bestJ]]);
+    inTree.push(bestJ);
+    remaining.splice(remaining.indexOf(bestJ), 1);
+  }
+  return edges;
+}
+
 function rebuildZones(){
   Object.values(zoneLayers).forEach(layers=>layers.forEach(l=>map.removeLayer(l)));
   Object.keys(zoneLayers).forEach(k=>delete zoneLayers[k]);
@@ -805,20 +835,41 @@ function rebuildZones(){
       : {pane:'zonesPane', className:linkClass, color, weight:3.5, opacity:.85, dashArray:'8 14', interactive:false};
 
     const layers = [];
-    gridClusters(uniq).forEach(cluster=>{
-      let layer;
-      if(cluster.length === 2){
-        layer = L.polyline(cluster, linkOpts);
-      } else {
-        const hull = convexHull(cluster);
-        layer = hull.length >= 3
-          ? L.polygon(hull, {pane:'zonesPane', className:fieldClass, color, weight:isSolidarity?3:2.5,
-              opacity:isSolidarity?.85:.75, fillColor:color, fillOpacity:isSolidarity?.2:.12, interactive:false})
-          : L.polyline(cluster.slice(0,2), linkOpts);
+    if(isSolidarity){
+      // Every solidarity/counter-protest report joins one nationwide
+      // network — not just the ones that happen to fall in the same
+      // ~220km cell — plus a single translucent "cloud" field spanning
+      // the whole footprint underneath the links.
+      if(uniq.length >= 3){
+        const hull = convexHull(uniq);
+        if(hull.length >= 3){
+          const field = L.polygon(hull, {pane:'zonesPane', className:fieldClass, color,
+            weight:3, opacity:.85, fillColor:color, fillOpacity:.22, interactive:false});
+          field.addTo(map);
+          layers.push(field);
+        }
       }
-      layer.addTo(map);
-      layers.push(layer);
-    });
+      minSpanningTree(uniq).forEach(([a,b])=>{
+        const link = L.polyline([a,b], linkOpts);
+        link.addTo(map);
+        layers.push(link);
+      });
+    } else {
+      gridClusters(uniq).forEach(cluster=>{
+        let layer;
+        if(cluster.length === 2){
+          layer = L.polyline(cluster, linkOpts);
+        } else {
+          const hull = convexHull(cluster);
+          layer = hull.length >= 3
+            ? L.polygon(hull, {pane:'zonesPane', className:fieldClass, color, weight:2.5,
+                opacity:.75, fillColor:color, fillOpacity:.12, interactive:false})
+            : L.polyline(cluster.slice(0,2), linkOpts);
+        }
+        layer.addTo(map);
+        layers.push(layer);
+      });
+    }
     if(layers.length) zoneLayers[cat] = layers;
   });
 }
