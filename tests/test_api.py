@@ -237,12 +237,11 @@ def test_apply_endpoint_and_admin_listing():
     assert any(a["email"] == "volunteer@dxmap-tests.example-org.dev" for a in apps)
 
 
-def test_scraped_unverified_report_hidden_from_public_until_confirmed():
+def test_scraped_report_with_url_is_unverified_and_fuzzed_for_public():
     """
     Agent-scraped items always carry a real source `url`, so they publish
-    immediately as 'unverified' leads (not 'pending') — but the public map
-    only shows reports a volunteer/moderator has actually confirmed, so an
-    unverified lead must not appear in /api/reports at all until then.
+    immediately as 'unverified' leads (not 'pending') — but still fuzzed for
+    anyone not logged in as ADMIN/VERIFIER.
     """
     new_id = db.insert_report(
         source="mastodon", external_id="test_scraped_1", title="Scraped test",
@@ -251,14 +250,10 @@ def test_scraped_unverified_report_hidden_from_public_until_confirmed():
         lat=52.5200, lon=13.4000, place="Berlin",
     )
     assert new_id is not None
-    listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id]
-    assert listed == []
-
-    db.set_status(new_id, "verified", edited_by="test-moderator")
-    listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id]
-    assert len(listed) == 1
-    assert listed[0]["status"] == "verified"
-    assert (listed[0]["lat"], listed[0]["lon"]) == (52.5200, 13.4000)  # non-sensitive, verified -> exact
+    listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
+    assert listed["status"] == "unverified"
+    assert (listed["lat"], listed["lon"]) != (52.5200, 13.4000)
+    assert listed.get("fuzzed") is True
 
 
 def test_sexual_violence_report_uses_wider_fuzz_radius():
@@ -268,9 +263,8 @@ def test_sexual_violence_report_uses_wider_fuzz_radius():
         category="sexual_violence", reason="sensitive scraped reason",
         lat=52.5200, lon=13.4000, place="Berlin",
     )
-    db.set_status(new_id, "verified", edited_by="test-moderator")
     listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
-    assert listed["status"] == "verified"
+    assert listed["status"] == "unverified"  # has a url, so not pending
     assert listed.get("fuzzed") is True
     dist_deg = ((listed["lat"] - 52.52) ** 2 + (listed["lon"] - 13.40) ** 2) ** 0.5
     assert dist_deg * 111 > 1.0  # well beyond the default 500m radius (in km)
