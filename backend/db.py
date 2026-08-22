@@ -316,13 +316,20 @@ def set_location(report_id: int, lat: float, lon: float, place: str) -> None:
             (lat, lon, place, report_id))
 
 
-def list_reports(limit: int = 500, located_only: bool = True) -> list[dict[str, Any]]:
+def list_reports(limit: int = 500, located_only: bool = True, verified_only: bool = False) -> list[dict[str, Any]]:
     """
     Return recent reports as plain dicts, newest first. Dismissed reports
     (moderator judged spam / false positive) are excluded from the public
     feed but kept in the DB and still visible in the admin/verify queue.
+
+    `verified_only` additionally excludes 'unverified' leads (automated
+    signals nobody's looked at yet) — used by the public map, which should
+    only ever show incidents a volunteer/moderator has actually confirmed.
+    The admin/verify queue calls list_reports_admin() instead, unaffected.
     """
     q = "SELECT * FROM reports WHERE status NOT IN ('dismissed', 'pending')"
+    if verified_only:
+        q += " AND status = 'verified'"
     if located_only:
         q += " AND located = 1"
     q += " ORDER BY created_at DESC LIMIT ?"

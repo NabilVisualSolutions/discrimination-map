@@ -162,29 +162,27 @@ class UserReport(BaseModel):
 # location alone in a way "banned symbol graffiti" can't.
 SENSITIVE_CATEGORIES = {"sexual_violence", "harassment"}
 SENSITIVE_FUZZ_RADIUS_M = 5000
-DEFAULT_FUZZ_RADIUS_M = 500
 
 
 @app.get("/api/reports")
 def get_reports(limit: int = 500, all: bool = False, user: dict | None = Depends(auth.get_current_user)):
     """
     Return recent reports. By default only mapped (located) ones.
-    Unverified reports get their coordinates fuzzed for anyone not logged
-    in as ADMIN/VERIFIER, so a single unconfirmed post can't pinpoint a real
-    address. Sensitive categories (sexual violence, harassment) are always
-    fuzzed at a wider radius for the public regardless of verification
-    status — logged-in moderators still see the real location to review it.
+    Public map only ever shows reports a volunteer/moderator has actually
+    confirmed (status='verified') — automated leads nobody's reviewed yet
+    stay out of sight until then; reviewing happens in the separate admin
+    console (/api/admin/reports), not on this endpoint. Sensitive categories
+    (sexual violence, harassment) are still fuzzed at a wider radius even
+    once verified, so a confirmed report still can't pinpoint a real address.
     """
     limit = max(1, min(limit, 1000))
-    reports = db.list_reports(limit=limit, located_only=not all)
+    reports = db.list_reports(limit=limit, located_only=not all, verified_only=True)
     if user is None:
         for r in reports:
             if r["lat"] is None or r["lon"] is None:
                 continue
-            sensitive = r["category"] in SENSITIVE_CATEGORIES
-            if sensitive or r["status"] != "verified":
-                radius = SENSITIVE_FUZZ_RADIUS_M if sensitive else DEFAULT_FUZZ_RADIUS_M
-                r["lat"], r["lon"] = db.fuzz_coords(r["id"], r["lat"], r["lon"], radius_m=radius)
+            if r["category"] in SENSITIVE_CATEGORIES:
+                r["lat"], r["lon"] = db.fuzz_coords(r["id"], r["lat"], r["lon"], radius_m=SENSITIVE_FUZZ_RADIUS_M)
                 r["fuzzed"] = True
     return {"reports": reports}
 

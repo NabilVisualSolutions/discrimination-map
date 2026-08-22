@@ -309,21 +309,23 @@
     animation:mk-pulse 1.8s ease-out infinite}
   @keyframes mk-pulse{0%{transform:scale(1);opacity:.85}100%{transform:scale(2.6);opacity:0}}
 
-  /* ---- Ingress-style zone links/fields: same-category points connected,
-     drawn with a flowing "energy" dash so the pattern reads as an active
-     network rather than a static overlay. Solidarity events get their own
-     brighter, faster, glowing variant — a growing network, not a danger
-     cluster. Leaflet's SVG renderer exposes each layer as a plain <path>
-     via the `className` option, so plain CSS/keyframes reach it directly. */
+  /* ---- Ingress-style zone links/fields: every same-category point
+     connects into one network, drawn with a flowing "energy" dash and a
+     glowing translucent cloud field so the pattern reads as an active
+     network, not a static overlay. Glow color comes from each layer's own
+     category color (set as an inline drop-shadow filter in JS, since CSS
+     alone can't reach a per-instance Leaflet `color` option) — only the
+     animation timing is class-based. Solidarity events get a faster, more
+     energetic variant. Leaflet's SVG renderer exposes each layer as a
+     plain <path> via the `className` option, so plain CSS/keyframes
+     reach it directly. */
   .zone-link{animation:zone-fade-in .5s ease-out, zone-flow 1.3s linear infinite}
   .zone-field{animation:zone-fade-in .5s ease-out, zone-glow 3s ease-in-out infinite}
-  .zone-link-solidarity{animation:zone-fade-in .5s ease-out, zone-flow .8s linear infinite;
-    filter:drop-shadow(0 0 4px #FFD23Fcc)}
-  .zone-field-solidarity{animation:zone-fade-in .5s ease-out, zone-glow 2.4s ease-in-out infinite;
-    filter:drop-shadow(0 0 8px #FFD23Fb3)}
+  .zone-link-fast{animation:zone-fade-in .5s ease-out, zone-flow .8s linear infinite}
+  .zone-field-fast{animation:zone-fade-in .5s ease-out, zone-glow 2.4s ease-in-out infinite}
   @keyframes zone-fade-in{from{opacity:0}to{opacity:1}}
   @keyframes zone-flow{to{stroke-dashoffset:-40}}
-  @keyframes zone-glow{0%,100%{fill-opacity:.10}50%{fill-opacity:.24}}
+  @keyframes zone-glow{0%,100%{fill-opacity:.10}50%{fill-opacity:.26}}
 
   /* ---- desktop layout (>=900px): rail replaces bottom sheets/nav ---- */
   @media (min-width:900px){
@@ -357,7 +359,7 @@
     .xcard-body{transition:none}
     .xcard-head .chev{transition:none}
     .splash{transition:none}
-    .zone-link, .zone-field, .zone-link-solidarity, .zone-field-solidarity{animation:none}
+    .zone-link, .zone-field, .zone-link-fast, .zone-field-fast{animation:none}
   }
 
   /* ---- boot splash: language choice, then the slogan, then the map ---- */
@@ -665,8 +667,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/i18n.js?v=20260822d"></script>
-<script src="/static/awareness-data.js?v=20260822d"></script>
+<script src="/static/i18n.js?v=20260822e"></script>
+<script src="/static/awareness-data.js?v=20260822e"></script>
 <script>
 const I = window.DXMAP_I18N_RUNTIME;
 const t = I.t;
@@ -757,56 +759,34 @@ function convexHull(points){
   return lower.concat(upper).map(p=>[p.lat,p.lon]);
 }
 
-// Groups points into LOCAL clusters (grid cells ~40km across at German
-// latitudes) instead of one link/field per category nationwide. Germany-only
-// scraped data means a naive "connect every same-category point" produces
-// one giant, unreadable blob spanning the whole country — this is what an
-// actual Ingress field looks like: a small, legible cluster of nearby
-// portals, not a haze covering a continent. Grid bucketing is O(n), safe
-// even for the ~3,300-point far_right_mention category on every rebuild.
-// 35-40km cells produced almost no clusters against real scraped data —
-// distinct flagged posts are typically 50-150km+ apart (different cities),
-// not genuinely hyper-local. 2.0deg (~220km, roughly a third of Germany's
-// north-south span) reads as real regional/Ingress-scale territory at a
-// whole-country zoom instead of vanishing into tiny local dots — verified
-// against live production data: 1.0deg -> 23 points covered across 11
-// clusters, 2.0deg -> 54 points across 18 clusters, still multiple distinct
-// regional zones rather than one nationwide blob.
-const ZONE_GRID_DEG = 2.0;
-function gridClusters(points){
-  const buckets = new Map();
-  points.forEach(p=>{
-    const key = Math.round(p[0]/ZONE_GRID_DEG) + ',' + Math.round(p[1]/ZONE_GRID_DEG);
-    (buckets.get(key) || buckets.set(key, []).get(key)).push(p);
-  });
-  return Array.from(buckets.values()).filter(c=>c.length >= 2);
-}
-
-// Minimum spanning tree over EVERY point in a category — unlike
-// gridClusters(), every point ends up joined into one connected network,
-// long bridging edges included, instead of only linking points that
-// already share a local cell. Reserved for solidarity_event: the one
-// category where "the whole country's resistance is one visible network"
-// (Ingress-style, long crossing links) is the point, and where the point
-// count is small enough (dozens, not thousands) that a full tree stays
-// legible instead of turning into noise.
+// Minimum spanning tree over EVERY point in a category — every point ends
+// up joined into one connected network, long bridging edges included,
+// instead of only linking points that happen to be nearby. This is O(n^2)
+// Prim's (each step scans remaining points once, tracking best-known
+// distance incrementally) rather than a naive full rescan, so it stays
+// fast even for the ~500-point far_right_mention category on every rebuild.
 function minSpanningTree(points){
-  if(points.length < 2) return [];
+  const n = points.length;
+  if(n < 2) return [];
   const dist2 = (a,b) => { const dLat=a[0]-b[0], dLon=a[1]-b[1]; return dLat*dLat + dLon*dLon; };
-  const inTree = [0];
-  const remaining = points.map((_,i)=>i).slice(1);
+  const inTree = new Uint8Array(n);
+  const bestDist = new Float64Array(n).fill(Infinity);
+  const bestFrom = new Int32Array(n).fill(-1);
+  inTree[0] = 1;
+  for(let j=1;j<n;j++){ bestDist[j] = dist2(points[0], points[j]); bestFrom[j] = 0; }
   const edges = [];
-  while(remaining.length){
-    let bestD = Infinity, bestI = -1, bestJ = -1;
-    inTree.forEach(i=>{
-      remaining.forEach(j=>{
-        const d = dist2(points[i], points[j]);
-        if(d < bestD){ bestD = d; bestI = i; bestJ = j; }
-      });
-    });
-    edges.push([points[bestI], points[bestJ]]);
-    inTree.push(bestJ);
-    remaining.splice(remaining.indexOf(bestJ), 1);
+  for(let step=1; step<n; step++){
+    let bd = Infinity, bi = -1;
+    for(let j=0;j<n;j++){ if(!inTree[j] && bestDist[j] < bd){ bd = bestDist[j]; bi = j; } }
+    if(bi === -1) break;
+    inTree[bi] = 1;
+    edges.push([points[bestFrom[bi]], points[bi]]);
+    for(let j=0;j<n;j++){
+      if(!inTree[j]){
+        const d = dist2(points[bi], points[j]);
+        if(d < bestDist[j]){ bestDist[j] = d; bestFrom[j] = bi; }
+      }
+    }
   }
   return edges;
 }
@@ -828,48 +808,36 @@ function rebuildZones(){
     if(uniq.length < 2) return;
     const color = categoryColor(cat);
     const isSolidarity = cat === 'solidarity_event';
-    const linkClass = isSolidarity ? 'zone-link-solidarity' : 'zone-link';
-    const fieldClass = isSolidarity ? 'zone-field-solidarity' : 'zone-field';
-    const linkOpts = isSolidarity
-      ? {pane:'zonesPane', className:linkClass, color, weight:4, opacity:.95, dashArray:'10 20', interactive:false}
-      : {pane:'zonesPane', className:linkClass, color, weight:3.5, opacity:.85, dashArray:'8 14', interactive:false};
+    const linkOpts = {pane:'zonesPane', className: isSolidarity ? 'zone-link zone-link-fast' : 'zone-link',
+      color, weight:isSolidarity?4:3.5, opacity:isSolidarity?.95:.85,
+      dashArray:isSolidarity?'10 20':'8 14', interactive:false};
 
     const layers = [];
-    if(isSolidarity){
-      // Every solidarity/counter-protest report joins one nationwide
-      // network — not just the ones that happen to fall in the same
-      // ~220km cell — plus a single translucent "cloud" field spanning
-      // the whole footprint underneath the links.
-      if(uniq.length >= 3){
-        const hull = convexHull(uniq);
-        if(hull.length >= 3){
-          const field = L.polygon(hull, {pane:'zonesPane', className:fieldClass, color,
-            weight:3, opacity:.85, fillColor:color, fillOpacity:.22, interactive:false});
-          field.addTo(map);
-          layers.push(field);
-        }
+    // Every point in the category joins one connected network — not just
+    // nearby ones — so a category's whole footprint reads as one zone, plus
+    // a single translucent "cloud" field (convex hull of every point)
+    // underneath the links, colored to the category and glowing/animated
+    // like an Ingress control field.
+    if(uniq.length >= 3){
+      const hull = convexHull(uniq);
+      if(hull.length >= 3){
+        const field = L.polygon(hull, {pane:'zonesPane',
+          className: isSolidarity ? 'zone-field zone-field-fast' : 'zone-field', color,
+          weight:isSolidarity?3:2.5, opacity:isSolidarity?.85:.7,
+          fillColor:color, fillOpacity:isSolidarity?.22:.16, interactive:false});
+        field.addTo(map);
+        const el = field.getElement && field.getElement();
+        if(el) el.style.filter = `drop-shadow(0 0 8px ${color}b3)`;
+        layers.push(field);
       }
-      minSpanningTree(uniq).forEach(([a,b])=>{
-        const link = L.polyline([a,b], linkOpts);
-        link.addTo(map);
-        layers.push(link);
-      });
-    } else {
-      gridClusters(uniq).forEach(cluster=>{
-        let layer;
-        if(cluster.length === 2){
-          layer = L.polyline(cluster, linkOpts);
-        } else {
-          const hull = convexHull(cluster);
-          layer = hull.length >= 3
-            ? L.polygon(hull, {pane:'zonesPane', className:fieldClass, color, weight:2.5,
-                opacity:.75, fillColor:color, fillOpacity:.12, interactive:false})
-            : L.polyline(cluster.slice(0,2), linkOpts);
-        }
-        layer.addTo(map);
-        layers.push(layer);
-      });
     }
+    minSpanningTree(uniq).forEach(([a,b])=>{
+      const link = L.polyline([a,b], linkOpts);
+      link.addTo(map);
+      const el = link.getElement && link.getElement();
+      if(el) el.style.filter = `drop-shadow(0 0 4px ${color}cc)`;
+      layers.push(link);
+    });
     if(layers.length) zoneLayers[cat] = layers;
   });
 }
