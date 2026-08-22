@@ -316,15 +316,15 @@
      brighter, faster, glowing variant — a growing network, not a danger
      cluster. Leaflet's SVG renderer exposes each layer as a plain <path>
      via the `className` option, so plain CSS/keyframes reach it directly. */
-  .zone-link, .zone-field{animation:zone-fade-in .5s ease-out}
   .zone-link{animation:zone-fade-in .5s ease-out, zone-flow 1.6s linear infinite}
+  .zone-field{animation:zone-fade-in .5s ease-out, zone-glow 3s ease-in-out infinite}
   .zone-link-solidarity{animation:zone-fade-in .5s ease-out, zone-flow .9s linear infinite;
     filter:drop-shadow(0 0 3px #FFD23Fb3)}
   .zone-field-solidarity{animation:zone-fade-in .5s ease-out, zone-glow 2.4s ease-in-out infinite;
     filter:drop-shadow(0 0 4px #FFD23F80)}
   @keyframes zone-fade-in{from{opacity:0}to{opacity:1}}
   @keyframes zone-flow{to{stroke-dashoffset:-20}}
-  @keyframes zone-glow{0%,100%{fill-opacity:.08}50%{fill-opacity:.18}}
+  @keyframes zone-glow{0%,100%{fill-opacity:.08}50%{fill-opacity:.16}}
 
   /* ---- desktop layout (>=900px): rail replaces bottom sheets/nav ---- */
   @media (min-width:900px){
@@ -415,6 +415,9 @@
   <button class="quickexit" id="quickExit" data-i18n-title="quickexit.title" title="Immediately leave this site">
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5l7 7-7 7M4 12h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span data-i18n="quickexit.label">Quick exit</span>
+  </button>
+  <button class="iconbtn" id="helpOpen" data-i18n-title="about.open.short" title="What is this? Guide, privacy, terms">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1.1-1.5 2.2"/><path d="M12 17h.01"/></svg>
   </button>
   <div style="position:relative">
     <button class="iconbtn" id="langBtn" aria-haspopup="true" title="Language">
@@ -682,7 +685,7 @@ let allReports = [];      // everything loaded from /api/reports?all=true
 const markers = {};       // id -> L.marker
 let LAWS = {}, CATS = {};
 const catGroups = {}, catCounts = {};
-const zoneLayers = {};    // category -> L.polygon | L.polyline
+const zoneLayers = {};    // category -> L.polygon[] | L.polyline[] (one per local cluster)
 const DEFAULT_CAT_COLOR = '#8891A8';
 const FADE_DAYS = 10 * 365; // history isn't deleted — fades to unsaturated after a decade, never removed
 const NEW_DAYS = 2;         // < 48h old — pulses instead of fading
@@ -752,8 +755,31 @@ function convexHull(points){
   return lower.concat(upper).map(p=>[p.lat,p.lon]);
 }
 
+// Groups points into LOCAL clusters (grid cells ~40km across at German
+// latitudes) instead of one link/field per category nationwide. Germany-only
+// scraped data means a naive "connect every same-category point" produces
+// one giant, unreadable blob spanning the whole country — this is what an
+// actual Ingress field looks like: a small, legible cluster of nearby
+// portals, not a haze covering a continent. Grid bucketing is O(n), safe
+// even for the ~3,300-point far_right_mention category on every rebuild.
+// 35-40km cells produced almost no clusters against real scraped data —
+// distinct flagged posts are typically 50-150km+ apart (different cities),
+// not genuinely hyper-local. 1.0deg (~100-110km, roughly Germany's federal-
+// state scale) is the smallest grid that reliably produces real multi-point
+// regional clusters instead of either "no clusters" or "one national blob".
+// Verified against local dev data: 0.35deg -> 0 clusters, 1.0deg -> 5.
+const ZONE_GRID_DEG = 1.0;
+function gridClusters(points){
+  const buckets = new Map();
+  points.forEach(p=>{
+    const key = Math.round(p[0]/ZONE_GRID_DEG) + ',' + Math.round(p[1]/ZONE_GRID_DEG);
+    (buckets.get(key) || buckets.set(key, []).get(key)).push(p);
+  });
+  return Array.from(buckets.values()).filter(c=>c.length >= 2);
+}
+
 function rebuildZones(){
-  Object.values(zoneLayers).forEach(l=>map.removeLayer(l));
+  Object.values(zoneLayers).forEach(layers=>layers.forEach(l=>map.removeLayer(l)));
   Object.keys(zoneLayers).forEach(k=>delete zoneLayers[k]);
   const byCat = {};
   allReports.forEach(r=>{
@@ -771,25 +797,26 @@ function rebuildZones(){
     const isSolidarity = cat === 'solidarity_event';
     const linkClass = isSolidarity ? 'zone-link-solidarity' : 'zone-link';
     const fieldClass = isSolidarity ? 'zone-field-solidarity' : 'zone-field';
-    // Solidarity links read as a growing network, not a danger cluster:
-    // thicker, brighter, and a short bright pulse traveling along a mostly-
-    // open line (vs. the tight marching-ants dashes on harm-category
-    // links) — energy moving between points, not a static connection.
     const linkOpts = isSolidarity
       ? {pane:'zonesPane', className:linkClass, color, weight:3, opacity:.85, dashArray:'8 26', interactive:false}
       : {pane:'zonesPane', className:linkClass, color, weight:2, opacity:.5, dashArray:'4 6', interactive:false};
-    let layer;
-    if(uniq.length === 2){
-      layer = L.polyline(uniq, linkOpts);
-    } else {
-      const hull = convexHull(uniq);
-      layer = hull.length >= 3
-        ? L.polygon(hull, {pane:'zonesPane', className:fieldClass, color, weight:isSolidarity?2:1.5,
-            opacity:isSolidarity?.7:.45, fillColor:color, fillOpacity:isSolidarity?.14:.08, interactive:false})
-        : L.polyline(uniq.slice(0,2), linkOpts);
-    }
-    layer.addTo(map);
-    zoneLayers[cat] = layer;
+
+    const layers = [];
+    gridClusters(uniq).forEach(cluster=>{
+      let layer;
+      if(cluster.length === 2){
+        layer = L.polyline(cluster, linkOpts);
+      } else {
+        const hull = convexHull(cluster);
+        layer = hull.length >= 3
+          ? L.polygon(hull, {pane:'zonesPane', className:fieldClass, color, weight:isSolidarity?2:1.5,
+              opacity:isSolidarity?.7:.45, fillColor:color, fillOpacity:isSolidarity?.14:.08, interactive:false})
+          : L.polyline(cluster.slice(0,2), linkOpts);
+      }
+      layer.addTo(map);
+      layers.push(layer);
+    });
+    if(layers.length) zoneLayers[cat] = layers;
   });
 }
 
@@ -1401,6 +1428,7 @@ document.getElementById('huntReport').onclick = ()=>{
   setTab('map'); openModal();
 };
 document.getElementById('aboutOpen').onclick = ()=>document.getElementById('aboutScrim').classList.add('on');
+document.getElementById('helpOpen').onclick = ()=>document.getElementById('aboutScrim').classList.add('on');
 document.getElementById('aboutClose').onclick = ()=>document.getElementById('aboutScrim').classList.remove('on');
 // window.location.replace (not .href) so the site never re-enters browser
 // history — back button can't return here after a quick exit.
