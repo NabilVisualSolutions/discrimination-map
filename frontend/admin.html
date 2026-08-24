@@ -210,6 +210,11 @@ let offset = 0;
 const LIMIT = 50;
 
 function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// esc() neutralizes HTML metacharacters but not a javascript: scheme — a
+// report's `url` is scraper-derived, not moderator-supplied, so this is
+// defense in depth against a malformed/malicious source URL becoming a
+// clickable script in an admin's authenticated session.
+function safeHref(u){ return /^https?:\/\//i.test(u||'') ? u : '#'; }
 
 function renderLangBar(){
   document.getElementById('langBar').innerHTML = I.langs.map(l=>
@@ -289,7 +294,7 @@ async function loadReports(){
     <tr data-id="${r.id}" class="${r.status==='pending' ? 'pending-row' : ''}">
       <td>
         <div class="title" data-field="reason">${esc(r.reason || r.title)}</div>
-        <div class="meta">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">source ↗</a> · ` : ''}${new Date(r.created_at*1000).toLocaleString(I.current)}</div>
+        <div class="meta">${r.url ? `<a href="${esc(safeHref(r.url))}" target="_blank" rel="noopener noreferrer">source ↗</a> · ` : ''}${new Date(r.created_at*1000).toLocaleString(I.current)}</div>
       </td>
       <td>${esc(r.category)}</td>
       <td class="meta">${esc(r.source)}</td>

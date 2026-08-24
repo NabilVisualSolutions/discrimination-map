@@ -712,6 +712,10 @@ let timelineCutoff = null; // null = present/no cutoff
 
 function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>(
   {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// escapeHtml() neutralizes HTML metacharacters but not a javascript:
+// scheme — r.url is scraper-derived, not visitor-supplied, but this is
+// public-facing (unlike admin.html's equivalent), so guard it too.
+function safeHref(u){ return /^https?:\/\//i.test(u||'') ? u : '#'; }
 
 function categoryLabel(cat){ return t('cat.'+cat) !== 'cat.'+cat ? t('cat.'+cat) : ((CATS[cat]||{}).label || cat); }
 function categoryColor(cat){ return (CATS[cat]||{}).color || DEFAULT_CAT_COLOR; }
@@ -1174,7 +1178,7 @@ function openSheet(r){
       ${r.law ? `<div class="metacard"><span class="k">${escapeHtml(t('detail.law'))}</span>
         <span class="v">${escapeHtml(lawShort(r.law))}</span></div>` : ''}
       ${(r.url||r.evidence) ? `<div class="metacard"><span class="k">${escapeHtml(t('detail.evidence'))}</span>
-        <span class="v">${r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">↗</a>` : escapeHtml(r.evidence)}</span></div>` : ''}
+        <span class="v">${r.url ? `<a href="${escapeHtml(safeHref(r.url))}" target="_blank" rel="noopener">↗</a>` : escapeHtml(r.evidence)}</span></div>` : ''}
     </div>
     <div class="docbox">
       <div>
@@ -1191,7 +1195,7 @@ function openSheet(r){
       <div class="sheetactions">
         <button class="sbtn" id="sheetClose">${escapeHtml(t('detail.close'))}</button>
         ${canSelfEdit ? `<button class="sbtn primary" id="sheetEdit">${escapeHtml(t('detail.editMine'))}</button>` : ''}
-        ${(!canSelfEdit && r.url) ? `<a class="sbtn primary" style="text-align:center;text-decoration:none" href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(t('detail.requestInfo'))}</a>` : ''}
+        ${(!canSelfEdit && r.url) ? `<a class="sbtn primary" style="text-align:center;text-decoration:none" href="${escapeHtml(safeHref(r.url))}" target="_blank" rel="noopener">${escapeHtml(t('detail.requestInfo'))}</a>` : ''}
       </div>
     `}
   `;

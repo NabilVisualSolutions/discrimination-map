@@ -90,8 +90,10 @@ def audit_security() -> list[str]:
     if os.environ.get("DXMAP_DEBUG", "0") == "1":
         findings.append("SECURITY: DXMAP_DEBUG is on — disable in production")
 
-    # 4. CORS must not be wildcard in production.
-    if os.environ.get("DXMAP_ALLOW_ORIGINS", "") == "*" and \
+    # 4. CORS must not be wildcard in production. Default matches app.py's
+    # own default ("*") — an *unset* var is exactly the case this needs to
+    # catch, not just an explicit "*", so the defaults here must agree.
+    if os.environ.get("DXMAP_ALLOW_ORIGINS", "*") == "*" and \
             os.environ.get("DXMAP_ENV", "dev") == "prod":
         findings.append("SECURITY: CORS allow-origins is '*' in prod")
 
