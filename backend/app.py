@@ -102,11 +102,14 @@ async def security_headers(request, call_next):
     """Set baseline security headers on every response."""
     resp = await call_next(request)
     resp.headers["X-Content-Type-Options"] = "nosniff"
-    # Legacy fallback for browsers that don't understand CSP frame-ancestors —
-    # modern browsers use the CSP directive below instead, which allows the
-    # one trusted parent site (the case-study page embeds this map) while
-    # still blocking everyone else, same as DENY did.
-    resp.headers["X-Frame-Options"] = "DENY"
+    # Framing is controlled by CSP frame-ancestors ONLY. We deliberately do
+    # not send X-Frame-Options: it has no allowlist form (only DENY /
+    # SAMEORIGIN), so `XFO: DENY` next to a permissive frame-ancestors does
+    # NOT "fall through" to the CSP on modern browsers — XFO wins and blocks
+    # every embed, including the trusted nabilvs.com case-study page (this
+    # was a real bug: the embedded map rendered blank). frame-ancestors is
+    # honoured by every browser since ~2017; the rare one without it can
+    # frame the map, an acceptable trade for the embed actually working.
     resp.headers["Content-Security-Policy"] = (
         "frame-ancestors 'self' https://nabilvs.com https://www.nabilvs.com"
     )

@@ -29,7 +29,9 @@ BASE_URL = os.environ.get("DXMAP_BASE_URL", "http://127.0.0.1:8020")
 # Security headers we expect the app / proxy to set on responses.
 EXPECTED_HEADERS = {
     "x-content-type-options": "nosniff",
-    "x-frame-options": None,          # presence is enough
+    # Framing is guarded by CSP frame-ancestors, not X-Frame-Options — see
+    # the security_headers middleware in app.py for why XFO is not sent.
+    "content-security-policy": None,  # presence is enough
     "referrer-policy": None,
 }
 

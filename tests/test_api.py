@@ -134,7 +134,13 @@ def test_heartbeat_endpoint_shape():
 def test_security_headers_present():
     r = client.get("/api/health")
     assert r.headers.get("x-content-type-options") == "nosniff"
-    assert r.headers.get("x-frame-options") == "DENY"
+    # Framing is guarded by CSP frame-ancestors (allowlisting the trusted
+    # nabilvs.com case-study embed) — NOT X-Frame-Options, which has no
+    # allowlist form and would block that embed outright.
+    csp = r.headers.get("content-security-policy", "")
+    assert "frame-ancestors" in csp
+    assert "nabilvs.com" in csp
+    assert "x-frame-options" not in {k.lower() for k in r.headers}
     assert "referrer-policy" in {k.lower() for k in r.headers}
 
 
