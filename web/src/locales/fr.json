@@ -1,0 +1,15 @@
+{
+  "brand.title": "Carte des discriminations",
+  "brand.sub": "documenter les actes haineux",
+  "nav.map": "Carte",
+  "nav.incidents": "Incidents",
+  "nav.laws": "Lois",
+  "nav.awareness": "Sensibilisation",
+  "nav.volunteer": "Participer",
+  "report.button": "Signaler un incident",
+  "quickExit": "Sortie rapide",
+  "search.placeholder": "Rechercher un lieu",
+  "filter.categories": "Catégories",
+  "loading": "Chargement…",
+  "error.load": "Impossible de charger la carte pour le moment."
+}

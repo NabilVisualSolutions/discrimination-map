@@ -1,0 +1,15 @@
+{
+  "brand.title": "خريطة التمييز",
+  "brand.sub": "توثيق حوادث الكراهية",
+  "nav.map": "الخريطة",
+  "nav.incidents": "الحوادث",
+  "nav.laws": "القوانين",
+  "nav.awareness": "التوعية",
+  "nav.volunteer": "التطوع",
+  "report.button": "الإبلاغ عن حادثة",
+  "quickExit": "خروج سريع",
+  "search.placeholder": "ابحث عن مكان",
+  "filter.categories": "الفئات",
+  "loading": "جارٍ التحميل…",
+  "error.load": "تعذّر تحميل الخريطة الآن."
+}

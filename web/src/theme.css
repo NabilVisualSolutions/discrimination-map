@@ -1,0 +1,35 @@
+/* Design tokens carried from frontend/preview-light.html — the agreed
+   light-mode look ("serious documentation tool, not a hacker terminal"). */
+:root {
+  --bg: #f4f7fb;
+  --panel: #ffffff;
+  --panel-2: #eef2f8;
+  --line: #dbe3ee;
+  --line-soft: #e8eef6;
+  --ink: #0b1326;
+  --muted: #5b6b85;
+  --faint: #8a97ac;
+  --accent: #0088cc;
+  --danger: #d6363f;
+  --ok: #1f9b54;
+  --warn: #b8720b;
+  --nav-h: 60px;
+  --rail: 380px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --disp: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--disp);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+a { color: var(--accent); }
+
+/* RTL: layout flips via [dir=rtl] on <html>; use logical properties in
+   component CSS so this stays automatic. */
+[dir="rtl"] body { direction: rtl; }

@@ -1,0 +1,15 @@
+{
+  "brand.title": "Diskriminierungs-Karte",
+  "brand.sub": "Hassvorfälle dokumentieren",
+  "nav.map": "Karte",
+  "nav.incidents": "Vorfälle",
+  "nav.laws": "Gesetze",
+  "nav.awareness": "Aufklärung",
+  "nav.volunteer": "Mitmachen",
+  "report.button": "Vorfall melden",
+  "quickExit": "Schnell schließen",
+  "search.placeholder": "Ort suchen",
+  "filter.categories": "Kategorien",
+  "loading": "Wird geladen…",
+  "error.load": "Die Karte konnte gerade nicht geladen werden."
+}

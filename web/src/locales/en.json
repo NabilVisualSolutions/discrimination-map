@@ -1,0 +1,15 @@
+{
+  "brand.title": "Discrimination Map",
+  "brand.sub": "documenting hate incidents",
+  "nav.map": "Map",
+  "nav.incidents": "Incidents",
+  "nav.laws": "Laws",
+  "nav.awareness": "Awareness",
+  "nav.volunteer": "Volunteer",
+  "report.button": "Report an incident",
+  "quickExit": "Quick exit",
+  "search.placeholder": "Search a place",
+  "filter.categories": "Categories",
+  "loading": "Loading…",
+  "error.load": "Could not load the map right now."
+}

@@ -24,3 +24,8 @@ venv/
 # OS / editor cruft
 .DS_Store
 *.swp
+
+# frontend rewrite
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
