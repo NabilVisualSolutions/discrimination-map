@@ -99,14 +99,14 @@ export function SimpleMap({
                     key={geo.rsmKey}
                     geography={geo}
                     fill={
-                      isGermany ? "#ede7db"
-                      : hasIncidents ? "#f7ede0"
+                      isGermany ? "#fef3c7"
+                      : hasIncidents ? "#fde68a"
                       : isEU ? "#f7f3ea"
                       : proj==="geoOrthographic" ? "#fdf8f0"
                       : "#fdf8f0"
                     }
-                    stroke={isGermany ? "#0a1629" : hasIncidents ? "#c8c0ad" : "rgba(168,160,140,.42)"}
-                    strokeWidth={isGermany ? 0.85 : hasIncidents ? 0.45 : 0.28}
+                    stroke={isGermany ? "#0a0f1f" : hasIncidents ? "#d97706" : "rgba(168,160,140,.42)"}
+                    strokeWidth={isGermany ? 1.1 : hasIncidents ? 0.62 : 0.28}
                     style={{
                       default:{ outline:"none", transition:"fill .2s" },
                       hover:{ fill: isGermany ? "#e8e1d1" : hasIncidents ? "#ede7db" : "#f4efe6", outline:"none" },
@@ -135,18 +135,18 @@ export function SimpleMap({
                   opacity={r.fuzzed ? op*0.92 : op}
                   transform={`scale(${s})`}
                 >
-                  {r.fuzzed && !faded && <circle r={isStar?15:11} fill={col} opacity={0.07} />}
+                  {r.fuzzed && !faded && <circle r={isStar?16:12} fill={col} opacity={0.13} />}
                   <line x1={-7} y1={0} x2={7} y2={0} stroke="rgba(10,22,41,.16)" strokeWidth={0.6} />
                   <line x1={0} y1={-7} x2={0} y2={7} stroke="rgba(10,22,41,.16)" strokeWidth={0.6} />
                   {isStar ? (
                     <path
                       d="M0 -9 L2.6 -2.9 L9.2 -2.9 L4.1 1.1 L5.7 7.3 L0 3.4 L-5.7 7.3 L-4.1 1.1 L-9.2 -2.9 L-2.6 -2.9 Z"
                       fill={col} stroke="#fff" strokeWidth={1.35}
-                      style={{filter: faded ? "grayscale(1) brightness(1.35)" : `drop-shadow(0 1px 3px ${col}66)`}}
+                      style={{filter: faded ? "grayscale(1) brightness(1.38)" : `drop-shadow(0 2px 6px ${col}99) saturate(1.22)`}}
                     />
                   ) : (
                     <circle r={6.2} fill={col} stroke="#fff" strokeWidth={1.45}
-                      style={{filter: faded ? "grayscale(1) brightness(1.42)" : `drop-shadow(0 0 5px ${col}7a)`}} />
+                      style={{filter: faded ? "grayscale(1) brightness(1.44)" : `drop-shadow(0 0 8px ${col}aa) saturate(1.22)`}} />
                   )}
                   {isNew && !faded && (
                     <circle r={9} fill="none" stroke={col} strokeWidth={1.05} opacity={0.38}>

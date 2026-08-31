@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-existing codebase: FastAPI + SQLite backend (`backend/`), `frontend/` vanilla HTML/Leaflet (no build) + `web/` React 19 + Vite + MapLibre GL + TanStack Query + react-i18next. Requested addition: `react-simple-maps` for map surface (npm i -S react-simple-maps).
+existing codebase: FastAPI + SQLite backend (`backend/`), `frontend/` vanilla HTML/Leaflet (no build, now WELTARCHIV) + `web/` React 19 + Vite + react-simple-maps@3.0.0 worldwide (EqualEarth/Mercator/Orthographic globe + Graticule, ZoomableGroup) + MapLibre legacy + TanStack Query + react-i18next. Worldwide WELTARCHIV — `world-atlas@2` 110m, full inline map + rail ledger.
 
 ## Users
 
@@ -16,15 +16,15 @@ Primary: Affected witnesses and community volunteers documenting far-right / hat
 
 ## Product Purpose
 
-Document hate incidents with evidence and make the pattern visible over time and space. Every mark carries what happened, evidence link, possibly-applicable German statute (StGB via `lawref.py`), and impact — with timeline and category filters so a region's pattern is legible. Success = more verified leads become findable without losing presumption of innocence; history is never deleted, only faded.
+Document hate incidents worldwide with evidence and make the pattern visible over time and space — all countries. Every mark carries what happened, evidence link, possibly-applicable German statute (StGB via `lawref.py`) where relevant plus local context, and impact — with worldwide atlas/globe, timeline and category filters so any region's pattern is legible. Success = more verified leads become findable worldwide without losing presumption of innocence; history is never deleted, only faded.
 
 ## Positioning
 
-A documentation tool that pairs each pin with checkable evidence and a suggested statute, plus Ingress-style per-category zone networks (MST + convex-hull fields) that turn isolated dots into a readable pattern. Unlike generic trackers: anonymous filing with `edit_token` self-view, fuzzing for sensitive/unverified reports, and a single-copy statute reference — not a verdict.
+A worldwide documentation tool that pairs each pin with checkable evidence and a suggested statute, plus Ingress-style per-category zone networks (MST + convex-hull fields) and EqualEarth/globe atlas that turn isolated dots into a readable worldwide pattern. Unlike generic trackers: anonymous filing with `edit_token` self-view, fuzzing for sensitive/unverified reports, and a single-copy statute reference — not a verdict. WELTARCHIV ledger (paper/ink/vermilion) reads as a federal survey office, not a dashboard.
 
 ## Operating Context
 
-Workflows: anonymous file → `pending` → moderator `verified|dismissed`; agent-scraped leads publish as `unverified` (real source URL). `db.list_reports()` hides `dismissed`+`pending`; public feed still needs `far_right_mention` (catch-all) distinction, not just `verified`. Surfaces: map + bottom sheets/rail, Incidents/Laws/Awareness/Volunteer tabs, search + language switcher, timeline slider (`created_at` cutoff), category legend/zone toggle, report modal, detail sheet, admin console. Env: FastAPI + Uvicorn on :8020, SQLite WAL, Leaflet CDN or MapLibre vector tiles, Cloudflare-proxied with `?v=` cache-bust for `/static/*`. i18n: 4 locales (en/de/fr/ar) in `frontend/i18n.js` / `web` i18n.
+Workflows: anonymous file → `pending` → moderator `verified|dismissed`; agent-scraped leads publish as `unverified` (real source URL). `db.list_reports()` hides `dismissed`+`pending`; public feed still needs `far_right_mention` (catch-all) distinction, not just `verified`. Surfaces: worldwide map (EqualEarth/Mercator/Globe + Graticule, ZoomableGroup, crosshair pins scaled by zoom) + full inline ledger rail, Incidents/Laws/Awareness/Volunteer tabs, geocode flyTo worldwide + quick-city pills, live 24h ticker + top-country chips, collapsible organ-stop filters, ruler timeline (`created_at` cutoff), detail sheet with WELT-ORT + nearby 3. Env: FastAPI + Uvicorn on :8020 (`/api/reports?all=true` → 873 akten), SQLite WAL, `world-atlas@2` 110m via `react-simple-maps`, Leaflet CDN for `frontend`, Cloudflare-proxied with `?v=20260831w` cache-bust for `/static/*`. i18n: 4 locales (en/de/fr/ar) in `frontend/i18n.js` / `web` i18n.
 
 ## Capabilities and Constraints
 

@@ -1,38 +1,38 @@
-/* Vermessungsamt — Federal Ledger  •  Forensic Atlas
-   Light archival paper, ink navy, ledger lines, vermillion forensic tab.
-   Not a tech dashboard, not a marketing site: a cartographic institute's evidence ledger. */
-@import url('https://fonts.googleapis.com/css2?family=Fragment+Mono:ital@0;1&family=General+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Sora:wght@400;600;700;800&display=swap');
+/* Signal Atlas — chromatic daylight, high-clarity, fluid */
+@import url('https://fonts.googleapis.com/css2?family=Fragment+Mono:ital@0;1&family=General+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Sora:wght@600;700;800&display=swap');
 
 :root{
-  --paper: #fdf8f0;
-  --paper-2: #f4efe6;
-  --paper-3: #ede7db;
-  --ink: #0a1629;
-  --ink-2: #1c2a44;
-  --muted: #5a6780;
-  --faint: #8a97ac;
-  --line: #d6cfbe;
-  --line-2: #e8e1d1;
-  --hair: #c8c0ad;
-  --vermillion: #c13420;
-  --vermillion-2: #a82c1b;
-  --amber: #9C6109;
-  --steel: #3a6b8c;
-  --sage: #6b7a6e;
-  --mint: #1f9b54;
-  --accent: #c13420;
-  --danger: #c13420;
-  --ok: #1f6b4a;
+  --paper: #fffef8;
+  --paper-2: #fdf6e3;
+  --paper-3: #fef3c7;
+  --ink: #0a0f1f;
+  --ink-2: #1a2238;
+  --muted: #334155;
+  --faint: #64748b;
+  --line: #e6dcc2;
+  --line-2: #f1e8c8;
+  --hair: #d4c9a8;
+  --vermillion: #e11d2d;
+  --vermillion-2: #be123c;
+  --steel: #0284c7;
+  --mint: #059669;
+  --amber: #d97706;
+  --violet: #7c3aed;
+  --ocean: #e0f2fe;
   --rail: 440px;
-  --nav-h: 52px;
+  --nav-h: 56px;
   --mono: "Fragment Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "General Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: "Sora", "General Sans", system-ui, sans-serif;
+  /* fluid tokens */
+  --fluid-gap: clamp(12px, 2vw, 20px);
+  --fluid-pad: clamp(12px, 1.8vw, 18px);
+  --fluid-radius: clamp(10px, 1.2vw, 14px);
 }
 
 *{box-sizing:border-box}
 html,body,#root{height:100%;margin:0}
-html{font-size:15.5px}
+html{font-size: clamp(14.5px, 1.15vw + 0.5rem, 16.5px)}
 body{
   background: var(--paper);
   color: var(--ink);
@@ -40,25 +40,20 @@ body{
   overflow:hidden;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* subtle paper texture */
   background-image:
-    linear-gradient(transparent 95%, rgba(10,22,41,.04) 100%),
-    radial-gradient(ellipse at 20% 0%, rgba(200,192,173,.35), transparent 55%),
-    radial-gradient(ellipse at 90% 100%, rgba(58,107,140,.07), transparent 45%);
+    radial-gradient(ellipse at 18% 0%, rgba(2,132,199,.08), transparent 58%),
+    radial-gradient(ellipse at 88% 100%, rgba(225,29,45,.06), transparent 52%),
+    linear-gradient(transparent 96%, rgba(10,15,31,.04) 100%);
 }
-a{color:var(--steel)}
 ::selection{background: var(--ink); color: var(--paper)}
 :focus-visible{outline:2px solid var(--vermillion); outline-offset:2px}
-::-webkit-scrollbar{width:8px; height:8px}
+::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background: var(--hair); border-radius:8px}
-::-webkit-scrollbar-track{background: transparent}
-
+a{color: var(--steel)}
 [dir="rtl"] body{direction:rtl}
-
-/* ledger grid lines across app */
 .ledger-grid{
   background-image:
-    linear-gradient(to right, rgba(214,207,190,.18) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(214,207,190,.18) 1px, transparent 1px);
-  background-size: 24px 24px;
+    linear-gradient(to right, rgba(214,201,168,.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(214,201,168,.22) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
