@@ -1,35 +1,64 @@
-/* Design tokens carried from frontend/preview-light.html — the agreed
-   light-mode look ("serious documentation tool, not a hacker terminal"). */
-:root {
-  --bg: #f4f7fb;
-  --panel: #ffffff;
-  --panel-2: #eef2f8;
-  --line: #dbe3ee;
-  --line-soft: #e8eef6;
-  --ink: #0b1326;
-  --muted: #5b6b85;
+/* Vermessungsamt — Federal Ledger  •  Forensic Atlas
+   Light archival paper, ink navy, ledger lines, vermillion forensic tab.
+   Not a tech dashboard, not a marketing site: a cartographic institute's evidence ledger. */
+@import url('https://fonts.googleapis.com/css2?family=Fragment+Mono:ital@0;1&family=General+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Sora:wght@400;600;700;800&display=swap');
+
+:root{
+  --paper: #fdf8f0;
+  --paper-2: #f4efe6;
+  --paper-3: #ede7db;
+  --ink: #0a1629;
+  --ink-2: #1c2a44;
+  --muted: #5a6780;
   --faint: #8a97ac;
-  --accent: #0088cc;
-  --danger: #d6363f;
-  --ok: #1f9b54;
-  --warn: #b8720b;
-  --nav-h: 60px;
-  --rail: 380px;
-  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --disp: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --line: #d6cfbe;
+  --line-2: #e8e1d1;
+  --hair: #c8c0ad;
+  --vermillion: #c13420;
+  --vermillion-2: #a82c1b;
+  --amber: #9C6109;
+  --steel: #3a6b8c;
+  --sage: #6b7a6e;
+  --mint: #1f9b54;
+  --accent: #c13420;
+  --danger: #c13420;
+  --ok: #1f6b4a;
+  --rail: 440px;
+  --nav-h: 52px;
+  --mono: "Fragment Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "General Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display: "Sora", "General Sans", system-ui, sans-serif;
 }
 
-* { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
-body {
-  background: var(--bg);
+*{box-sizing:border-box}
+html,body,#root{height:100%;margin:0}
+html{font-size:15.5px}
+body{
+  background: var(--paper);
   color: var(--ink);
-  font-family: var(--disp);
-  overflow: hidden;
-  -webkit-tap-highlight-color: transparent;
+  font-family: var(--sans);
+  overflow:hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* subtle paper texture */
+  background-image:
+    linear-gradient(transparent 95%, rgba(10,22,41,.04) 100%),
+    radial-gradient(ellipse at 20% 0%, rgba(200,192,173,.35), transparent 55%),
+    radial-gradient(ellipse at 90% 100%, rgba(58,107,140,.07), transparent 45%);
 }
-a { color: var(--accent); }
+a{color:var(--steel)}
+::selection{background: var(--ink); color: var(--paper)}
+:focus-visible{outline:2px solid var(--vermillion); outline-offset:2px}
+::-webkit-scrollbar{width:8px; height:8px}
+::-webkit-scrollbar-thumb{background: var(--hair); border-radius:8px}
+::-webkit-scrollbar-track{background: transparent}
 
-/* RTL: layout flips via [dir=rtl] on <html>; use logical properties in
-   component CSS so this stays automatic. */
-[dir="rtl"] body { direction: rtl; }
+[dir="rtl"] body{direction:rtl}
+
+/* ledger grid lines across app */
+.ledger-grid{
+  background-image:
+    linear-gradient(to right, rgba(214,207,190,.18) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(214,207,190,.18) 1px, transparent 1px);
+  background-size: 24px 24px;
+}

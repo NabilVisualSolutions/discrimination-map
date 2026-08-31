@@ -7,6 +7,7 @@ The self-check loop runs exactly this suite on each tick.
 import os
 import sys
 import tempfile
+import time
 
 # Isolated temp DB so tests never touch real data.
 _TMP = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
@@ -494,6 +495,144 @@ def test_solidarity_event_not_in_sensitive_fuzz_bucket():
 def test_privacy_and_terms_pages_served():
     assert client.get("/privacy").status_code == 200
     assert client.get("/terms").status_code == 200
+
+
+# ---------------- server-side timeline (as_of) ----------------
+
+def test_as_of_filters_reports_by_timestamp():
+    """Server-side `as_of` returns only reports with created_at <= as_of."""
+    # Create a report with a known timestamp
+    now = int(time.time())
+    past = now - 86400  # 1 day ago
+    
+    # Insert an old report directly with a known timestamp (status=unverified so it appears in public feed)
+    old_id = db.insert_report(
+        source="mastodon", external_id="test_old", title="Old report", reason="old test",
+        category="racism", lat=52.5, lon=13.4, place="Berlin",
+        url="https://example.social/@x/old",
+        created_at=past,
+        status="unverified",
+    )
+    # Insert a new report
+    new_id = db.insert_report(
+        source="mastodon", external_id="test_new", title="New report", reason="new test",
+        category="racism", lat=52.5, lon=13.4, place="Berlin",
+        url="https://example.social/@x/new",
+        created_at=now,
+        status="unverified",
+    )
+    assert old_id is not None and new_id is not None
+    
+    # as_of = past should only return the old report
+    past_reports = client.get(f"/api/reports?as_of={past}").json()["reports"]
+    past_ids = [r["id"] for r in past_reports]
+    assert old_id in past_ids
+    assert new_id not in past_ids
+    
+    # as_of = now should return both
+    all_reports = client.get(f"/api/reports?as_of={now}").json()["reports"]
+    all_ids = [r["id"] for r in all_reports]
+    assert old_id in all_ids
+    assert new_id in all_ids
+    
+    # as_of = past - 1 should return empty
+    empty = client.get(f"/api/reports?as_of={past - 1}").json()["reports"]
+    assert len(empty) == 0
+
+
+def test_as_of_combines_with_all_flag():
+    """`as_of` works together with `all=true` (includes unlocated)."""
+    now = int(time.time())
+    old_id = db.insert_report(
+        source="user", title="Unlocated old", reason="unlocated old test",
+        category="racism", lat=None, lon=None, place="",
+        created_at=now - 86400,
+        status="unverified",  # so it appears in public feed
+    )
+    assert old_id is not None
+    
+    # all=true with as_of should include unlocated reports
+    reports = client.get(f"/api/reports?all=true&as_of={now}").json()["reports"]
+    ids = [r["id"] for r in reports]
+    assert old_id in ids
+    
+    # all=false with as_of should NOT include unlocated reports
+    reports = client.get(f"/api/reports?all=false&as_of={now}").json()["reports"]
+    ids = [r["id"] for r in reports]
+    assert old_id not in ids
+
+
+# ---------------- new broader taxonomy categories ----------------
+
+def test_new_categories_present_in_api():
+    """The expanded taxonomy categories appear in /api/categories."""
+    cats = client.get("/api/categories").json()["categories"]
+    # Germany-specific (existing)
+    assert "arson" in cats
+    assert "banned_symbol" in cats
+    assert "incitement" in cats
+    # Broader taxonomy (new)
+    assert "racism" in cats
+    assert "islamophobia" in cats
+    assert "antisemitism" in cats
+    assert "homophobia_transphobia" in cats
+    assert "neo_nazi" in cats
+    assert "xenophobia" in cats
+    assert "sexual_violence" in cats
+    assert "harassment" in cats
+    assert "other" in cats
+    # Solidarity event
+    assert "solidarity_event" in cats
+
+
+def test_sensitive_categories_use_wide_fuzz_even_verified():
+    """
+    sexual_violence and harassment reports use the wider fuzz radius
+    even when verified — they should never show a tight pin.
+    """
+    for i, cat in enumerate(("sexual_violence", "harassment")):
+        new_id = db.insert_report(
+            source="mastodon", external_id=f"test_{cat}", title="Sensitive test",
+            body="sensitive", url=f"https://example.social/@x/{i+10}",
+            category=cat, reason=f"test {cat} reason",
+            lat=52.5200, lon=13.4000, place="Berlin",
+            status="verified",
+        )
+        assert new_id is not None
+        listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
+        assert listed.get("fuzzed") is True
+        dist_deg = ((listed["lat"] - 52.52) ** 2 + (listed["lon"] - 13.40) ** 2) ** 0.5
+        # 5km radius in degrees ~ 0.045 degrees (well beyond default 500m ~ 0.0045 deg)
+        assert dist_deg * 111 > 1.0
+
+
+def test_new_category_reports_work_end_to_end():
+    """User can file a report with a new taxonomy category and it's stored correctly."""
+    payload = {
+        "title": "Racism incident",
+        "reason": "Racial slur shouted at commuter on tram",
+        "evidence": "https://example.org/photo",
+        "law": "",
+        "impact": "Targeted individual reported lasting distress",
+        "category": "racism",
+        "lat": 52.52, "lon": 13.40,
+    }
+    r = client.post("/api/reports", json=payload)
+    assert r.status_code == 201
+    body = r.json()
+    assert body["status"] == "pending"  # no url -> pending
+    
+    # Admin can verify it
+    admin = TestClient(app_module.app)
+    admin.post("/api/auth/login", json={
+        "email": "admin@dxmap-tests.example-org.dev", "password": "adminpass123"})
+    admin.patch(f"/api/admin/reports/{body['id']}", json={"status": "verified"})
+    
+    # Now it appears in public feed
+    listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == body["id"]]
+    assert len(listed) == 1
+    assert listed[0]["category"] == "racism"
+    assert listed[0]["status"] == "verified"
 
 
 # ---------------- rate limiting ----------------

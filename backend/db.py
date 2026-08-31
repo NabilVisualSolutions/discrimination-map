@@ -262,6 +262,7 @@ def insert_report(
     lat: Optional[float] = None,
     lon: Optional[float] = None,
     place: Optional[str] = None,
+    created_at: Optional[int] = None,
 ) -> Optional[int]:
     """
     Insert a report. Returns the new row id, or None if it was a duplicate
@@ -277,11 +278,15 @@ def insert_report(
     the free-text `evidence` field isn't a verifiable source) defaults to
     'pending' — held out of the public feed until an ADMIN/VERIFIER reviews
     it, because an anonymous unverifiable claim shouldn't publish itself.
+
+    `created_at` allows tests (or future imports) to set a specific timestamp.
+    Defaults to current time if not provided.
     """
     located = 1 if (lat is not None and lon is not None) else 0
     normalized_url = url.strip().rstrip("/") if url else None
     if status is None:
         status = "unverified" if normalized_url else "pending"
+    ts = created_at if created_at is not None else int(time.time())
     try:
         with _conn() as conn:
             if normalized_url:
@@ -300,7 +305,7 @@ def insert_report(
                 """,
                 (source, external_id, title, body, normalized_url, category,
                  reason, evidence, law, impact, 1 if status == "verified" else 0, status,
-                 lat, lon, place, located, int(time.time()), secrets.token_urlsafe(16)),
+                 lat, lon, place, located, ts, secrets.token_urlsafe(16)),
             )
             return cur.lastrowid
     except sqlite3.IntegrityError:
@@ -316,18 +321,26 @@ def set_location(report_id: int, lat: float, lon: float, place: str) -> None:
             (lat, lon, place, report_id))
 
 
-def list_reports(limit: int = 500, located_only: bool = True) -> list[dict[str, Any]]:
+def list_reports(limit: int = 500, located_only: bool = True, as_of: int | None = None) -> list[dict[str, Any]]:
     """
     Return recent reports as plain dicts, newest first. Dismissed reports
     (moderator judged spam / false positive) are excluded from the public
     feed but kept in the DB and still visible in the admin/verify queue.
+
+    Optional `as_of` (unix timestamp): only return reports with
+    created_at <= as_of. Enables server-side timeline filtering.
     """
     q = "SELECT * FROM reports WHERE status NOT IN ('dismissed', 'pending')"
+    params: list[Any] = []
     if located_only:
         q += " AND located = 1"
+    if as_of is not None:
+        q += " AND created_at <= ?"
+        params.append(as_of)
     q += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
     with _conn() as conn:
-        rows = conn.execute(q, (limit,)).fetchall()
+        rows = conn.execute(q, params).fetchall()
     return [_strip_token(dict(r)) for r in rows]
 
 

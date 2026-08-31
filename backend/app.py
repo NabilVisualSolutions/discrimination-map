@@ -169,7 +169,12 @@ DEFAULT_FUZZ_RADIUS_M = 500
 
 
 @app.get("/api/reports")
-def get_reports(limit: int = 500, all: bool = False, user: dict | None = Depends(auth.get_current_user)):
+def get_reports(
+    limit: int = 500,
+    all: bool = False,
+    as_of: int | None = None,
+    user: dict | None = Depends(auth.get_current_user),
+):
     """
     Return recent reports. By default only mapped (located) ones.
     Unverified reports get their coordinates fuzzed for anyone not logged
@@ -177,9 +182,13 @@ def get_reports(limit: int = 500, all: bool = False, user: dict | None = Depends
     address. Sensitive categories (sexual violence, harassment) are always
     fuzzed at a wider radius for the public regardless of verification
     status — logged-in moderators still see the real location to review it.
+
+    Optional `as_of` (unix timestamp): only return reports with
+    created_at <= as_of. Enables server-side timeline filtering so clients
+    don't need to fetch the entire dataset.
     """
     limit = max(1, min(limit, 5000))  # headroom above the current ~3.8k public-eligible total
-    reports = db.list_reports(limit=limit, located_only=not all)
+    reports = db.list_reports(limit=limit, located_only=not all, as_of=as_of)
     if user is None:
         for r in reports:
             if r["lat"] is None or r["lon"] is None:
@@ -520,6 +529,46 @@ def admin_set_application_status(
 def laws():
     """The statute reference the UI uses for the law dropdown and popups."""
     return {"laws": lawref.STATUTES}
+
+
+# Server-side geocode proxy. The old frontend called nominatim.openstreetmap
+# .org straight from the browser — rate-limit fragile, no fallback, leaks the
+# usage pattern, and OSM's policy wants a real contact in the User-Agent. This
+# funnels it through one identified server with a short in-memory cache.
+_GEOCODE_CACHE: dict[str, tuple[float, list[dict]]] = {}
+_GEOCODE_TTL = 3600.0
+_GEOCODE_UA = "discrimination-map/1.0 (+https://map.nabilvs.com)"
+
+
+@app.get("/api/geocode")
+async def geocode(q: str = ""):
+    q = q.strip()
+    if len(q) < 2:
+        return {"results": []}
+    key = q.lower()
+    hit = _GEOCODE_CACHE.get(key)
+    now = time.time()
+    if hit and now - hit[0] < _GEOCODE_TTL:
+        return {"results": hit[1]}
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0, headers={"User-Agent": _GEOCODE_UA}) as client:
+            r = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"format": "json", "limit": 5, "q": q, "accept-language": "en"},
+            )
+            r.raise_for_status()
+            data = r.json()
+    except Exception:
+        raise HTTPException(status_code=502, detail="Geocoding is unavailable right now")
+    results = [
+        {"lat": float(d["lat"]), "lon": float(d["lon"]), "label": d.get("display_name", q)}
+        for d in data
+        if d.get("lat") and d.get("lon")
+    ]
+    _GEOCODE_CACHE[key] = (now, results)
+    return {"results": results}
 
 
 @app.get("/api/categories")

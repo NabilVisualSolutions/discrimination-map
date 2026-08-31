@@ -42,11 +42,12 @@ export function MapView({
     const m = map.current
     if (!m) return
     const draw = () => {
+      const visibleReports = reports.filter((r) => r.lat != null && r.lon != null)
       const fc: GeoJSON.FeatureCollection = {
         type: "FeatureCollection",
-        features: reports.map((r) => ({
+        features: visibleReports.map((r) => ({
           type: "Feature",
-          geometry: { type: "Point", coordinates: [r.lon, r.lat] },
+          geometry: { type: "Point", coordinates: [r.lon as number, r.lat as number] },
           properties: {
             id: r.id,
             color: categories[r.category]?.color ?? "#8891A8",
@@ -60,6 +61,30 @@ export function MapView({
         return
       }
       m.addSource("reports", { type: "geojson", data: fc, cluster: true, clusterRadius: 44 })
+      m.addSource("Germany", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [6.4, 47.2],
+                    [13.6, 47.2],
+                    [13.6, 55.6],
+                    [6.4, 55.6],
+                    [6.4, 47.2],
+                  ],
+                ],
+              },
+              properties: { name: "Germany" },
+            },
+          ],
+        },
+      })
       m.addLayer({
         id: "clusters",
         type: "circle",
@@ -84,13 +109,13 @@ export function MapView({
         type: "circle",
         source: "reports",
         filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "star"], 0]],
-        paint: {
-          "circle-color": ["get", "color"],
-          "circle-radius": 6,
-          "circle-stroke-width": 1.5,
-          "circle-stroke-color": "#fff",
-        },
-      })
+          paint: {
+            "circle-color": ["get", "color"],
+            "circle-radius": 6,
+            "circle-stroke-width": 1.5,
+            "circle-stroke-color": "#fff",
+          },
+        })
       m.addLayer({
         id: "solidarity",
         type: "circle",
