@@ -390,12 +390,18 @@
 <body>
 
 <!-- ===================== boot splash ===================== -->
-<div class="splash" id="splash">
-  <div class="splash-lang" id="splashLang">
-    <h2 data-i18n="splash.choose">Choose your language</h2>
+<div class="splash" id="splash" style="background:var(--paper);">
+  <div class="splash-lang" id="splashLang" style="max-width:420px">
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font:800 22px var(--display);letter-spacing:.04em;color:var(--ink)">WELTARCHIV</div>
+      <div style="font:10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--vermillion);margin-top:4px">WORLD LEDGER • WELTWEIT • 873 AKTEN</div>
+      <div style="font:12px var(--sans);color:var(--muted);margin-top:8px;line-height:1.5">Documenting hate incidents worldwide — forensic ledger, not accusation.<br><span style="font:10px var(--mono);color:var(--faint)">Dokumentation, nicht Anklage • Unschuldsvermutung</span></div>
+    </div>
+    <h2 data-i18n="splash.choose" style="font:700 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);text-align:center;margin:0 0 12px">Choose your language • Sprache wählen</h2>
     <div id="splashLangBtns"></div>
+    <div style="text-align:center;margin-top:14px;font:10px var(--mono);color:var(--faint)">Map: worldwide • Tap pin → Akte • Drag • Scroll zoom</div>
   </div>
-  <div class="splash-slogan" id="splashSlogan"></div>
+  <div class="splash-slogan" id="splashSlogan" style="font:800 28px var(--display);color:var(--ink)"></div>
 </div>
 
 <div id="map"></div>
