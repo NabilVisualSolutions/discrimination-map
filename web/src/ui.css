@@ -352,3 +352,95 @@ input.field, textarea.field {
 
 .maplibregl-ctrl-bottom-right { margin-bottom: 100px; }
 @media (min-width: 900px) { .maplibregl-ctrl-bottom-right { margin-inline-end: 412px; margin-bottom: 12px; } }
+
+/* ===================================================================== *
+ *  polish pass — slogan splash, FAB stack, localised report modal        *
+ * ===================================================================== */
+
+/* topbar: wrap the utility buttons onto a second row on narrow screens
+   instead of overflowing */
+.topbar { flex-wrap: wrap; }
+.topbar .search { flex: 1 1 100%; }
+@media (min-width: 560px) { .topbar .search { flex: 1 1 auto; } }
+
+/* FAB becomes a bottom-right stack (report + optional "edit mine") */
+.fab-stack {
+  position: absolute;
+  inset-inline-end: 12px;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: 26;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.fab-stack .fab { position: static; inset: auto; }
+.fab.ghost {
+  background: rgba(255, 254, 248, 0.97);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 20px rgba(10, 15, 31, 0.16);
+  font-weight: 700;
+  padding: 10px 14px;
+}
+@media (min-width: 900px) {
+  .fab-stack { inset-inline-end: 420px; bottom: 20px; }
+}
+
+/* slogan interstitial — 2.5s after language choice, map loads behind it */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 8vw;
+  text-align: center;
+  background: var(--ink, #0a0f1f);
+  animation: splashOut 0.5s ease 2s forwards;
+}
+.splash-slogan {
+  margin: 0;
+  max-width: 18ch;
+  color: #fff;
+  font: 800 clamp(1.5rem, 6vw, 2.75rem) / 1.2 var(--display, var(--sans));
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: sloganIn 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.1s forwards;
+}
+[dir="rtl"] .splash-slogan { letter-spacing: 0; }
+@keyframes sloganIn { to { opacity: 1; transform: none; } }
+@keyframes splashOut { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) {
+  .splash { animation: splashOut 0.2s ease 2.2s forwards; }
+  .splash-slogan { opacity: 1; transform: none; animation: none; }
+}
+
+/* localised report modal */
+.rm-kicker { font: 800 9px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--vermillion); }
+.rm-kicker-ok { color: var(--mint, #1f7a4d); }
+.rm-h2 { margin: 6px 0 8px; font: 800 20px var(--display, var(--sans)); }
+.rm-p { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+.rm-err { color: var(--vermillion); font-size: 12.5px; margin: 4px 0; }
+.rm-token {
+  margin-top: 12px; background: var(--paper-2); border: 1px solid var(--line-2);
+  border-radius: 10px; padding: 10px 12px; font: 11px var(--mono); word-break: break-all;
+}
+.rm-token-h { color: var(--faint); margin-bottom: 4px; letter-spacing: 0.1em; text-transform: uppercase; }
+.rm-consent {
+  background: rgba(225, 29, 45, 0.06); border: 1px solid rgba(225, 29, 45, 0.2);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 12.5px;
+  line-height: 1.5; color: var(--ink);
+}
+.rm-consent-row {
+  display: flex; gap: 8px; margin-top: 8px; font: 12px var(--sans);
+  text-transform: none; letter-spacing: 0; color: var(--ink);
+}
+.rm-hits { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 6px; }
+.rm-hits button {
+  display: block; width: 100%; text-align: start; padding: 8px 10px; border: 0;
+  border-bottom: 1px solid var(--line-2); background: none; font: 12px var(--sans); cursor: pointer;
+}
+.rm-picked { margin-top: 6px; font: 12px var(--sans); color: var(--ink); display: flex; gap: 8px; align-items: center; }
+.rm-tick { color: var(--mint, #1f7a4d); font-weight: 700; }

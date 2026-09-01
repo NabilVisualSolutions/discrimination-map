@@ -208,18 +208,24 @@ GDELT_ENABLED = os.environ.get("DXMAP_GDELT", "1") != "0"
 # usually naming the town and the victim, which classify()/geocode can use.
 WIKI_SEARCH = [t.strip() for t in os.environ.get(
     "DXMAP_WIKI_TERMS",
-    "rassistischer Angriff Deutschland,rechtsextremer Mord,rassistischer Mordanschlag,"
+    # worldwide, English
+    "racist attack,racially motivated killing,far-right terrorist attack,"
+    "white supremacist attack,neo-Nazi murder,hate crime murder,mosque shooting,"
+    "synagogue shooting,anti-migrant violence,person of colour killed,"
+    # German
+    "rassistischer Angriff,rechtsextremer Mord,rassistischer Mordanschlag,"
     "Todesopfer rechtsextremer Gewalt,Brandanschlag Asylbewerberheim,"
-    "rassistische Gewalt Deutschland,Angriff auf Geflüchtete,"
-    "racist attack Germany,neo-Nazi murder Germany,racially motivated killing Germany"
+    # French / Spanish
+    "attaque raciste,crime raciste,ataque racista,violencia de extrema derecha"
 ).split(",") if t.strip()]
 WIKI_CATEGORIES = [c.strip() for c in os.environ.get(
     "DXMAP_WIKI_CATEGORIES",
+    "en:Category:Racially motivated violence,"
+    "en:Category:Far-right terrorism,"
+    "en:Category:Racist murders,"
+    "en:Category:Hate crimes,"
     "de:Kategorie:Rassistisch motivierte Gewalt,"
-    "de:Kategorie:Rechtsextremes Attentat,"
-    "de:Kategorie:Rechtsterrorismus in Deutschland,"
-    "en:Category:Far-right terrorist incidents in Germany,"
-    "en:Category:Racially motivated violence in Germany"
+    "de:Kategorie:Rechtsextremes Attentat"
 ).split(",") if c.strip()]
 
 
@@ -282,9 +288,9 @@ async def source_wikipedia(client: httpx.AsyncClient) -> list[dict[str, Any]]:
 # geocode pass on the headline.
 GDELT_QUERIES = [q.strip() for q in os.environ.get(
     "DXMAP_GDELT_QUERIES",
-    '"racist attack" Germany;"far-right attack" Germany;neo-Nazi attack Germany;'
-    'racially motivated attack Germany;refugee shelter arson Germany;'
-    'person of colour attacked Germany;asylum seeker attacked Germany'
+    '"racist attack";"far-right attack";"neo-Nazi attack";"white supremacist attack";'
+    '"racially motivated attack";"refugee shelter arson";"person of colour attacked";'
+    '"asylum seeker attacked";"mosque attack";"antisemitic attack"'
 ).split(";") if q.strip()]
 
 

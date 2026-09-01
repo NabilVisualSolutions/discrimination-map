@@ -4,9 +4,11 @@ import "maplibre-gl/dist/maplibre-gl.css"
 import type { Report, CategoryMeta } from "../../lib/api"
 
 // Worldwide tile map. Every pin renders at every zoom (no clustering).
-// Points that share a category are linked to that category's centroid with
-// a thin coloured thread. A report whose `category` names several
-// categories (comma / slash / pipe separated) blinks through those colours.
+// Same-category incidents are stitched into a proximity web: each point is
+// linked to its nearest few same-category neighbours (bounded by distance),
+// so the lines trace real clusters instead of all converging on one point.
+// A report whose `category` names several categories (comma / slash / pipe
+// separated) blinks through those colours.
 
 const STYLE = "https://tiles.openfreemap.org/styles/positron"
 const MULTI_SEP = /\s*[,/|]\s*/
@@ -17,6 +19,38 @@ function splitCats(c: string): string[] {
 function ageOpacity(t: number) {
   const d = (Date.now() / 1000 - t) / 86400
   return d < 2 ? 1 : d > 3650 ? 0.4 : d > 720 ? 0.58 : d > 180 ? 0.78 : 0.94
+}
+
+// Rough great-circle distance in km (equirectangular — fine for "nearest").
+function distKm(a: [number, number], b: [number, number]) {
+  const x = (b[0] - a[0]) * Math.cos((((a[1] + b[1]) / 2) * Math.PI) / 180)
+  const y = b[1] - a[1]
+  return Math.sqrt(x * x + y * y) * 111.32
+}
+
+const MAX_EDGE_KM = 700 // don't draw a thread across a whole continent
+const NEIGHBOURS = 2 // per point, per category
+const MAX_EDGES = 1600 // hard cap for render perf
+
+// For one category's points, connect each to its NEIGHBOURS nearest peers
+// within MAX_EDGE_KM. Edges are de-duplicated (i<j).
+function categoryEdges(coords: [number, number][]): [[number, number], [number, number]][] {
+  const edges: [[number, number], [number, number]][] = []
+  const seen = new Set<string>()
+  for (let i = 0; i < coords.length; i++) {
+    const near = coords
+      .map((c, j) => ({ j, d: j === i ? Infinity : distKm(coords[i], c) }))
+      .filter((n) => n.d <= MAX_EDGE_KM)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, NEIGHBOURS)
+    for (const n of near) {
+      const key = i < n.j ? `${i}-${n.j}` : `${n.j}-${i}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      edges.push([coords[i], coords[n.j]])
+    }
+  }
+  return edges
 }
 
 export function MapView({
@@ -73,14 +107,13 @@ export function MapView({
     }
     const links: GeoJSON.Feature[] = []
     for (const [cat, coords] of Object.entries(byCat)) {
-      if (coords.length < 2) continue
-      const cx = coords.reduce((s, c) => s + c[0], 0) / coords.length
-      const cy = coords.reduce((s, c) => s + c[1], 0) / coords.length
+      if (coords.length < 2 || links.length >= MAX_EDGES) continue
       const color = categories[cat]?.color ?? "#8891A8"
-      for (const c of coords) {
+      for (const [a, b] of categoryEdges(coords)) {
+        if (links.length >= MAX_EDGES) break
         links.push({
           type: "Feature",
-          geometry: { type: "LineString", coordinates: [c, [cx, cy]] },
+          geometry: { type: "LineString", coordinates: [a, b] },
           properties: { color },
         })
       }

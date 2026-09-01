@@ -6,6 +6,7 @@ import { LOCALES, applyLocale, type Locale } from "./i18n"
 import { MapView } from "./features/map/MapView"
 import { AWARENESS } from "./lib/awareness"
 import { ReportModal } from "./features/report/ReportModal"
+import { latestEditable, minutesLeft, type MineEntry } from "./lib/mine"
 
 // Full-screen map. Everything else floats over it: a top search/filter bar,
 // a category panel, and one bottom sheet that shows either the incident
@@ -32,6 +33,9 @@ export function App() {
   const [snap, setSnap] = useState<SheetSnap>("peek")
   const [noticeDismissed, setNoticeDismissed] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
+  const [splash, setSplash] = useState(true)
+  const [reportEdit, setReportEdit] = useState<{ id: number; token: string } | null>(null)
+  const [mine, setMine] = useState<MineEntry | null>(() => latestEditable())
 
   const cats = useQuery({ queryKey: ["categories"], queryFn: api.categories, staleTime: 3_600_000 })
   const reportsQ = useQuery({ queryKey: ["reports"], queryFn: () => api.reports({ limit: 5000, all: true }), staleTime: 60_000 })
@@ -98,6 +102,25 @@ export function App() {
     if (r.lat != null && r.lon != null) setFocus({ lat: r.lat, lon: r.lon, zoom: 11 })
   }
   const cycleSnap = () => setSnap((s) => (s === "peek" ? "half" : s === "half" ? "full" : "peek"))
+
+  // Slogan interstitial: on first load and on every language switch, hold the
+  // slogan for 2.5s while the map loads behind it.
+  useEffect(() => {
+    setSplash(true)
+    const id = setTimeout(() => setSplash(false), 2500)
+    return () => clearTimeout(id)
+  }, [i18n.language])
+
+  // Deep link from the "edit link" handed back at submission time.
+  useEffect(() => {
+    const p = new URLSearchParams(location.search)
+    const id = Number(p.get("report"))
+    const token = p.get("token")
+    if (id && token) {
+      setReportEdit({ id, token })
+      setShowReport(true)
+    }
+  }, [])
 
   useEffect(() => {
     if (q.trim().length < 3) {
@@ -218,7 +241,28 @@ export function App() {
         </div>
       )}
 
-      <button className="fab" onClick={() => setShowReport(true)}>+ {t("report.button")}</button>
+      <div className="fab-stack">
+        {mine && (
+          <button
+            className="fab ghost"
+            onClick={() => {
+              setReportEdit({ id: mine.id, token: mine.token })
+              setShowReport(true)
+            }}
+          >
+            ✎ {t("editMine", { n: minutesLeft(mine) })}
+          </button>
+        )}
+        <button
+          className="fab"
+          onClick={() => {
+            setReportEdit(null)
+            setShowReport(true)
+          }}
+        >
+          + {t("report.button")}
+        </button>
+      </div>
 
       <div className="sheet" style={{ height: SNAP_H[snap] }}>
         <button className="grip" onClick={cycleSnap} aria-label="Panel-Höhe">
@@ -373,7 +417,27 @@ export function App() {
         </div>
       </div>
 
-      {showReport && <ReportModal categories={categories} onClose={() => setShowReport(false)} />}
+      {showReport && (
+        <ReportModal
+          categories={categories}
+          editId={reportEdit?.id}
+          editToken={reportEdit?.token}
+          onClose={() => {
+            setShowReport(false)
+            setReportEdit(null)
+          }}
+          onSaved={() => {
+            setMine(latestEditable())
+            void reportsQ.refetch()
+          }}
+        />
+      )}
+
+      {splash && (
+        <div className="splash" role="status" aria-live="polite">
+          <p className="splash-slogan">{t("slogan")}</p>
+        </div>
+      )}
     </div>
   )
 }

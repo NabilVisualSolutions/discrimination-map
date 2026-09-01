@@ -1,33 +1,44 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { api, ApiError, type CategoryMeta, type NewReport } from "../../lib/api"
+import { rememberReport } from "../../lib/mine"
 
-// A real report form (the Signal Atlas rewrite had stubbed this to a dead
-// localhost link). Anonymous, no account. POSTs to /api/reports; the
-// backend holds it as `pending` until a moderator reviews it unless a real
-// source URL is given, and fuzzes the public location. Sensitive
-// categories get an explicit consent gate.
+// Anonymous incident report — no account. New reports POST to /api/reports;
+// the same device can edit for one hour (token kept in localStorage, window
+// enforced by the backend). Sensitive categories get an explicit consent
+// gate. Fully localised (en/de/fr/ar).
 
 const SENSITIVE = new Set(["sexual_violence", "harassment"])
-
 type Step = "form" | "done"
+type Picked = { lat: number; lon: number; label: string }
 
 export function ReportModal({
   categories,
+  editId,
+  editToken,
   onClose,
+  onSaved,
 }: {
   categories: Record<string, CategoryMeta>
+  editId?: number
+  editToken?: string
   onClose: () => void
+  onSaved?: () => void
 }) {
+  const { t } = useTranslation()
+  const isEdit = !!editId && !!editToken
+
   const [step, setStep] = useState<Step>("form")
+  const [loading, setLoading] = useState(isEdit)
   const [category, setCategory] = useState("")
   const [title, setTitle] = useState("")
   const [reason, setReason] = useState("")
   const [evidence, setEvidence] = useState("")
   const [impact, setImpact] = useState("")
   const [placeQ, setPlaceQ] = useState("")
-  const [hits, setHits] = useState<{ lat: number; lon: number; label: string }[]>([])
+  const [hits, setHits] = useState<Picked[]>([])
   const [geoBusy, setGeoBusy] = useState(false)
-  const [picked, setPicked] = useState<{ lat: number; lon: number; label: string } | null>(null)
+  const [picked, setPicked] = useState<Picked | null>(null)
   const [sensitiveOk, setSensitiveOk] = useState(false)
   const [err, setErr] = useState("")
   const [busy, setBusy] = useState(false)
@@ -36,6 +47,31 @@ export function ReportModal({
   const isSensitive = SENSITIVE.has(category)
   const catEntries = Object.entries(categories).sort((a, b) => a[1].label.localeCompare(b[1].label))
 
+  useEffect(() => {
+    if (!isEdit) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await api.ownReport(editId!, editToken!)
+        if (cancelled) return
+        setCategory(r.category)
+        setTitle(r.title)
+        setReason(r.reason ?? "")
+        setEvidence(r.evidence ?? "")
+        setImpact(r.impact ?? "")
+        if (r.lat != null && r.lon != null)
+          setPicked({ lat: r.lat, lon: r.lon, label: r.place || `${r.lat.toFixed(3)}, ${r.lon.toFixed(3)}` })
+      } catch {
+        if (!cancelled) setErr(t("rm.loadErr"))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isEdit, editId, editToken, t])
+
   const geocode = async () => {
     if (placeQ.trim().length < 2) return
     setGeoBusy(true)
@@ -43,7 +79,7 @@ export function ReportModal({
     try {
       setHits((await api.geocode(placeQ.trim())).slice(0, 6))
     } catch {
-      setErr("Ortssuche nicht verfügbar — bitte später erneut versuchen.")
+      setErr(t("rm.errGeo"))
     } finally {
       setGeoBusy(false)
     }
@@ -52,8 +88,8 @@ export function ReportModal({
   const useMyLocation = () => {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
-      (p) => setPicked({ lat: p.coords.latitude, lon: p.coords.longitude, label: "Mein Standort" }),
-      () => setErr("Standort nicht verfügbar."),
+      (p) => setPicked({ lat: p.coords.latitude, lon: p.coords.longitude, label: t("rm.myLoc") }),
+      () => setErr(t("rm.errLoc")),
       { enableHighAccuracy: true }
     )
   }
@@ -69,26 +105,43 @@ export function ReportModal({
     if (!canSubmit || !picked) return
     setBusy(true)
     setErr("")
-    const payload: NewReport = {
-      title: title.trim(),
-      reason: reason.trim(),
-      evidence: evidence.trim() || undefined,
-      impact: impact.trim() || undefined,
-      category,
-      lat: picked.lat,
-      lon: picked.lon,
-    }
     try {
-      const r = await api.createReport(payload)
-      setResult(r)
+      if (isEdit) {
+        // Location is not editable anonymously (a moved pin would need
+        // re-review) — only the text fields.
+        await api.editOwnReport(editId!, editToken!, {
+          title: title.trim(),
+          reason: reason.trim(),
+          evidence: evidence.trim() || undefined,
+          impact: impact.trim() || undefined,
+          category,
+        })
+        setResult({ id: editId!, status: "updated", edit_token: editToken! })
+      } else {
+        const payload: NewReport = {
+          title: title.trim(),
+          reason: reason.trim(),
+          evidence: evidence.trim() || undefined,
+          impact: impact.trim() || undefined,
+          category,
+          lat: picked.lat,
+          lon: picked.lon,
+        }
+        const r = await api.createReport(payload)
+        rememberReport(r.id, r.edit_token)
+        setResult(r)
+      }
       setStep("done")
+      onSaved?.()
     } catch (e) {
       setErr(
-        e instanceof ApiError && e.status === 409
-          ? "Dieser Vorfall scheint bereits gemeldet zu sein."
-          : e instanceof ApiError
-            ? e.message
-            : "Konnte nicht gesendet werden. Bitte erneut versuchen."
+        e instanceof ApiError && e.status === 409 && isEdit
+          ? t("rm.errWindowClosed")
+          : e instanceof ApiError && e.status === 409
+            ? t("rm.errDup")
+            : e instanceof ApiError
+              ? e.message
+              : t("rm.errGeneric")
       )
     } finally {
       setBusy(false)
@@ -100,52 +153,35 @@ export function ReportModal({
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
         {step === "done" && result ? (
           <>
-            <div style={{ font: "800 9px var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--mint)" }}>
-              Akte #{String(result.id).padStart(4, "0")} angelegt
+            <div className="rm-kicker rm-kicker-ok">
+              {t("rm.doneKicker", { id: String(result.id).padStart(4, "0") })}
             </div>
-            <h2 style={{ margin: "6px 0 8px", font: "800 20px var(--display)" }}>Danke — Ihr Bericht ist eingegangen.</h2>
-            <p style={{ margin: 0, color: "var(--muted)", fontSize: 13, lineHeight: 1.6 }}>
-              {result.status === "pending"
-                ? "Er wird von einer Person geprüft, bevor er öffentlich auf der Karte erscheint."
-                : "Er erscheint als unbestätigter Hinweis auf der Karte."}{" "}
-              Der genaue Ort wird für die Öffentlichkeit unscharf angezeigt.
+            <h2 className="rm-h2">{isEdit ? t("rm.doneEdit") : t("rm.doneNew")}</h2>
+            <p className="rm-p">
+              {result.status === "pending" ? t("rm.doneBodyPending") : t("rm.doneBodyLead")} {t("rm.doneFuzz")}
             </p>
-            <div
-              style={{
-                marginTop: 12,
-                background: "var(--paper-2)",
-                border: "1px solid var(--line-2)",
-                borderRadius: 10,
-                padding: "10px 12px",
-                font: "11px var(--mono)",
-                wordBreak: "break-all",
-              }}
-            >
-              <div style={{ color: "var(--faint)", marginBottom: 4, letterSpacing: ".1em", textTransform: "uppercase" }}>
-                Bearbeitungs-Link — speichern, um Ihren Bericht später zu ändern
+            {!isEdit && (
+              <div className="rm-token">
+                <div className="rm-token-h">{t("rm.editLinkLabel")}</div>
+                {`${location.origin}/?report=${result.id}&token=${result.edit_token}`}
               </div>
-              {`${location.origin}/?report=${result.id}&token=${result.edit_token}`}
-            </div>
+            )}
             <div className="btnrow" style={{ marginTop: 14 }}>
-              <button className="btn primary" onClick={onClose}>
-                Schließen
-              </button>
+              <button className="btn primary" onClick={onClose}>{t("rm.close")}</button>
             </div>
           </>
+        ) : loading ? (
+          <p className="rm-p">{t("rm.loading")}</p>
         ) : (
           <>
-            <div style={{ font: "800 9px var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--vermillion)" }}>
-              Weltweit • Akte anlegen
-            </div>
-            <h2 style={{ margin: "6px 0 4px", font: "800 20px var(--display)" }}>Vorfall melden</h2>
-            <p style={{ margin: "0 0 10px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.5 }}>
-              Anonym, ohne Konto. Dokumentation, nicht Anklage — keine Namen von Privatpersonen. Notfall: Polizei 110.
-            </p>
+            <div className="rm-kicker">{isEdit ? t("rm.badgeEditMode") : t("rm.badgeNew")}</div>
+            <h2 className="rm-h2">{isEdit ? t("rm.titleEdit") : t("rm.titleNew")}</h2>
+            <p className="rm-p">{isEdit ? t("rm.editWindowNote") : t("rm.intro")}</p>
 
             <div className="field">
-              <label>Kategorie</label>
+              <label>{t("rm.cat")}</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="">— wählen —</option>
+                <option value="">{t("rm.catPick")}</option>
                 {catEntries.map(([k, m]) => (
                   <option key={k} value={k}>
                     {m.label}
@@ -155,54 +191,50 @@ export function ReportModal({
             </div>
 
             {isSensitive && (
-              <div
-                style={{
-                  background: "rgba(225,29,45,.06)",
-                  border: "1px solid rgba(225,29,45,.2)",
-                  borderRadius: 10,
-                  padding: "10px 12px",
-                  marginBottom: 12,
-                  fontSize: 12.5,
-                  lineHeight: 1.5,
-                  color: "var(--ink)",
-                }}
-              >
-                <b>Besonders schützenswert.</b> Dieser Bericht geht nicht direkt auf die öffentliche Karte — eine Person prüft ihn zuerst,
-                und der Ort wird weiträumig (~5 km) unscharf gemacht. Bitte keine identifizierenden Details zu Betroffenen.
-                <label style={{ display: "flex", gap: 8, marginTop: 8, font: "12px var(--sans)", textTransform: "none", letterSpacing: 0, color: "var(--ink)" }}>
+              <div className="rm-consent">
+                <b>{t("rm.sensitiveTitle")}</b> {t("rm.sensitiveBody")}
+                <label className="rm-consent-row">
                   <input type="checkbox" checked={sensitiveOk} onChange={(e) => setSensitiveOk(e.target.checked)} />
-                  Ich habe das verstanden.
+                  {t("rm.sensitiveOk")}
                 </label>
               </div>
             )}
 
             <div className="field">
-              <label>Titel</label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Kurz: was ist passiert?" maxLength={300} />
+              <label>{t("rm.fTitle")}</label>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("rm.fTitlePh")} maxLength={300} />
             </div>
             <div className="field">
-              <label>Was ist passiert?</label>
-              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={500} placeholder="Sachlich beschreiben. Angeblich, nicht bewiesen." />
+              <label>{t("rm.fWhat")}</label>
+              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={500} placeholder={t("rm.fWhatPh")} />
             </div>
 
             <div className="field">
-              <label>Wo? (Ort, Stadt, Land)</label>
+              <label>{t("rm.fWhere")}</label>
+              {isEdit ? (
+                <div className="rm-picked">
+                  <span className="rm-tick">✓</span>
+                  <span style={{ flex: 1 }}>{picked?.label ?? "—"}</span>
+                  <span className="rm-p" style={{ margin: 0, fontSize: 11 }}>{t("rm.locLocked")}</span>
+                </div>
+              ) : (
+              <>
               <div style={{ display: "flex", gap: 6 }}>
                 <input
                   value={placeQ}
                   onChange={(e) => setPlaceQ(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), geocode())}
-                  placeholder="z. B. Alexanderplatz, Berlin"
+                  placeholder={t("rm.fWherePh")}
                 />
                 <button type="button" className="btn" onClick={geocode} disabled={geoBusy}>
-                  {geoBusy ? "…" : "Suchen"}
+                  {geoBusy ? "…" : t("rm.search")}
                 </button>
-                <button type="button" className="btn" onClick={useMyLocation} title="Meinen Standort verwenden">
+                <button type="button" className="btn" onClick={useMyLocation} title={t("rm.myLoc")}>
                   ◎
                 </button>
               </div>
               {hits.length > 0 && !picked && (
-                <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", marginTop: 6 }}>
+                <div className="rm-hits">
                   {hits.map((h) => (
                     <button
                       key={h.label + h.lat}
@@ -211,7 +243,6 @@ export function ReportModal({
                         setPicked(h)
                         setHits([])
                       }}
-                      style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", border: 0, borderBottom: "1px solid var(--line-2)", background: "none", font: "12px var(--sans)", cursor: "pointer" }}
                     >
                       {h.label}
                     </button>
@@ -219,33 +250,33 @@ export function ReportModal({
                 </div>
               )}
               {picked && (
-                <div style={{ marginTop: 6, font: "12px var(--sans)", color: "var(--ink)", display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ color: "var(--mint)", fontWeight: 700 }}>✓</span>
+                <div className="rm-picked">
+                  <span className="rm-tick">✓</span>
                   <span style={{ flex: 1 }}>{picked.label}</span>
                   <button type="button" className="btn" style={{ padding: "4px 8px" }} onClick={() => setPicked(null)}>
-                    ändern
+                    {t("rm.change")}
                   </button>
                 </div>
+              )}
+              </>
               )}
             </div>
 
             <div className="field">
-              <label>Beleg (Link oder Beschreibung) — optional</label>
-              <input value={evidence} onChange={(e) => setEvidence(e.target.value)} placeholder="Foto-Link, Nachrichtenartikel, Zeugenschilderung…" maxLength={1000} />
+              <label>{t("rm.fEvidence")}</label>
+              <input value={evidence} onChange={(e) => setEvidence(e.target.value)} placeholder={t("rm.fEvidencePh")} maxLength={1000} />
             </div>
             <div className="field">
-              <label>Auswirkung — optional</label>
-              <input value={impact} onChange={(e) => setImpact(e.target.value)} placeholder="Wer war betroffen, welche Folgen?" maxLength={1000} />
+              <label>{t("rm.fImpact")}</label>
+              <input value={impact} onChange={(e) => setImpact(e.target.value)} placeholder={t("rm.fImpactPh")} maxLength={1000} />
             </div>
 
-            {err && <p style={{ color: "var(--vermillion)", fontSize: 12.5, margin: "4px 0" }}>{err}</p>}
+            {err && <p className="rm-err">{err}</p>}
 
             <div className="btnrow" style={{ marginTop: 8 }}>
-              <button className="btn" onClick={onClose}>
-                Abbrechen
-              </button>
+              <button className="btn" onClick={onClose}>{t("rm.cancel")}</button>
               <button className="btn primary" onClick={submit} disabled={!canSubmit || busy}>
-                {busy ? "Wird gesendet…" : "Weltweit melden →"}
+                {busy ? t("rm.sending") : isEdit ? t("rm.submitEdit") : t("rm.submitNew")}
               </button>
             </div>
           </>

@@ -166,6 +166,7 @@ class UserReport(BaseModel):
 SENSITIVE_CATEGORIES = {"sexual_violence", "harassment"}
 SENSITIVE_FUZZ_RADIUS_M = 5000
 DEFAULT_FUZZ_RADIUS_M = 500
+ANON_EDIT_WINDOW_SECONDS = int(os.environ.get("DXMAP_ANON_EDIT_WINDOW", str(60 * 60)))
 
 
 @app.get("/api/reports")
@@ -299,6 +300,11 @@ def user_edit_report(report_id: int, body: UserReportEdit):
         raise HTTPException(status_code=403, detail="Wrong edit token")
     if existing["status"] not in ("pending", "unverified"):
         raise HTTPException(status_code=409, detail="Already reviewed — no longer self-editable")
+    # Anonymous edits are allowed only from the reporting device, and only
+    # within one hour of filing. After that the report is frozen to whoever
+    # holds the token.
+    if int(time.time()) - int(existing["created_at"]) > ANON_EDIT_WINDOW_SECONDS:
+        raise HTTPException(status_code=409, detail="Edit window closed — reports lock 1 hour after filing")
     fields = body.model_dump(exclude={"edit_token"}, exclude_none=True)
     db.update_report_fields(report_id, fields, edited_by="self")
     return {"id": report_id, "status": "updated"}
