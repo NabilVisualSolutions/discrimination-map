@@ -15,7 +15,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,6 +30,12 @@ import selfcheck
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 ENV = os.environ.get("DXMAP_ENV", "dev")
 ALLOW_ORIGINS = os.environ.get("DXMAP_ALLOW_ORIGINS", "*").split(",")
+
+# Shared secret for the trusted server-to-server integration: nabilvs.com's
+# Pantheon dashboard calls /api/service/* with this in an X-Service-Token
+# header so approved volunteers can review incidents from there. dxmap stays
+# the source of truth. Unset => the /api/service/* routes are disabled.
+SERVICE_TOKEN = os.environ.get("DXMAP_SERVICE_TOKEN", "").strip()
 
 # Background task handles, so we can cancel them cleanly on shutdown.
 _tasks: list[asyncio.Task] = []
@@ -366,6 +372,48 @@ def admin_delete_report(report_id: int, _: dict = Depends(auth.require_role("ADM
 def admin_find_duplicates(_: dict = Depends(auth.require_role("ADMIN", "VERIFIER"))):
     """Reports sharing a url with an earlier row — candidates for cleanup."""
     return {"duplicates": db.find_url_duplicates()}
+
+
+# --------------------------------------------------------------------------- #
+# Service API — trusted server-to-server (nabilvs.com Pantheon)               #
+# --------------------------------------------------------------------------- #
+
+def require_service(x_service_token: str = Header(default="")) -> None:
+    if not SERVICE_TOKEN:
+        raise HTTPException(status_code=503, detail="Service integration not configured")
+    if not secrets.compare_digest(x_service_token, SERVICE_TOKEN):
+        raise HTTPException(status_code=401, detail="Bad service token")
+
+
+class ServiceReview(BaseModel):
+    status: Literal["verified", "dismissed", "irrelevant", "unverified"]
+    moderator: str = Field(min_length=1, max_length=200)
+
+
+@app.get("/api/service/review-queue")
+def service_review_queue(
+    limit: int = 200, offset: int = 0, _: None = Depends(require_service),
+):
+    """Incidents still needing review (unverified + pending), newest first."""
+    limit = max(1, min(limit, 1000))
+    return db.list_reports_admin(limit=limit, offset=offset, status="unverified,pending")
+
+
+@app.post("/api/service/review/{report_id}")
+def service_review(report_id: int, body: ServiceReview, _: None = Depends(require_service)):
+    """
+    Apply a volunteer's verdict. `moderator` is the reviewer's identity on
+    the calling system (their nabilvs.com email) — recorded in
+    report_history so the audit trail names a real person.
+    """
+    if not db.set_status(report_id, body.status, edited_by=f"pantheon:{body.moderator}"):
+        raise HTTPException(status_code=404, detail="Report not found")
+    return {"id": report_id, "status": body.status}
+
+
+@app.get("/api/service/stats")
+def service_stats(_: None = Depends(require_service)):
+    return db.stats()
 
 
 # --------------------------------------------------------------------------- #
