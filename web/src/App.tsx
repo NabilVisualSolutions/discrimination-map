@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { api, type Report } from "./lib/api"
+import { api, type Report, type ReportStatus } from "./lib/api"
 import { LOCALES, applyLocale, type Locale } from "./i18n"
 import { MapView } from "./features/map/MapView"
 import { AWARENESS } from "./lib/awareness"
@@ -63,7 +63,11 @@ export function App() {
   const last24 = useMemo(() => reports.filter((r) => now - r.created_at < 86400).length, [reports, now])
   const aw = (AWARENESS as Record<string, typeof AWARENESS.en>)[i18n.language] || AWARENESS.en
 
-  const quickExit = () => location.replace("https://www.google.com/search?q=weather")
+  const moderate = async (r: Report, status: ReportStatus) => {
+    await api.setStatus(r.id, status)
+    await reportsQ.refetch()
+    setSelected((s) => (s && s.id === r.id ? { ...s, status } : s))
+  }
   const locateMe = () => {
     navigator.geolocation?.getCurrentPosition(
       (p) => setFocus({ lon: p.coords.longitude, lat: p.coords.latitude, zoom: 9 }),
@@ -166,7 +170,8 @@ export function App() {
             </div>
           )}
         </div>
-        <button className="tb-btn exit" onClick={quickExit}>{t("exit")} ✕</button>
+        <a className="tb-btn" href="/guide" target="_blank" rel="noreferrer" aria-label={t("guide")}>{t("guide")}</a>
+        <a className="tb-btn" href="/awareness" target="_blank" rel="noreferrer" aria-label={t("awarenessGuide")}>{t("awarenessGuide")}</a>
       </div>
 
       {showFilters && (
@@ -237,6 +242,8 @@ export function App() {
             <Detail
               r={selected}
               categories={categories}
+              canModerate={me?.role === "ADMIN" || me?.role === "VERIFIER"}
+              onModerate={moderate}
               onBack={() => setView("incidents")}
               onLocate={(r) => setFocus({ lat: r.lat!, lon: r.lon!, zoom: 12 })}
             />
@@ -326,16 +333,29 @@ export function App() {
 function Detail({
   r,
   categories,
+  canModerate,
+  onModerate,
   onBack,
   onLocate,
 }: {
   r: Report
   categories: Record<string, { label: string; color: string }>
+  canModerate: boolean
+  onModerate: (r: Report, status: ReportStatus) => void | Promise<void>
   onBack: () => void
   onLocate: (r: Report) => void
 }) {
   const { t, i18n } = useTranslation()
+  const [busy, setBusy] = useState<ReportStatus | null>(null)
   const col = categories[r.category]?.color ?? "#8a97ac"
+  const act = async (status: ReportStatus) => {
+    setBusy(status)
+    try {
+      await onModerate(r, status)
+    } finally {
+      setBusy(null)
+    }
+  }
   return (
     <div className="detail">
       <button className="back" onClick={onBack}>{t("detail.back")}</button>
@@ -381,6 +401,21 @@ function Detail({
           </a>
         )}
       </div>
+      {canModerate && (
+        <div className="d-mod">
+          <div className="d-h">{t("mod.title")}</div>
+          <p className="muted sm">{t("mod.hint")}</p>
+          <div className="d-actions">
+            <button className="btn ok" disabled={!!busy} onClick={() => act("verified")}>
+              {busy === "verified" ? "…" : t("mod.confirm")}
+            </button>
+            <button className="btn no" disabled={!!busy} onClick={() => act("dismissed")}>
+              {busy === "dismissed" ? "…" : t("mod.decline")}
+            </button>
+            <button className="btn" disabled={!!busy} onClick={onBack}>{t("mod.pass")}</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

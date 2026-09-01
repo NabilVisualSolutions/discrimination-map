@@ -47,5 +47,12 @@
   "detail.openSource": "فتح المصدر ↗",
   "row.new": "جديد",
   "status.unverified": "غير مؤكَّد",
-  "status.verified": "مؤكَّد"
+  "status.verified": "مؤكَّد",
+  "guide": "الدليل",
+  "awarenessGuide": "التوعية",
+  "mod.title": "مراجعة هذا الحادث",
+  "mod.hint": "المتطوعون المعتمدون: أكِّد البلاغ الموثوق، أو ارفض ما لا ينتمي، أو مرِّره ليراجعه شخص آخر.",
+  "mod.confirm": "تأكيد",
+  "mod.decline": "رفض",
+  "mod.pass": "تمرير"
 }

@@ -102,7 +102,7 @@
   flex: none;
 }
 .tb-btn.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.tb-btn.exit { background: var(--vermillion); color: #fff; border-color: var(--vermillion); }
+a.tb-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .lang { position: relative; flex: none; }
 .lang-menu {
   position: absolute;
@@ -270,6 +270,10 @@
 .d-actions { display: flex; gap: 8px; margin-top: 12px; }
 .btn { flex: 1; text-align: center; border: 1px solid var(--line); background: #fff; border-radius: 11px; padding: 10px; font: 700 12.5px var(--sans); color: var(--ink); text-decoration: none; cursor: pointer; }
 .btn.primary { background: var(--vermillion); border-color: var(--vermillion); color: #fff; }
+.btn.ok { background: #1f7a4d; border-color: #1f7a4d; color: #fff; }
+.btn.no { background: #fff; border-color: #b23b3b; color: #b23b3b; }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.d-mod { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .btnrow { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 
 /* ---------- report modal (from ReportModal.tsx) ---------- */

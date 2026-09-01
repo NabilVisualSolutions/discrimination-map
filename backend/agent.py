@@ -33,14 +33,28 @@ import geolocate
 import lawref
 
 HEARTBEAT_SECONDS = int(os.environ.get("DXMAP_HEARTBEAT_SECONDS", "180"))  # 3 min
-USER_AGENT = "DxMap/1.0 (far-right-monitoring prototype; Germany)"
+USER_AGENT = "DxMap/1.0 (far-right-monitoring prototype; worldwide)"
 
-# Germany focus. Event/incident-shaped far-right terms (German + some English).
+# Worldwide, multilingual. Event/incident-shaped far-right + racist-attack
+# terms so the scraper pulls attacks wherever they are reported, not only
+# Germany. Override with DXMAP_TERMS (comma-separated) to retune.
 SEARCH_TERMS = [t.strip() for t in os.environ.get(
     "DXMAP_TERMS",
+    # English / international
+    "far-right attack,far right attack,neo-Nazi attack,white supremacist attack,"
+    "racist attack,racially motivated attack,xenophobic attack,hate crime attack,"
+    "mosque attack,synagogue attack,antisemitic attack,islamophobic attack,"
+    "migrant shelter arson,refugee shelter attack,asylum centre arson,"
+    "right-wing extremist violence,right-wing terror,neo-Nazi march,"
+    # German
     "Neonazi,Rechtsextremismus,Naziaufmarsch,rechte Gewalt,Hakenkreuz,"
     "Volksverhetzung,rechtsextremer Angriff,Brandanschlag Geflüchtete,"
-    "Reichsbürger,neo-Nazi Germany"
+    "Reichsbürger,rassistischer Angriff,Anschlag Moschee,"
+    # French
+    "attaque raciste,violence d'extrême droite,attaque néonazie,ratonnade,"
+    "attaque antisémite,attaque islamophobe,"
+    # Spanish / Italian
+    "ataque racista,ataque de extrema derecha,attacco razzista,violenza neofascista"
 ).split(",") if t.strip()]
 
 # German Mastodon instances + far-right-monitoring hashtags (public, no auth).
@@ -78,7 +92,7 @@ async def _bsky_term(client: httpx.AsyncClient, term: str) -> list[dict[str, Any
     try:
         resp = await client.get(
             "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts",
-            params={"q": term, "limit": 10, "sort": "latest"},
+            params={"q": term, "limit": 25, "sort": "latest"},
             headers={"User-Agent": USER_AGENT})
         resp.raise_for_status()
     except Exception:

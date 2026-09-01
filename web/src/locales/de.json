@@ -47,5 +47,12 @@
   "detail.openSource": "Quelle öffnen ↗",
   "row.new": "neu",
   "status.unverified": "unbestätigt",
-  "status.verified": "bestätigt"
+  "status.verified": "bestätigt",
+  "guide": "Leitfaden",
+  "awarenessGuide": "Aufklärung",
+  "mod.title": "Diesen Vorfall prüfen",
+  "mod.hint": "Bestätigte Freiwillige: einen glaubwürdigen Hinweis bestätigen, Unpassendes ablehnen oder weitergeben, damit ihn jemand anderes prüft.",
+  "mod.confirm": "Bestätigen",
+  "mod.decline": "Ablehnen",
+  "mod.pass": "Weitergeben"
 }

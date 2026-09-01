@@ -47,5 +47,12 @@
   "detail.openSource": "Open source ↗",
   "row.new": "new",
   "status.unverified": "unverified",
-  "status.verified": "verified"
+  "status.verified": "verified",
+  "guide": "Guide",
+  "awarenessGuide": "Awareness",
+  "mod.title": "Review this incident",
+  "mod.hint": "Confirmed volunteers: verify a credible lead, decline what does not belong, or pass to leave it for another reviewer.",
+  "mod.confirm": "Confirm",
+  "mod.decline": "Decline",
+  "mod.pass": "Pass"
 }

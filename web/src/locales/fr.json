@@ -47,5 +47,12 @@
   "detail.openSource": "Ouvrir la source ↗",
   "row.new": "nouv.",
   "status.unverified": "non vérifié",
-  "status.verified": "vérifié"
+  "status.verified": "vérifié",
+  "guide": "Guide",
+  "awarenessGuide": "Sensibilisation",
+  "mod.title": "Examiner cet incident",
+  "mod.hint": "Bénévoles confirmés : validez une piste crédible, refusez ce qui n'a pas sa place, ou passez pour laisser un autre relecteur décider.",
+  "mod.confirm": "Confirmer",
+  "mod.decline": "Refuser",
+  "mod.pass": "Passer"
 }
