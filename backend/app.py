@@ -149,9 +149,26 @@ class UserReport(BaseModel):
                      description="Possibly-applicable statute code from /api/laws")
     impact: str = Field(default="", max_length=1000,
                         description="Harm caused / people affected")
-    category: str = Field(default="user_report", max_length=50)
+    category: str = Field(default="user_report", max_length=120,
+                          description="One or more category slugs, comma-separated")
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
+    occurred_at: int | None = Field(
+        default=None,
+        description="Unix seconds — when the incident happened (may be in the past). "
+                    "Defaults to submission time.")
+
+    @field_validator("occurred_at")
+    @classmethod
+    def _sane_occurred(cls, v: int | None) -> int | None:
+        if v is None:
+            return None
+        now = int(time.time())
+        if v > now + 86400:
+            raise ValueError("occurred_at cannot be in the future")
+        if v < now - 60 * 60 * 24 * 365 * 40:
+            raise ValueError("occurred_at is implausibly far in the past")
+        return v
 
     @field_validator("law")
     @classmethod
@@ -233,6 +250,7 @@ def post_report(report: UserReport):
         impact=report.impact,
         lat=report.lat, lon=report.lon,
         place="user-reported",
+        occurred_at=report.occurred_at,
     )
     if new_id is None:
         raise HTTPException(status_code=409, detail="Duplicate report")
@@ -388,6 +406,8 @@ def require_service(x_service_token: str = Header(default="")) -> None:
 class ServiceReview(BaseModel):
     status: Literal["verified", "dismissed", "irrelevant", "unverified"]
     moderator: str = Field(min_length=1, max_length=200)
+    # Optional reclassification: one or more category slugs, comma-separated.
+    category: str | None = Field(default=None, max_length=120)
 
 
 @app.get("/api/service/review-queue")
@@ -408,7 +428,13 @@ def service_review(report_id: int, body: ServiceReview, _: None = Depends(requir
     """
     if not db.set_status(report_id, body.status, edited_by=f"pantheon:{body.moderator}"):
         raise HTTPException(status_code=404, detail="Report not found")
-    return {"id": report_id, "status": body.status}
+    if body.category:
+        cats = ",".join(
+            c.strip() for c in body.category.replace("|", ",").replace("/", ",").split(",") if c.strip()
+        )
+        if cats:
+            db.update_report_fields(report_id, {"category": cats}, edited_by=f"pantheon:{body.moderator}")
+    return {"id": report_id, "status": body.status, "category": body.category}
 
 
 @app.get("/api/service/stats")
@@ -460,6 +486,14 @@ class SignupBody(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=200)
     message: str = Field(default="", max_length=2000)
+    accept: bool = Field(description="Must accept the Terms of Use and Privacy Policy")
+
+    @field_validator("accept")
+    @classmethod
+    def _must_accept(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("You must accept the Terms of Use and Privacy Policy")
+        return v
 
 
 @app.post("/api/auth/signup", status_code=201)
@@ -472,7 +506,7 @@ def signup(body: SignupBody, response: Response, request: Request):
     volunteer sees the review queue on their volunteering page.
     """
     _rate_limit(f"signup:{_client_ip(request)}", limit=5, window=3600)
-    uid = db.create_user(body.email, body.password, "NONE")
+    uid = db.create_user(body.email, body.password, "NONE", accepted_terms=body.accept)
     if uid is None:
         raise HTTPException(status_code=409, detail="That email already has an account")
     db.create_application(
@@ -667,8 +701,9 @@ def admin_approve_application(
 
 @app.get("/api/laws")
 def laws():
-    """The statute reference the UI uses for the law dropdown and popups."""
-    return {"laws": lawref.STATUTES}
+    """The statute reference the UI uses for the law dropdown and popups,
+    plus how many mapped incidents currently cite each one."""
+    return {"laws": lawref.STATUTES, "counts": db.law_incident_counts()}
 
 
 # Server-side geocode proxy. The old frontend called nominatim.openstreetmap

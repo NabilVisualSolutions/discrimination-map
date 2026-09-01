@@ -28,26 +28,52 @@ function distKm(a: [number, number], b: [number, number]) {
   return Math.sqrt(x * x + y * y) * 111.32
 }
 
-const MAX_EDGE_KM = 700 // don't draw a thread across a whole continent
-const NEIGHBOURS = 2 // per point, per category
-const MAX_EDGES = 1600 // hard cap for render perf
+const MAX_EDGES = 4000 // hard cap for render perf across all categories
+const MST_CAP = 1400 // above this many points in one category, fall back to k-NN
 
-// For one category's points, connect each to its NEIGHBOURS nearest peers
-// within MAX_EDGE_KM. Edges are de-duplicated (i<j).
-function categoryEdges(coords: [number, number][]): [[number, number], [number, number]][] {
+// Connect EVERY point in a category into one network. A minimum spanning
+// tree (Prim's) gives exactly n-1 edges, one connected web, and no hub the
+// lines all converge on. For a very large category we fall back to a
+// 2-nearest-neighbour graph so the O(n²) stays cheap.
+function categoryNetwork(coords: [number, number][]): [[number, number], [number, number]][] {
+  const n = coords.length
+  if (n < 2) return []
+  if (n > MST_CAP) return kNearestGraph(coords, 2)
+
+  const inTree = new Array<boolean>(n).fill(false)
+  const best = new Array<number>(n).fill(Infinity)
+  const parent = new Array<number>(n).fill(-1)
+  best[0] = 0
+  const edges: [[number, number], [number, number]][] = []
+  for (let iter = 0; iter < n; iter++) {
+    let u = -1
+    let bd = Infinity
+    for (let v = 0; v < n; v++) if (!inTree[v] && best[v] < bd) (bd = best[v]), (u = v)
+    if (u === -1) break
+    inTree[u] = true
+    if (parent[u] !== -1) edges.push([coords[u], coords[parent[u]]])
+    for (let v = 0; v < n; v++) {
+      if (inTree[v]) continue
+      const d = distKm(coords[u], coords[v])
+      if (d < best[v]) (best[v] = d), (parent[v] = u)
+    }
+  }
+  return edges
+}
+
+function kNearestGraph(coords: [number, number][], k: number): [[number, number], [number, number]][] {
   const edges: [[number, number], [number, number]][] = []
   const seen = new Set<string>()
   for (let i = 0; i < coords.length; i++) {
     const near = coords
       .map((c, j) => ({ j, d: j === i ? Infinity : distKm(coords[i], c) }))
-      .filter((n) => n.d <= MAX_EDGE_KM)
       .sort((a, b) => a.d - b.d)
-      .slice(0, NEIGHBOURS)
-    for (const n of near) {
-      const key = i < n.j ? `${i}-${n.j}` : `${n.j}-${i}`
+      .slice(0, k)
+    for (const nb of near) {
+      const key = i < nb.j ? `${i}-${nb.j}` : `${nb.j}-${i}`
       if (seen.has(key)) continue
       seen.add(key)
-      edges.push([coords[i], coords[n.j]])
+      edges.push([coords[i], coords[nb.j]])
     }
   }
   return edges
@@ -57,12 +83,14 @@ export function MapView({
   reports,
   categories,
   onSelect,
+  onReportAt,
   hiddenCats,
   focus,
 }: {
   reports: Report[]
   categories: Record<string, CategoryMeta>
   onSelect: (r: Report) => void
+  onReportAt?: (lat: number, lon: number) => void
   hiddenCats: Set<string>
   focus?: { lon: number; lat: number; zoom: number } | null
 }) {
@@ -72,8 +100,10 @@ export function MapView({
   const fitted = useRef(false)
   const reportsRef = useRef(reports)
   const onSelectRef = useRef(onSelect)
+  const onReportAtRef = useRef(onReportAt)
   reportsRef.current = reports
   onSelectRef.current = onSelect
+  onReportAtRef.current = onReportAt
 
   const visible = useMemo(
     () =>
@@ -109,7 +139,7 @@ export function MapView({
     for (const [cat, coords] of Object.entries(byCat)) {
       if (coords.length < 2 || links.length >= MAX_EDGES) continue
       const color = categories[cat]?.color ?? "#8891A8"
-      for (const [a, b] of categoryEdges(coords)) {
+      for (const [a, b] of categoryNetwork(coords)) {
         if (links.length >= MAX_EDGES) break
         links.push({
           type: "Feature",
@@ -194,6 +224,36 @@ export function MapView({
         m.on("mouseenter", layer, () => (m.getCanvas().style.cursor = "pointer"))
         m.on("mouseleave", layer, () => (m.getCanvas().style.cursor = ""))
       }
+
+      // Right-click (desktop) / long-press (touch) an empty spot to file a
+      // report pinned exactly there.
+      m.on("contextmenu", (e) => onReportAtRef.current?.(e.lngLat.lat, e.lngLat.lng))
+      let lpTimer: number | undefined
+      let lpStart: { x: number; y: number } | null = null
+      const canvas = m.getCanvas()
+      canvas.addEventListener("touchstart", (ev) => {
+        if (ev.touches.length !== 1) return
+        const tp = ev.touches[0]
+        lpStart = { x: tp.clientX, y: tp.clientY }
+        lpTimer = window.setTimeout(() => {
+          if (!lpStart) return
+          const rect = canvas.getBoundingClientRect()
+          const ll = m.unproject([lpStart.x - rect.left, lpStart.y - rect.top])
+          onReportAtRef.current?.(ll.lat, ll.lng)
+        }, 550)
+      }, { passive: true })
+      const cancelLp = (ev?: TouchEvent) => {
+        if (ev && lpStart && ev.touches[0]) {
+          const dx = ev.touches[0].clientX - lpStart.x
+          const dy = ev.touches[0].clientY - lpStart.y
+          if (Math.hypot(dx, dy) < 12) return
+        }
+        window.clearTimeout(lpTimer)
+        lpStart = null
+      }
+      canvas.addEventListener("touchmove", cancelLp, { passive: true })
+      canvas.addEventListener("touchend", () => cancelLp(), { passive: true })
+
       setStyleReady(true)
     })
 

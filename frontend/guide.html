@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Volunteer guide | Discrimination Map</title>
-<meta name="description" content="How to apply, get verified, and start reviewing or contributing to Discrimination Map." />
+<title>Guide | Discrimination Map</title>
+<meta name="description" content="What the Discrimination Map is, how to report an incident yourself, how to read the map, and how to help." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f4f7fb'/%3E%3Cpath d='M11 6v20M21 6v20M11 6l10 20' stroke='%230074AE' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
 <style>
   :root{
     --bg:#f4f7fb; --panel:#ffffff; --panel-2:#eef2f8;
     --line:#dbe3ee; --line-soft:#e8eef6;
     --ink:#0b1326; --muted:#5b6b85; --faint:#656F7E;
-    --accent:#0074AE; --ok:#197E44;
+    --accent:#0074AE; --ok:#197E44; --warn:#b23b3b;
     --disp:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
     --body:Georgia,'Times New Roman',serif;
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -24,13 +24,13 @@
   h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.01em}
   a{color:var(--accent)}
   .wrap{max-width:720px;margin:0 auto;padding:0 24px}
-  section{padding:36px 0}
+  section{padding:32px 0}
   .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;
     text-transform:uppercase;color:var(--faint);margin-bottom:14px}
 
-  nav{position:sticky;top:0;z-index:100;background:rgba(244,247,251,.9);
+  nav{position:sticky;top:0;z-index:100;background:rgba(244,247,251,.92);
     backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft)}
-  nav .inner{max-width:720px;margin:0 auto;padding:16px 24px;display:flex;
+  nav .inner{max-width:720px;margin:0 auto;padding:14px 24px;display:flex;
     justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
   nav .brand{display:flex;align-items:center;gap:9px;font-family:var(--disp);
     font-weight:700;font-size:15px;text-decoration:none;color:var(--ink)}
@@ -42,34 +42,33 @@
     color:var(--muted);font-size:11.5px;cursor:pointer;font-family:var(--disp)}
   .langbar button.active{color:var(--accent);border-color:var(--accent)}
 
-  .hero{padding:44px 0 8px}
-  .hero h1{font-size:clamp(26px,4.4vw,38px);line-height:1.15;margin:0 0 16px;max-width:600px}
-  .hero p.lede{font-size:17px;color:var(--muted);max-width:560px;margin:0}
+  .hero{padding:48px 0 4px}
+  .hero h1{font-size:clamp(27px,4.6vw,40px);line-height:1.12;margin:0 0 16px;max-width:16ch}
+  .hero p.lede{font-size:18px;color:var(--muted);max-width:56ch;margin:0}
+  .personal{margin-top:22px;border-inline-start:3px solid var(--accent);
+    padding:2px 0 2px 16px;font-size:16px;color:var(--ink);max-width:56ch}
+  html[dir=rtl] .personal{border-inline-start:0;border-inline-end:3px solid var(--accent)}
 
+  h2.sh{font-size:21px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:14.5px;margin:0 0 14px}
   .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:22px 24px;margin-top:16px}
+    padding:20px 22px;margin-top:14px}
   .step .num{font-family:var(--mono);color:var(--accent);font-size:11px;letter-spacing:.1em;
     text-transform:uppercase;margin-bottom:8px}
-  .step h2{font-size:19px;margin:0 0 8px}
+  .step h3{font-size:17.5px;margin:0 0 8px}
   .step p{margin:0 0 8px;font-size:15.5px;color:var(--ink)}
   .step p:last-child{margin-bottom:0}
-  .step ul{margin:8px 0;padding-left:20px}
-  .step li{font-size:15px;line-height:1.6;color:var(--muted);margin-bottom:4px}
-  .step .note{background:var(--panel-2);border-radius:10px;padding:11px 14px;margin-top:10px;
-    font-size:13.5px;color:var(--muted);font-family:var(--disp)}
-  .step .note strong{color:var(--ok)}
 
   .quickbox{background:rgba(0,116,174,.06);border:1px solid rgba(0,116,174,.2);
     border-radius:14px;padding:22px 24px;margin-top:24px}
-  .quickbox h2{margin:0 0 8px;font-size:17px;color:var(--accent)}
-  .quickbox p{margin:0;color:var(--muted);font-size:15px}
-  .quickbox a.btn{display:inline-flex;margin-top:12px;background:var(--accent);color:#fff;
-    padding:10px 18px;border-radius:10px;text-decoration:none;font-family:var(--disp);
+  .quickbox h2{margin:0 0 8px;font-size:18px;color:var(--accent)}
+  .quickbox p{margin:0 0 8px;color:var(--muted);font-size:15px}
+  .quickbox a.btn{display:inline-flex;margin-top:8px;background:var(--accent);color:#fff;
+    padding:11px 20px;border-radius:10px;text-decoration:none;font-family:var(--disp);
     font-weight:700;font-size:13.5px}
 
   footer{border-top:1px solid var(--line-soft);padding:32px 0;color:var(--faint);
     font-size:13px;font-family:var(--disp)}
-  html[dir=rtl] .step ul{padding-left:0;padding-right:20px}
 </style>
 </head>
 <body>
@@ -91,71 +90,98 @@
 
 <header class="hero">
   <div class="wrap">
-    <div class="eyebrow" id="t-eyebrow">Volunteer guide</div>
-    <h1 id="t-h1">Applying, getting verified, and getting started.</h1>
-    <p class="lede" id="t-lede">Five steps from "I'd like to help" to reviewing reports or contributing code.</p>
+    <div class="eyebrow" id="t-eyebrow">Guide</div>
+    <h1 id="t-h1">A shared record of discrimination, built so no one carries it alone.</h1>
+    <p class="lede" id="t-lede">What this is, how to report something that happened to you, how to read the map, and how to help.</p>
+    <p class="personal" id="t-personal">I started this because it happened to me too. One report is easy to wave away. Thousands, on one map, are not.</p>
   </div>
 </header>
 
+<section style="padding-top:8px">
+  <div class="wrap">
+    <h2 class="sh" id="t-aboutH">What this is</h2>
+    <p class="sub" id="t-aboutP1">The Discrimination Map collects reports of racist, antisemitic, far-right and other hate incidents and puts them on one map. Some come from people who were there. Some are pulled from public news and social posts and marked as unverified leads until a person checks them.</p>
+    <p class="sub" id="t-aboutP2">It is documentation, not accusation. Every entry is treated as alleged until reviewed. No names of private individuals. If you are in immediate danger, call your local emergency number first — in the EU, 112.</p>
+  </div>
+</section>
+
 <section style="padding-top:0">
   <div class="wrap">
+    <h2 class="sh" id="t-repH">Report something yourself</h2>
+    <p class="sub" id="t-repSub">Anonymous. No account. Takes a minute.</p>
+
     <div class="step">
       <div class="num">1</div>
-      <h2 id="t-s1h">Apply</h2>
-      <p id="t-s1p1">Go to nabilvs.com's Discrimination Map project page, scroll to "Get involved."</p>
-      <div class="note" id="t-s1note"><strong>Already signed into nabilvs.com?</strong> Your name and email fill in automatically — no retyping, no confirmation email needed.</div>
-      <p id="t-s1p2">Not signed in? Fill in your name, email, how you'd like to help (Moderator, Translator, Coder, Organization partner, Symbol hunter, or Other), an optional message, pass the captcha, and submit.</p>
+      <h3 id="t-rep1h">Open the report form</h3>
+      <p id="t-rep1p">On the map, tap the + Report an incident button. Or drop the pin exactly where it happened: right-click anywhere on the map on a computer, or press and hold a spot on a phone.</p>
     </div>
 
     <div class="step">
       <div class="num">2</div>
-      <h2 id="t-s2h">Confirm your email</h2>
-      <p id="t-s2p">Only if you applied signed out. Check your inbox for an email from <strong>dxmap@nabilvs.com</strong> and click the confirm link — it just proves the email is really yours.</p>
+      <h3 id="t-rep2h">Describe it and place it</h3>
+      <p id="t-rep2p">Pick one or more categories, write what happened in plain words, and set the location — search for a place, use your current position, or keep the pin you dropped.</p>
     </div>
 
     <div class="step">
       <div class="num">3</div>
-      <h2 id="t-s3h">Create a nabilvs.com account (or log in)</h2>
-      <p id="t-s3p">Use the same email you applied with — email/password, Google, or GitHub all work. This is your nabilvs.com account, not a separate one for the map.</p>
+      <h3 id="t-rep3h">Set when it happened</h3>
+      <p id="t-rep3p">The form has a date and time field. It does not have to be today — you can report something from weeks, months or years ago. The map's timeline uses this date.</p>
     </div>
 
     <div class="step">
       <div class="num">4</div>
-      <h2 id="t-s4h">Check your status</h2>
-      <p id="t-s4p">Dashboard → Volunteering. Shows whether your email is confirmed, and your application status: Pending review → In progress → Approved (or Not moving forward).</p>
+      <h3 id="t-rep4h">Send it — and fix it later if you need to</h3>
+      <p id="t-rep4p">After you submit, this device can edit the report for one hour (an "Edit my report" button appears). After that it locks, and because reports are anonymous there is no account we can use to reopen it for you.</p>
     </div>
+  </div>
+</section>
 
+<section style="padding-top:0">
+  <div class="wrap">
+    <h2 class="sh" id="t-nextH">What happens to your report</h2>
+    <p class="sub" id="t-nextP1">Confirmed volunteers review incoming reports and mark each one verified, declined, or not relevant. Only verified incidents show on the public map.</p>
+    <p class="sub" id="t-nextP2">For the public, the exact spot is blurred by about 500 m so a single report can't pin down an address. Sensitive categories — sexual violence, harassment — are blurred much wider (~5 km) and always held for review first.</p>
+    <p class="sub" id="t-nextP3">Every change to a report is logged: what changed, when, and by whom.</p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <h2 class="sh" id="t-readH">Reading the map</h2>
     <div class="step">
-      <div class="num">5</div>
-      <h2 id="t-s5h">If approved as a moderator</h2>
-      <p id="t-s5p">You'll get a separate login for map.nabilvs.com/admin — the actual tool for reviewing reports. Different login from your nabilvs.com account, on purpose: a different system, kept simple and separate.</p>
+      <p id="t-read1">Coloured dots are incidents, one colour per category. Open a dot for the full file: what happened, why it was flagged, the possibly-applicable law, and the source.</p>
+      <p id="t-read2">Thin lines join incidents of the same category into one connected network, so clusters and patterns stand out at a glance. A dot that blinks between colours belongs to several categories at once.</p>
+      <p id="t-read3">Gold stars are solidarity events — counter-protests and vigils against the far right. A positive public record, not a harm report.</p>
+      <p id="t-read4">The timeline under the map filters everything by when incidents happened — drag it to look at a period. The ⚑ filter chooses which categories to show.</p>
+      <p id="t-read5">The Table tab is the whole dataset as a sortable spreadsheet you can export as CSV. The Law tab lists the statutes incidents are breaking, with a count for each — tap one to filter the map to those incidents.</p>
     </div>
+  </div>
+</section>
 
+<section style="padding-top:0">
+  <div class="wrap">
+    <h2 class="sh" id="t-safeH">Your safety and privacy</h2>
+    <p class="sub" id="t-safeP1">Reporting is anonymous. We don't ask for your name, we don't require an account, and the public never sees an exact location.</p>
+    <p class="sub" id="t-safeP2">If reporting from a shared or monitored device, open a private window and close it afterwards. In an emergency, contact the police or a local counselling service first — this map is a record, not a response service.</p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <h2 class="sh" id="t-volH">Help keep it going</h2>
+    <p class="sub" id="t-volP1">The map runs on volunteers. You choose how you want to help when you apply: reviewing incoming incidents, translation, outreach and partner organisations, research and documentation, development, or legal support.</p>
+    <p class="sub" id="t-volP2">Apply with a nabilvs.com account (any sign-in works, including Google). An admin confirms your role, and each confirmed role gives you a badge.</p>
     <div class="quickbox">
-      <h2 id="t-qh">Just want to document a banned symbol right now?</h2>
-      <p id="t-qp">No application needed. Open the map, tap Report, category "Banned symbol / salute." Anonymous, no account.</p>
-      <a class="btn" href="/" id="t-qbtn">Open the map →</a>
-    </div>
-
-    <div class="step" style="margin-top:32px">
-      <div class="num" id="t-editEyebrow">Editing</div>
-      <h2 id="t-editH">Already filed a report and need to fix something?</h2>
-      <p id="t-editP1">Tap the marker you filed — it stays visible to you (and only you) right after you submit it, even while it's pending review. If an "Edit my report" button shows up, you can still change it.</p>
-      <p id="t-editP2">This only works from the same browser and device you used to file it, and only until a reviewer has looked at it — reports are anonymous by design, so there's no account we can use to recover the edit link for you later.</p>
-    </div>
-
-    <div class="step">
-      <div class="num" id="t-solEyebrow">New category</div>
-      <h2 id="t-solH">Solidarity events aren't harm reports</h2>
-      <p id="t-solP">Counter-protests, vigils, and solidarity rallies against far-right extremism get their own category — shown as a gold star on the map, not a colored dot. If you're reviewing, treat these differently from the other nine: they document a positive public event, not an alleged incident, so there's no location fuzzing and nothing to "verify" in the same sense.</p>
-      <p id="t-solP2">This is also the one category where every report on the map connects into a single nationwide network, not just nearby ones — every solidarity event, filed anywhere, joins one continuous web showing the whole resistance at a glance.</p>
+      <h2 id="t-volBoxH">Ready to help?</h2>
+      <p id="t-volBoxP">Approved incident reviewers get a review queue right on their Pantheon dashboard — no separate login. Everything else is coordinated from there too.</p>
+      <a class="btn" href="https://nabilvs.com/projects/discrimination-map#get-involved" id="t-volBtn">Apply to volunteer →</a>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <span id="t-footer">Questions? Reply to the confirmation email, or use the message field when you apply.</span>
+    <span id="t-footer">This is a living record. If something on the map is wrong, open it and use the report tools, or write to us when you apply.</span>
     · <a href="/privacy" id="t-privacyLink">Privacy Policy</a>
     · <a href="/terms" id="t-termsLink">Terms of Use</a>
   </div>
@@ -167,112 +193,184 @@ const I = window.DXMAP_I18N_RUNTIME;
 
 const GUIDE = {
   en: {
-    brand:"Discrimination Map", back:"← Back to the map", eyebrow:"Volunteer guide",
-    h1:"Applying, getting verified, and getting started.",
-    lede:"Five steps from \"I'd like to help\" to reviewing reports or contributing code.",
-    s1h:"Apply", s1p1:"Go to nabilvs.com's Discrimination Map project page, scroll to \"Get involved.\"",
-    s1note:"<strong>Already signed into nabilvs.com?</strong> Your name and email fill in automatically — no retyping, no confirmation email needed.",
-    s1p2:"Not signed in? Fill in your name, email, how you'd like to help (Moderator, Translator, Coder, Organization partner, Symbol hunter, or Other), an optional message, pass the captcha, and submit.",
-    s2h:"Confirm your email", s2p:"Only if you applied signed out. Check your inbox for an email from <strong>dxmap@nabilvs.com</strong> and click the confirm link — it just proves the email is really yours.",
-    s3h:"Create a nabilvs.com account (or log in)", s3p:"Use the same email you applied with — email/password, Google, or GitHub all work. This is your nabilvs.com account, not a separate one for the map.",
-    s4h:"Check your status", s4p:"Dashboard → Volunteering. Shows whether your email is confirmed, and your application status: Pending review → In progress → Approved (or Not moving forward).",
-    s5h:"If approved as a moderator", s5p:"You'll get a separate login for map.nabilvs.com/admin — the actual tool for reviewing reports. Different login from your nabilvs.com account, on purpose: a different system, kept simple and separate.",
-    qh:"Just want to document a banned symbol right now?", qp:"No application needed. Open the map, tap Report, category \"Banned symbol / salute.\" Anonymous, no account.", qbtn:"Open the map →",
-    editEyebrow:"Editing", editH:"Already filed a report and need to fix something?",
-    editP1:"Tap the marker you filed — it stays visible to you (and only you) right after you submit it, even while it's pending review. If an \"Edit my report\" button shows up, you can still change it.",
-    editP2:"This only works from the same browser and device you used to file it, and only until a reviewer has looked at it — reports are anonymous by design, so there's no account we can use to recover the edit link for you later.",
-    solEyebrow:"New category", solH:"Solidarity events aren't harm reports",
-    solP:"Counter-protests, vigils, and solidarity rallies against far-right extremism get their own category — shown as a gold star on the map, not a colored dot. If you're reviewing, treat these differently from the other nine: they document a positive public event, not an alleged incident, so there's no location fuzzing and nothing to \"verify\" in the same sense.",
-    solP2:"This is also the one category where every report on the map connects into a single nationwide network, not just nearby ones — every solidarity event, filed anywhere, joins one continuous web showing the whole resistance at a glance.",
-    footer:"Questions? Reply to the confirmation email, or use the message field when you apply.",
+    brand:"Discrimination Map", back:"← Back to the map", eyebrow:"Guide",
+    h1:"A shared record of discrimination, built so no one carries it alone.",
+    lede:"What this is, how to report something that happened to you, how to read the map, and how to help.",
+    personal:"I started this because it happened to me too. One report is easy to wave away. Thousands, on one map, are not.",
+    aboutH:"What this is",
+    aboutP1:"The Discrimination Map collects reports of racist, antisemitic, far-right and other hate incidents and puts them on one map. Some come from people who were there. Some are pulled from public news and social posts and marked as unverified leads until a person checks them.",
+    aboutP2:"It is documentation, not accusation. Every entry is treated as alleged until reviewed. No names of private individuals. If you are in immediate danger, call your local emergency number first — in the EU, 112.",
+    repH:"Report something yourself", repSub:"Anonymous. No account. Takes a minute.",
+    rep1h:"Open the report form",
+    rep1p:"On the map, tap the + Report an incident button. Or drop the pin exactly where it happened: right-click anywhere on the map on a computer, or press and hold a spot on a phone.",
+    rep2h:"Describe it and place it",
+    rep2p:"Pick one or more categories, write what happened in plain words, and set the location — search for a place, use your current position, or keep the pin you dropped.",
+    rep3h:"Set when it happened",
+    rep3p:"The form has a date and time field. It does not have to be today — you can report something from weeks, months or years ago. The map's timeline uses this date.",
+    rep4h:"Send it — and fix it later if you need to",
+    rep4p:"After you submit, this device can edit the report for one hour (an “Edit my report” button appears). After that it locks, and because reports are anonymous there is no account we can use to reopen it for you.",
+    nextH:"What happens to your report",
+    nextP1:"Confirmed volunteers review incoming reports and mark each one verified, declined, or not relevant. Only verified incidents show on the public map.",
+    nextP2:"For the public, the exact spot is blurred by about 500 m so a single report can't pin down an address. Sensitive categories — sexual violence, harassment — are blurred much wider (~5 km) and always held for review first.",
+    nextP3:"Every change to a report is logged: what changed, when, and by whom.",
+    readH:"Reading the map",
+    read1:"Coloured dots are incidents, one colour per category. Open a dot for the full file: what happened, why it was flagged, the possibly-applicable law, and the source.",
+    read2:"Thin lines join incidents of the same category into one connected network, so clusters and patterns stand out at a glance. A dot that blinks between colours belongs to several categories at once.",
+    read3:"Gold stars are solidarity events — counter-protests and vigils against the far right. A positive public record, not a harm report.",
+    read4:"The timeline under the map filters everything by when incidents happened — drag it to look at a period. The ⚑ filter chooses which categories to show.",
+    read5:"The Table tab is the whole dataset as a sortable spreadsheet you can export as CSV. The Law tab lists the statutes incidents are breaking, with a count for each — tap one to filter the map to those incidents.",
+    safeH:"Your safety and privacy",
+    safeP1:"Reporting is anonymous. We don't ask for your name, we don't require an account, and the public never sees an exact location.",
+    safeP2:"If reporting from a shared or monitored device, open a private window and close it afterwards. In an emergency, contact the police or a local counselling service first — this map is a record, not a response service.",
+    volH:"Help keep it going",
+    volP1:"The map runs on volunteers. You choose how you want to help when you apply: reviewing incoming incidents, translation, outreach and partner organisations, research and documentation, development, or legal support.",
+    volP2:"Apply with a nabilvs.com account (any sign-in works, including Google). An admin confirms your role, and each confirmed role gives you a badge.",
+    volBoxH:"Ready to help?",
+    volBoxP:"Approved incident reviewers get a review queue right on their Pantheon dashboard — no separate login. Everything else is coordinated from there too.",
+    volBtn:"Apply to volunteer →",
+    footer:"This is a living record. If something on the map is wrong, open it and use the report tools, or write to us when you apply.",
     privacyLink:"Privacy Policy", termsLink:"Terms of Use",
   },
   de: {
-    brand:"Diskriminierungskarte", back:"← Zurück zur Karte", eyebrow:"Leitfaden für Freiwillige",
-    h1:"Bewerben, bestätigen lassen, loslegen.",
-    lede:"Fünf Schritte von „Ich möchte helfen“ bis zum Prüfen von Meldungen oder Mitwirken am Code.",
-    s1h:"Bewerben", s1p1:"Gehe zur Discrimination-Map-Projektseite auf nabilvs.com, scrolle zu „Mitmachen“.",
-    s1note:"<strong>Schon bei nabilvs.com angemeldet?</strong> Name und E-Mail werden automatisch ausgefüllt — kein erneutes Eintippen, keine Bestätigungs-E-Mail nötig.",
-    s1p2:"Nicht angemeldet? Trage Name, E-Mail, gewünschte Mithilfe (Moderator:in, Übersetzer:in, Entwickler:in, Organisation, Symbol-Jäger:in oder Sonstiges), eine optionale Nachricht ein, bestehe das Captcha und sende ab.",
-    s2h:"E-Mail bestätigen", s2p:"Nur wenn du dich abgemeldet beworben hast. Prüfe dein Postfach auf eine E-Mail von <strong>dxmap@nabilvs.com</strong> und klicke den Bestätigungslink — das beweist nur, dass die E-Mail wirklich dir gehört.",
-    s3h:"Konto bei nabilvs.com erstellen (oder anmelden)", s3p:"Nutze dieselbe E-Mail, mit der du dich beworben hast — E-Mail/Passwort, Google oder GitHub funktionieren alle. Das ist dein nabilvs.com-Konto, kein separates für die Karte.",
-    s4h:"Status prüfen", s4p:"Dashboard → Mitmachen. Zeigt, ob deine E-Mail bestätigt ist, und deinen Bewerbungsstatus: Ausstehend → In Bearbeitung → Angenommen (oder Nicht weiterverfolgt).",
-    s5h:"Bei Annahme als Moderator:in", s5p:"Du erhältst einen separaten Zugang für map.nabilvs.com/admin — das eigentliche Werkzeug zur Meldungsprüfung. Bewusst ein anderer Zugang als dein nabilvs.com-Konto: ein anderes, bewusst einfach gehaltenes System.",
-    qh:"Willst du gerade ein verbotenes Symbol dokumentieren?", qp:"Keine Bewerbung nötig. Öffne die Karte, tippe auf Melden, Kategorie „Verbotenes Symbol / Gruß“. Anonym, ohne Konto.", qbtn:"Karte öffnen →",
-    editEyebrow:"Bearbeiten", editH:"Bereits eine Meldung eingereicht und musst etwas korrigieren?",
-    editP1:"Tippe auf die Markierung, die du eingereicht hast — sie bleibt nur für dich sichtbar, direkt nach dem Absenden, auch während sie noch aussteht. Erscheint der Button „Meine Meldung bearbeiten“, kannst du sie noch ändern.",
-    editP2:"Das funktioniert nur im selben Browser und auf demselben Gerät, mit dem du gemeldet hast, und nur bis eine Prüfperson sie sich angesehen hat — Meldungen sind bewusst anonym, daher gibt es kein Konto, über das wir dir den Bearbeitungslink später wiederherstellen könnten.",
-    solEyebrow:"Neue Kategorie", solH:"Solidaritätsveranstaltungen sind keine Vorfallsmeldungen",
-    solP:"Gegendemonstrationen, Mahnwachen und Solidaritätskundgebungen gegen Rechtsextremismus haben eine eigene Kategorie — auf der Karte als goldener Stern dargestellt, nicht als farbiger Punkt. Behandle sie bei der Prüfung anders als die übrigen neun: Sie dokumentieren ein positives öffentliches Ereignis, keinen mutmaßlichen Vorfall, daher gibt es keine Standortverfremdung und im selben Sinne nichts zu „verifizieren“.",
-    solP2:"Das ist zugleich die einzige Kategorie, bei der sich jede Meldung auf der Karte zu einem einzigen landesweiten Netzwerk verbindet — nicht nur die benachbarten. Jede Solidaritätsveranstaltung, egal wo gemeldet, wird Teil eines durchgehenden Netzes, das den gesamten Widerstand auf einen Blick zeigt.",
-    footer:"Fragen? Antworte auf die Bestätigungs-E-Mail oder nutze das Nachrichtenfeld bei der Bewerbung.",
+    brand:"Diskriminierungs-Karte", back:"← Zurück zur Karte", eyebrow:"Leitfaden",
+    h1:"Ein gemeinsames Verzeichnis von Diskriminierung — damit niemand sie allein trägt.",
+    lede:"Was das hier ist, wie du etwas meldest, das dir passiert ist, wie du die Karte liest und wie du hilfst.",
+    personal:"Ich habe das begonnen, weil es mir auch passiert ist. Eine Meldung lässt sich leicht abtun. Tausende auf einer Karte nicht.",
+    aboutH:"Was das hier ist",
+    aboutP1:"Die Diskriminierungs-Karte sammelt Meldungen zu rassistischen, antisemitischen, rechtsextremen und anderen Hassvorfällen und zeigt sie auf einer Karte. Manche stammen von Betroffenen. Manche werden aus öffentlichen Nachrichten und Social-Media-Beiträgen gezogen und gelten als unbestätigte Hinweise, bis ein Mensch sie prüft.",
+    aboutP2:"Es ist Dokumentation, nicht Anklage. Jeder Eintrag gilt als angeblich, bis er geprüft ist. Keine Namen von Privatpersonen. Bei unmittelbarer Gefahr zuerst den Notruf wählen — in der EU 112.",
+    repH:"Selbst etwas melden", repSub:"Anonym. Ohne Konto. Dauert eine Minute.",
+    rep1h:"Meldeformular öffnen",
+    rep1p:"Tippe auf der Karte auf die Schaltfläche „+ Vorfall melden“. Oder setze die Markierung genau dort, wo es passiert ist: am Computer irgendwo auf der Karte rechtsklicken, auf dem Handy einen Punkt gedrückt halten.",
+    rep2h:"Beschreiben und verorten",
+    rep2p:"Wähle eine oder mehrere Kategorien, schildere sachlich, was passiert ist, und lege den Ort fest — Ort suchen, aktuelle Position nutzen oder die gesetzte Markierung behalten.",
+    rep3h:"Zeitpunkt angeben",
+    rep3p:"Das Formular hat ein Datum-/Uhrzeit-Feld. Es muss nicht heute sein — du kannst auch Vorfälle von vor Wochen, Monaten oder Jahren melden. Die Zeitleiste der Karte nutzt dieses Datum.",
+    rep4h:"Absenden — und bei Bedarf später korrigieren",
+    rep4p:"Nach dem Absenden kann dieses Gerät die Meldung eine Stunde lang bearbeiten (es erscheint der Button „Meine Meldung bearbeiten“). Danach wird sie gesperrt, und da Meldungen anonym sind, gibt es kein Konto, über das wir sie dir wieder öffnen könnten.",
+    nextH:"Was mit deiner Meldung passiert",
+    nextP1:"Bestätigte Freiwillige prüfen eingehende Meldungen und markieren jede als bestätigt, abgelehnt oder nicht relevant. Nur bestätigte Vorfälle erscheinen auf der öffentlichen Karte.",
+    nextP2:"Für die Öffentlichkeit wird der genaue Ort um etwa 500 m unscharf gemacht, damit eine einzelne Meldung keine Adresse verrät. Sensible Kategorien — sexualisierte Gewalt, Belästigung — werden deutlich weiter (~5 km) verfremdet und immer zuerst geprüft.",
+    nextP3:"Jede Änderung an einer Meldung wird protokolliert: was, wann und von wem.",
+    readH:"Die Karte lesen",
+    read1:"Farbige Punkte sind Vorfälle, eine Farbe pro Kategorie. Öffne einen Punkt für die vollständige Akte: was passiert ist, warum er erfasst wurde, der möglicherweise einschlägige Paragraf und die Quelle.",
+    read2:"Dünne Linien verbinden Vorfälle derselben Kategorie zu einem zusammenhängenden Netz, sodass Häufungen und Muster sofort auffallen. Ein Punkt, der zwischen Farben blinkt, gehört zu mehreren Kategorien gleichzeitig.",
+    read3:"Goldene Sterne sind Solidaritätsveranstaltungen — Gegenproteste und Mahnwachen gegen rechts. Ein positives öffentliches Verzeichnis, keine Schadensmeldung.",
+    read4:"Die Zeitleiste unter der Karte filtert alles nach dem Zeitpunkt der Vorfälle — zieh sie, um einen Zeitraum anzusehen. Der ⚑-Filter wählt die angezeigten Kategorien.",
+    read5:"Der Tab „Tabelle“ ist der gesamte Datensatz als sortierbare Tabelle, die du als CSV exportieren kannst. Der Tab „Recht“ listet die Paragrafen, gegen die Vorfälle verstoßen, mit Anzahl — tippe einen an, um die Karte darauf zu filtern.",
+    safeH:"Deine Sicherheit und Privatsphäre",
+    safeP1:"Das Melden ist anonym. Wir fragen nicht nach deinem Namen, verlangen kein Konto, und die Öffentlichkeit sieht nie einen genauen Ort.",
+    safeP2:"Wenn du von einem geteilten oder überwachten Gerät meldest, öffne ein privates Fenster und schließe es danach. Im Notfall zuerst die Polizei oder eine Beratungsstelle kontaktieren — diese Karte ist ein Verzeichnis, kein Notdienst.",
+    volH:"Hilf mit, es am Laufen zu halten",
+    volP1:"Die Karte lebt von Freiwilligen. Du wählst bei der Bewerbung, wie du helfen möchtest: eingehende Vorfälle prüfen, Übersetzung, Öffentlichkeit und Partnerorganisationen, Recherche und Dokumentation, Entwicklung oder rechtliche Unterstützung.",
+    volP2:"Bewirb dich mit einem nabilvs.com-Konto (jede Anmeldung funktioniert, auch Google). Ein Admin bestätigt deine Rolle, und jede bestätigte Rolle bringt dir ein Abzeichen.",
+    volBoxH:"Bereit zu helfen?",
+    volBoxP:"Bestätigte Vorfall-Prüfer:innen bekommen die Prüf-Warteschlange direkt im Pantheon-Dashboard — kein separater Login. Alles andere wird von dort koordiniert.",
+    volBtn:"Als Freiwillige:r bewerben →",
+    footer:"Das ist ein lebendiges Verzeichnis. Wenn etwas auf der Karte falsch ist, öffne es und nutze die Meldewerkzeuge, oder schreib uns bei der Bewerbung.",
     privacyLink:"Datenschutzerklärung", termsLink:"Nutzungsbedingungen",
   },
   fr: {
-    brand:"Carte de la discrimination", back:"← Retour à la carte", eyebrow:"Guide du bénévole",
-    h1:"Postuler, être vérifié, et commencer.",
-    lede:"Cinq étapes entre « je veux aider » et l'examen des signalements ou la contribution au code.",
-    s1h:"Postuler", s1p1:"Allez sur la page du projet Discrimination Map sur nabilvs.com, faites défiler jusqu'à « S'impliquer ».",
-    s1note:"<strong>Déjà connecté à nabilvs.com ?</strong> Votre nom et e-mail se remplissent automatiquement — pas besoin de les retaper, pas d'e-mail de confirmation nécessaire.",
-    s1p2:"Pas connecté ? Renseignez votre nom, e-mail, comment vous aimeriez aider (Modérateur, Traducteur, Développeur, Organisation partenaire, Chasseur de symboles, ou Autre), un message optionnel, passez le captcha, et envoyez.",
-    s2h:"Confirmez votre e-mail", s2p:"Seulement si vous avez postulé déconnecté. Vérifiez votre boîte de réception pour un e-mail de <strong>dxmap@nabilvs.com</strong> et cliquez sur le lien de confirmation — cela prouve simplement que l'e-mail est bien le vôtre.",
-    s3h:"Créez un compte nabilvs.com (ou connectez-vous)", s3p:"Utilisez le même e-mail que celui de votre candidature — e-mail/mot de passe, Google, ou GitHub fonctionnent tous. C'est votre compte nabilvs.com, pas un compte séparé pour la carte.",
-    s4h:"Vérifiez votre statut", s4p:"Tableau de bord → S'impliquer. Affiche si votre e-mail est confirmé, et le statut de votre candidature : En attente → En cours → Approuvée (ou Non retenue).",
-    s5h:"Si approuvé comme modérateur", s5p:"Vous recevrez une connexion séparée pour map.nabilvs.com/admin — l'outil réel pour examiner les signalements. Différent de votre compte nabilvs.com, volontairement : un système différent, gardé simple et séparé.",
-    qh:"Vous voulez documenter un symbole interdit maintenant ?", qp:"Aucune candidature nécessaire. Ouvrez la carte, appuyez sur Signaler, catégorie « Symbole / salut interdit ». Anonyme, sans compte.", qbtn:"Ouvrir la carte →",
-    editEyebrow:"Modification", editH:"Vous avez déjà déposé un signalement et devez corriger quelque chose ?",
-    editP1:"Appuyez sur le marqueur que vous avez déposé — il reste visible pour vous (et vous seul) juste après l'envoi, même en attente d'examen. Si un bouton « Modifier mon signalement » apparaît, vous pouvez encore le modifier.",
-    editP2:"Cela ne fonctionne que depuis le même navigateur et le même appareil que ceux utilisés pour le signalement, et seulement jusqu'à ce qu'un examinateur l'ait consulté — les signalements sont anonymes par conception, il n'existe donc aucun compte permettant de vous retrouver le lien de modification plus tard.",
-    solEyebrow:"Nouvelle catégorie", solH:"Les événements de solidarité ne sont pas des signalements de préjudice",
-    solP:"Les contre-manifestations, veillées et rassemblements de solidarité contre l'extrémisme d'extrême droite ont leur propre catégorie — affichée comme une étoile dorée sur la carte, pas un point coloré. Si vous êtes examinateur, traitez-les différemment des neuf autres : ils documentent un événement public positif, pas un incident allégué, il n'y a donc pas de floutage de localisation ni rien à « vérifier » au même sens.",
-    solP2:"C'est aussi la seule catégorie où chaque signalement de la carte se relie en un seul réseau national — pas seulement les plus proches. Chaque événement de solidarité, où qu'il soit signalé, rejoint un réseau continu montrant toute la résistance d'un coup d'œil.",
-    footer:"Des questions ? Répondez à l'e-mail de confirmation, ou utilisez le champ message lors de votre candidature.",
+    brand:"Carte de la discrimination", back:"← Retour à la carte", eyebrow:"Guide",
+    h1:"Un registre commun de la discrimination, pour que personne ne la porte seul.",
+    lede:"Ce que c'est, comment signaler ce qui vous est arrivé, comment lire la carte, et comment aider.",
+    personal:"J'ai lancé ce projet parce que ça m'est arrivé aussi. Un signalement, on l'écarte facilement. Des milliers, sur une carte, non.",
+    aboutH:"Ce que c'est",
+    aboutP1:"La Carte de la discrimination réunit des signalements d'incidents racistes, antisémites, d'extrême droite et d'autres actes de haine, sur une seule carte. Certains viennent de personnes présentes. D'autres sont extraits de la presse et des réseaux publics et marqués comme pistes non vérifiées jusqu'à ce qu'une personne les contrôle.",
+    aboutP2:"C'est de la documentation, pas une accusation. Chaque entrée est considérée comme alléguée jusqu'à vérification. Aucun nom de personne privée. En cas de danger immédiat, appelez d'abord votre numéro d'urgence — dans l'UE, le 112.",
+    repH:"Signaler quelque chose vous-même", repSub:"Anonyme. Sans compte. Une minute suffit.",
+    rep1h:"Ouvrir le formulaire",
+    rep1p:"Sur la carte, appuyez sur le bouton « + Signaler un incident ». Ou placez le repère exactement où c'est arrivé : clic droit n'importe où sur la carte sur ordinateur, ou appui long sur un point sur téléphone.",
+    rep2h:"Décrire et situer",
+    rep2p:"Choisissez une ou plusieurs catégories, décrivez les faits simplement, et fixez le lieu — cherchez un endroit, utilisez votre position, ou gardez le repère posé.",
+    rep3h:"Indiquer la date",
+    rep3p:"Le formulaire a un champ date et heure. Ce n'est pas forcément aujourd'hui — vous pouvez signaler un fait d'il y a des semaines, des mois ou des années. La chronologie de la carte utilise cette date.",
+    rep4h:"Envoyer — et corriger plus tard si besoin",
+    rep4p:"Après l'envoi, cet appareil peut modifier le signalement pendant une heure (un bouton « Modifier mon signalement » apparaît). Ensuite il est verrouillé, et comme les signalements sont anonymes, aucun compte ne permet de le rouvrir pour vous.",
+    nextH:"Ce que devient votre signalement",
+    nextP1:"Des bénévoles confirmés examinent les signalements entrants et marquent chacun vérifié, refusé, ou non pertinent. Seuls les incidents vérifiés apparaissent sur la carte publique.",
+    nextP2:"Pour le public, le point exact est flouté d'environ 500 m pour qu'un signalement ne révèle pas une adresse. Les catégories sensibles — violences sexuelles, harcèlement — sont floutées beaucoup plus largement (~5 km) et toujours vérifiées d'abord.",
+    nextP3:"Chaque modification d'un signalement est enregistrée : quoi, quand, et par qui.",
+    readH:"Lire la carte",
+    read1:"Les points colorés sont des incidents, une couleur par catégorie. Ouvrez un point pour le dossier complet : ce qui s'est passé, pourquoi il a été retenu, la loi éventuellement applicable, et la source.",
+    read2:"Des lignes fines relient les incidents d'une même catégorie en un réseau connecté, pour faire ressortir les regroupements d'un coup d'œil. Un point qui clignote entre couleurs relève de plusieurs catégories à la fois.",
+    read3:"Les étoiles dorées sont des événements de solidarité — contre-manifestations et veillées contre l'extrême droite. Un registre public positif, pas un signalement de préjudice.",
+    read4:"La chronologie sous la carte filtre tout selon la date des incidents — faites-la glisser pour observer une période. Le filtre ⚑ choisit les catégories affichées.",
+    read5:"L'onglet Tableau est l'ensemble des données sous forme de tableau triable, exportable en CSV. L'onglet Droit liste les articles enfreints par les incidents, avec un décompte — appuyez sur l'un pour filtrer la carte.",
+    safeH:"Votre sécurité et votre vie privée",
+    safeP1:"Le signalement est anonyme. Nous ne demandons pas votre nom, n'exigeons pas de compte, et le public ne voit jamais un lieu exact.",
+    safeP2:"Si vous signalez depuis un appareil partagé ou surveillé, ouvrez une fenêtre privée et fermez-la ensuite. En urgence, contactez d'abord la police ou un service d'écoute — cette carte est un registre, pas un service d'intervention.",
+    volH:"Aidez à le faire vivre",
+    volP1:"La carte repose sur des bénévoles. Vous choisissez comment aider en postulant : examen des incidents entrants, traduction, communication et organisations partenaires, recherche et documentation, développement, ou soutien juridique.",
+    volP2:"Postulez avec un compte nabilvs.com (toute connexion fonctionne, y compris Google). Un administrateur confirme votre rôle, et chaque rôle confirmé vous donne un badge.",
+    volBoxH:"Prêt à aider ?",
+    volBoxP:"Les relecteurs d'incidents approuvés ont une file de vérification directement sur leur tableau de bord Pantheon — pas de connexion séparée. Tout le reste s'y coordonne aussi.",
+    volBtn:"Devenir bénévole →",
+    footer:"C'est un registre vivant. Si quelque chose sur la carte est faux, ouvrez-le et utilisez les outils de signalement, ou écrivez-nous en postulant.",
     privacyLink:"Politique de confidentialité", termsLink:"Conditions d'utilisation",
   },
   ar: {
-    brand:"خريطة التمييز", back:"← العودة إلى الخريطة", eyebrow:"دليل المتطوع",
-    h1:"التقديم والتحقّق والبدء.",
-    lede:"خمس خطوات من «أريد المساعدة» إلى مراجعة البلاغات أو المساهمة بالكود.",
-    s1h:"التقديم", s1p1:"اذهب إلى صفحة مشروع خريطة التمييز على nabilvs.com، ثم انتقل إلى «شارك معنا».",
-    s1note:"<strong>مسجَّل الدخول بالفعل في nabilvs.com؟</strong> يُملأ اسمك وبريدك تلقائيًا — دون إعادة الكتابة، ودون الحاجة لبريد تأكيد.",
-    s1p2:"غير مسجَّل الدخول؟ أدخِل اسمك وبريدك ونوع المساعدة (مُراجع، مترجم، مطوّر، منظمة شريكة، صائد رموز، أو أخرى) ورسالة اختيارية، اجتز الكابتشا، وأرسِل.",
-    s2h:"تأكيد بريدك الإلكتروني", s2p:"فقط إذا قدّمت الطلب وأنت غير مسجَّل الدخول. تحقّق من بريدك لرسالة من <strong>dxmap@nabilvs.com</strong> واضغط رابط التأكيد — يثبت هذا فقط أن البريد ملكك فعلًا.",
-    s3h:"أنشئ حسابًا في nabilvs.com (أو سجّل الدخول)", s3p:"استخدم نفس البريد الذي قدّمت به الطلب — البريد/كلمة المرور أو Google أو GitHub كلها تعمل. هذا حسابك في nabilvs.com، وليس حسابًا منفصلًا للخريطة.",
-    s4h:"تحقّق من حالتك", s4p:"لوحة التحكم ← المشاركة التطوعية. تُظهر ما إذا كان بريدك مؤكَّدًا، وحالة طلبك: قيد الانتظار ← قيد المعالجة ← مقبول (أو لم يُتابَع).",
-    s5h:"إذا قُبلت كمُراجع", s5p:"ستحصل على تسجيل دخول منفصل لـ map.nabilvs.com/admin — الأداة الفعلية لمراجعة البلاغات. مختلف عن حساب nabilvs.com عمدًا: نظام مختلف، أُبقي بسيطًا ومنفصلًا.",
-    qh:"تريد توثيق رمز محظور الآن؟", qp:"لا حاجة لتقديم طلب. افتح الخريطة، اضغط «إبلاغ»، فئة «رمز / تحية محظورة». مجهول الهوية، دون حساب.", qbtn:"افتح الخريطة ←",
-    editEyebrow:"التعديل", editH:"هل أرسلت بلاغًا بالفعل وتحتاج إلى تصحيح شيء؟",
-    editP1:"اضغط على العلامة التي أرسلتها — تبقى مرئية لك أنت فقط بعد الإرسال مباشرة، حتى وهي قيد الانتظار. إن ظهر زر «تعديل بلاغي»، لا يزال بإمكانك تغييره.",
-    editP2:"يعمل هذا فقط من نفس المتصفح والجهاز اللذين استخدمتهما للإبلاغ، وفقط حتى يراجعه مُشرِف — البلاغات مجهولة الهوية بالتصميم، لذا لا يوجد حساب يمكننا من خلاله استرجاع رابط التعديل لك لاحقًا.",
-    solEyebrow:"فئة جديدة", solH:"فعاليات التضامن ليست بلاغات ضرر",
-    solP:"المظاهرات المضادة والوقفات وتجمعات التضامن ضد التطرف اليميني المتطرف لها فئة خاصة بها — تظهر كنجمة ذهبية على الخريطة، لا كنقطة ملونة. إن كنت تراجع البلاغات، تعامل معها بشكل مختلف عن الفئات التسع الأخرى: فهي توثّق فعالية عامة إيجابية، لا حادثة مزعومة، لذا لا تمويه للموقع ولا شيء «للتحقق» منه بنفس المعنى.",
-    solP2:"وهي أيضًا الفئة الوحيدة التي يترابط فيها كل بلاغ على الخريطة ضمن شبكة واحدة على مستوى البلاد بأكملها، لا مع القريبة منه فقط — فكل فعالية تضامن، أينما أُبلغ عنها، تنضم إلى شبكة متصلة تُظهر المقاومة كاملة بلمحة واحدة.",
-    footer:"أسئلة؟ رُدّ على بريد التأكيد، أو استخدم حقل الرسالة عند التقديم.",
+    brand:"خريطة التمييز", back:"← العودة إلى الخريطة", eyebrow:"الدليل",
+    h1:"سجلّ مشترك للتمييز، بُني كي لا يحمله أحد وحده.",
+    lede:"ما هذا المشروع، وكيف تُبلغ عمّا حدث لك، وكيف تقرأ الخريطة، وكيف تساعد.",
+    personal:"بدأت هذا لأنه حدث لي أنا أيضًا. بلاغ واحد يسهل تجاهله. آلاف البلاغات على خريطة واحدة لا.",
+    aboutH:"ما هذا المشروع",
+    aboutP1:"تجمع خريطة التمييز بلاغات الحوادث العنصرية والمعادية للسامية واليمينية المتطرفة وغيرها من حوادث الكراهية، وتضعها على خريطة واحدة. بعضها من أشخاص كانوا حاضرين، وبعضها مستخرج من الأخبار ومنشورات التواصل العامة ويوسم كبلاغات غير مؤكَّدة حتى يراجعها إنسان.",
+    aboutP2:"هذا توثيق لا اتهام. كل مُدخَل يُعامَل كمزعوم حتى تتم مراجعته. لا أسماء لأفراد. عند وجود خطر مباشر اتصل أولًا برقم الطوارئ المحلي — في الاتحاد الأوروبي 112.",
+    repH:"أبلِغ بنفسك", repSub:"مجهول. بدون حساب. يستغرق دقيقة.",
+    rep1h:"افتح نموذج البلاغ",
+    rep1p:"على الخريطة اضغط زر «+ الإبلاغ عن حادثة». أو ثبّت العلامة في المكان الذي حدث فيه تمامًا: انقر بالزر الأيمن في أي مكان على الخريطة على الحاسوب، أو اضغط مطوّلًا على نقطة على الهاتف.",
+    rep2h:"صِف الحادثة وحدّد مكانها",
+    rep2p:"اختر فئة واحدة أو أكثر، واكتب ما حدث بكلمات واضحة، وحدّد الموقع — ابحث عن مكان، أو استخدم موقعك الحالي، أو أبقِ العلامة التي وضعتها.",
+    rep3h:"حدّد وقت الحدوث",
+    rep3p:"يحتوي النموذج على حقل للتاريخ والوقت. ليس بالضرورة اليوم — يمكنك الإبلاغ عن شيء قبل أسابيع أو أشهر أو سنوات. يستخدم الخط الزمني للخريطة هذا التاريخ.",
+    rep4h:"أرسله — وصحّحه لاحقًا إن احتجت",
+    rep4p:"بعد الإرسال يمكن لهذا الجهاز تعديل البلاغ لمدة ساعة (يظهر زر «تعديل بلاغي»). بعدها يُقفَل، ولأن البلاغات مجهولة فلا يوجد حساب نستطيع من خلاله إعادة فتحه لك.",
+    nextH:"ماذا يحدث لبلاغك",
+    nextP1:"يراجع متطوعون معتمدون البلاغات الواردة ويضعون كلاً منها كمؤكَّد أو مرفوض أو غير ذي صلة. لا تظهر على الخريطة العامة سوى الحوادث المؤكَّدة.",
+    nextP2:"بالنسبة للجمهور يُموّه الموقع الدقيق بنحو 500 متر كي لا يكشف بلاغ واحد عنوانًا. الفئات الحساسة — العنف الجنسي، التحرش — تُموّه على نطاق أوسع بكثير (~5 كم) وتُحجز للمراجعة أولًا دائمًا.",
+    nextP3:"يُسجّل كل تغيير على البلاغ: ما الذي تغيّر، ومتى، ومن قام به.",
+    readH:"قراءة الخريطة",
+    read1:"النقاط الملونة حوادث، لون لكل فئة. افتح نقطة لعرض الملف الكامل: ما حدث، وسبب رصده، والقانون الذي قد ينطبق، والمصدر.",
+    read2:"خطوط رفيعة تربط حوادث الفئة نفسها في شبكة واحدة متصلة، لتبرز التجمعات والأنماط بلمحة. النقطة التي تومض بين الألوان تنتمي إلى عدة فئات معًا.",
+    read3:"النجوم الذهبية فعاليات تضامن — مظاهرات مضادة ووقفات ضد اليمين المتطرف. سجلّ عام إيجابي، لا بلاغ ضرر.",
+    read4:"الخط الزمني أسفل الخريطة يُصفّي كل شيء حسب وقت وقوع الحوادث — اسحبه لمعاينة فترة. مُرشّح ⚑ يختار الفئات المعروضة.",
+    read5:"تبويب «جدول» هو مجموعة البيانات كاملةً كجدول قابل للفرز والتصدير إلى CSV. تبويب «القانون» يسرد المواد التي تخالفها الحوادث مع عدد لكل منها — اضغط واحدة لتصفية الخريطة عليها.",
+    safeH:"سلامتك وخصوصيتك",
+    safeP1:"الإبلاغ مجهول. لا نطلب اسمك، ولا نشترط حسابًا، ولا يرى الجمهور موقعًا دقيقًا أبدًا.",
+    safeP2:"إن كنت تُبلغ من جهاز مشترك أو مراقَب، افتح نافذة خاصة وأغلقها بعد ذلك. في الطوارئ تواصل أولًا مع الشرطة أو جهة دعم محلية — هذه الخريطة سجلّ لا جهة استجابة.",
+    volH:"ساعد في استمراره",
+    volP1:"تقوم الخريطة على المتطوعين. تختار عند التقديم كيف تريد المساعدة: مراجعة الحوادث الواردة، الترجمة، التواصل والمنظمات الشريكة، البحث والتوثيق، التطوير، أو الدعم القانوني.",
+    volP2:"قدّم بحساب nabilvs.com (أي تسجيل دخول يعمل، بما فيه Google). يؤكّد مشرف دورك، وكل دور مؤكَّد يمنحك شارة.",
+    volBoxH:"جاهز للمساعدة؟",
+    volBoxP:"يحصل مراجعو الحوادث المعتمدون على قائمة مراجعة مباشرةً في لوحة Pantheon — دون تسجيل دخول منفصل. وكل شيء آخر يُنسّق من هناك أيضًا.",
+    volBtn:"تقديم طلب تطوع ←",
+    footer:"هذا سجلّ حيّ. إن كان شيء على الخريطة خاطئًا، افتحه واستخدم أدوات البلاغ، أو راسلنا عند التقديم.",
     privacyLink:"سياسة الخصوصية", termsLink:"شروط الاستخدام",
   },
 };
+
+const TEXT_KEYS = [
+  "eyebrow","h1","lede","personal","aboutH","aboutP1","aboutP2",
+  "repH","repSub","rep1h","rep1p","rep2h","rep2p","rep3h","rep3p","rep4h","rep4p",
+  "nextH","nextP1","nextP2","nextP3",
+  "readH","read1","read2","read3","read4","read5",
+  "safeH","safeP1","safeP2",
+  "volH","volP1","volP2","volBoxH","volBoxP","volBtn",
+  "footer","privacyLink","termsLink",
+];
 
 function applyGuide(){
   const lang = I.current;
   const d = GUIDE[lang] || GUIDE.en;
   document.documentElement.lang = lang;
   document.documentElement.dir = DXMAP_I18N[lang].dir;
-  const textMap = {
-    brandText:'brand', backLink:'back', 't-eyebrow':'eyebrow', 't-h1':'h1', 't-lede':'lede',
-    't-s1h':'s1h', 't-s1p1':'s1p1', 't-s1p2':'s1p2',
-    't-s2h':'s2h', 't-s3h':'s3h', 't-s3p':'s3p',
-    't-s4h':'s4h', 't-s4p':'s4p', 't-s5h':'s5h', 't-s5p':'s5p',
-    't-qh':'qh', 't-qp':'qp', 't-qbtn':'qbtn', 't-footer':'footer',
-    't-editEyebrow':'editEyebrow', 't-editH':'editH', 't-editP1':'editP1', 't-editP2':'editP2',
-    't-solEyebrow':'solEyebrow', 't-solH':'solH', 't-solP':'solP', 't-solP2':'solP2',
-    't-privacyLink':'privacyLink', 't-termsLink':'termsLink',
-  };
-  Object.entries(textMap).forEach(([id,key])=>{
-    const el = document.getElementById(id);
-    if(el && d[key] != null) el.textContent = d[key];
-  });
-  document.getElementById('t-s1note').innerHTML = d.s1note;
-  document.getElementById('t-s2p').innerHTML = d.s2p;
+  document.getElementById("brandText").textContent = d.brand;
+  document.getElementById("backLink").textContent = d.back;
+  for (const k of TEXT_KEYS){
+    const el = document.getElementById("t-" + k);
+    if (el && d[k] != null) el.textContent = d[k];
+  }
 }
 function renderLangBar(){
   document.getElementById('langBar').innerHTML = I.langs.map(l=>

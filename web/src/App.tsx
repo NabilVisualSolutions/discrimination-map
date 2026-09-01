@@ -1,31 +1,34 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { api, type Report, type ReportStatus } from "./lib/api"
+import { api, type Law, type Report, type ReportStatus } from "./lib/api"
 import { LOCALES, applyLocale, type Locale } from "./i18n"
 import { MapView } from "./features/map/MapView"
 import { AWARENESS } from "./lib/awareness"
 import { ReportModal } from "./features/report/ReportModal"
 import { latestEditable, minutesLeft, type MineEntry } from "./lib/mine"
 
-// Full-screen map. Everything else floats over it: a top search/filter bar,
-// a category panel, and one bottom sheet that shows either the incident
-// list, a selected incident's Akte, or the Laws / Symbols / Get-involved
-// pages. Mobile-first; the same layout scales up on desktop.
+// Full-screen map. Everything floats over it: a top search/filter bar, a
+// category panel, a persistent timeline at the bottom, and one sheet that
+// shows the incident list, an incident's file, the spreadsheet, the laws,
+// the symbols guide, or Get involved. Mobile-first; scales up on desktop.
 
-type SheetView = "incidents" | "detail" | "laws" | "awareness" | "involved" | "review"
+type SheetView = "incidents" | "detail" | "table" | "laws" | "awareness" | "involved" | "review"
 type SheetSnap = "peek" | "half" | "full"
-type Law = { code: string; title: string; summary?: string; penalty?: string }
 
 const SNAP_H: Record<SheetSnap, string> = { peek: "84px", half: "56vh", full: "92vh" }
+const when = (r: Report) => r.occurred_at ?? r.created_at
+const DAY = 86400
 
 export function App() {
   const { t, i18n } = useTranslation()
   const [selected, setSelected] = useState<Report | null>(null)
   const [hiddenCats, setHiddenCats] = useState<Set<string>>(() => new Set())
+  const [lawFilter, setLawFilter] = useState<string | null>(null)
   const [q, setQ] = useState("")
-  const [cutoff, setCutoff] = useState<number | null>(null)
+  const [fromTs, setFromTs] = useState<number | null>(null)
   const [showReport, setShowReport] = useState(false)
+  const [reportPreset, setReportPreset] = useState<{ lat: number; lon: number } | null>(null)
   const [focus, setFocus] = useState<{ lon: number; lat: number; zoom: number } | null>(null)
   const [geoHits, setGeoHits] = useState<{ lat: number; lon: number; label: string }[]>([])
   const [showFilters, setShowFilters] = useState(false)
@@ -36,10 +39,11 @@ export function App() {
   const [splash, setSplash] = useState(true)
   const [reportEdit, setReportEdit] = useState<{ id: number; token: string } | null>(null)
   const [mine, setMine] = useState<MineEntry | null>(() => latestEditable())
+  const didGeo = useRef(false)
 
   const cats = useQuery({ queryKey: ["categories"], queryFn: api.categories, staleTime: 3_600_000 })
   const reportsQ = useQuery({ queryKey: ["reports"], queryFn: () => api.reports({ limit: 5000, all: true }), staleTime: 60_000 })
-  const lawsQ = useQuery({ queryKey: ["laws"], queryFn: api.laws, staleTime: 3_600_000 })
+  const lawsQ = useQuery({ queryKey: ["laws", i18n.language], queryFn: () => api.laws(i18n.language), staleTime: 600_000 })
   const meQ = useQuery({ queryKey: ["me"], queryFn: api.me, staleTime: 300_000, retry: false })
   const me = meQ.data ?? null
   const isReviewer = me?.role === "ADMIN" || me?.role === "VERIFIER"
@@ -54,27 +58,64 @@ export function App() {
 
   const reports = reportsQ.data ?? []
   const categories = cats.data ?? {}
-  const laws = (Array.isArray(lawsQ.data) ? lawsQ.data : (lawsQ.data as { laws?: Law[] } | undefined)?.laws ?? []) as Law[]
+  const laws: Law[] = lawsQ.data?.laws ?? []
 
   const now = Math.floor(Date.now() / 1000)
-  const earliest = useMemo(() => (reports.length ? Math.min(...reports.map((r) => r.created_at)) : now - 365 * 86400), [reports, now])
-  const effectiveCutoff = cutoff ?? now
+  const earliest = useMemo(
+    () => (reports.length ? Math.min(...reports.map(when)) : now - 365 * DAY),
+    [reports, now]
+  )
+  const effFrom = fromTs ?? earliest
+
+  const catOf = (r: Report) => r.category.split(/[,|/]/).map((s) => s.trim()).filter(Boolean)
+  const visibleCat = (r: Report) => catOf(r).some((c) => !hiddenCats.has(c))
 
   const filtered = useMemo(() => {
-    let r = reports.filter((x) => !hiddenCats.has(x.category) && x.created_at <= effectiveCutoff)
     const needle = q.trim().toLowerCase()
-    if (needle) {
-      r = r.filter(
+    return reports
+      .filter((x) => visibleCat(x) && when(x) >= effFrom)
+      .filter((x) => !lawFilter || x.law === lawFilter)
+      .filter(
         (x) =>
-          (x.title + " " + (x.body ?? "") + " " + (x.place ?? "") + " " + x.category).toLowerCase().includes(needle) ||
+          !needle ||
+          (x.title + " " + (x.body ?? "") + " " + (x.place ?? "") + " " + x.category)
+            .toLowerCase()
+            .includes(needle) ||
           String(x.id).includes(needle)
       )
-    }
-    return r.sort((a, b) => b.created_at - a.created_at)
-  }, [reports, hiddenCats, effectiveCutoff, q])
+      .sort((a, b) => when(b) - when(a))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reports, hiddenCats, effFrom, q, lawFilter])
 
-  const last24 = useMemo(() => reports.filter((r) => now - r.created_at < 86400).length, [reports, now])
+  // Reports the map itself draws (time + category + law, no text search — the
+  // list narrows further but the map stays legible while you type).
+  const mapReports = useMemo(
+    () =>
+      reports
+        .filter((x) => visibleCat(x) && when(x) >= effFrom)
+        .filter((x) => !lawFilter || x.law === lawFilter),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [reports, hiddenCats, effFrom, lawFilter]
+  )
+
   const aw = (AWARENESS as Record<string, typeof AWARENESS.en>)[i18n.language] || AWARENESS.en
+
+  // Month histogram for the timeline (over the full dataset, not the filter).
+  const histogram = useMemo(() => {
+    if (!reports.length) return [] as { t: number; n: number }[]
+    const span = Math.max(1, now - earliest)
+    const buckets = 48
+    const arr = Array.from({ length: buckets }, (_, i) => ({
+      t: earliest + Math.round((i / buckets) * span),
+      n: 0,
+    }))
+    for (const r of reports) {
+      const i = Math.min(buckets - 1, Math.floor(((when(r) - earliest) / span) * buckets))
+      if (i >= 0) arr[i].n++
+    }
+    const max = Math.max(1, ...arr.map((b) => b.n))
+    return arr.map((b) => ({ ...b, n: b.n / max }))
+  }, [reports, earliest, now])
 
   const moderate = async (r: Report, status: ReportStatus) => {
     await api.setStatus(r.id, status)
@@ -101,15 +142,31 @@ export function App() {
     setSnap((s) => (s === "peek" ? "half" : s))
     if (r.lat != null && r.lon != null) setFocus({ lat: r.lat, lon: r.lon, zoom: 11 })
   }
+  const openReportAt = (lat: number, lon: number) => {
+    setReportEdit(null)
+    setReportPreset({ lat, lon })
+    setShowReport(true)
+  }
   const cycleSnap = () => setSnap((s) => (s === "peek" ? "half" : s === "half" ? "full" : "peek"))
 
-  // Slogan interstitial: on first load and on every language switch, hold the
-  // slogan for 2.5s while the map loads behind it.
+  // Slogan interstitial: first load + every language switch, 2.5s.
   useEffect(() => {
     setSplash(true)
     const id = setTimeout(() => setSplash(false), 2500)
     return () => clearTimeout(id)
   }, [i18n.language])
+
+  // One-shot: centre on the visitor's real position while the page opens.
+  // Silent if they decline — the worldwide view stays.
+  useEffect(() => {
+    if (didGeo.current || !navigator.geolocation) return
+    didGeo.current = true
+    navigator.geolocation.getCurrentPosition(
+      (p) => setFocus({ lon: p.coords.longitude, lat: p.coords.latitude, zoom: 6 }),
+      () => {},
+      { timeout: 8000, maximumAge: 600000 }
+    )
+  }, [])
 
   // Deep link from the "edit link" handed back at submission time.
   useEffect(() => {
@@ -137,18 +194,33 @@ export function App() {
     return () => clearTimeout(id)
   }, [q])
 
-  const timelinePct = earliest === now ? 1000 : Math.round(((effectiveCutoff - earliest) / (now - earliest)) * 1000)
   const catList = useMemo(
     () =>
       Object.entries(categories)
-        .map(([k, m]) => ({ k, ...m, count: reports.filter((r) => r.category === k).length }))
+        .map(([k, m]) => ({ k, ...m, count: reports.filter((r) => catOf(r).includes(k)).length }))
         .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [categories, reports]
   )
+  const allCatKeys = catList.map((c) => c.k)
+
+  const fromPct = earliest === now ? 0 : Math.round(((effFrom - earliest) / (now - earliest)) * 1000)
+  const fmtDate = (ts: number) => new Date(ts * 1000).toLocaleDateString(i18n.language)
+
+  const TABS: SheetView[] = isReviewer
+    ? ["incidents", "review", "table", "laws", "awareness", "involved"]
+    : ["incidents", "table", "laws", "awareness", "involved"]
 
   return (
     <div className="app">
-      <MapView reports={reports} categories={categories} onSelect={openDetail} hiddenCats={hiddenCats} focus={focus} />
+      <MapView
+        reports={mapReports}
+        categories={categories}
+        onSelect={openDetail}
+        onReportAt={openReportAt}
+        hiddenCats={hiddenCats}
+        focus={focus}
+      />
 
       {!noticeDismissed && (
         <div className="notice">
@@ -163,7 +235,7 @@ export function App() {
             <circle cx={11} cy={11} r={7} />
             <path d="M21 21l-4.3-4.3" />
           </svg>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search.ph")} aria-label="Suche" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search.ph")} aria-label={t("search.ph")} />
           {geoHits.length > 0 && (
             <div className="geo">
               {geoHits.map((h) => (
@@ -181,7 +253,13 @@ export function App() {
             </div>
           )}
         </div>
-        <button className={`tb-btn${showFilters ? " on" : ""}`} onClick={() => setShowFilters((v) => !v)} aria-label={t("filter")}>⚑</button>
+        <button
+          className={`tb-btn${showFilters ? " on" : ""}`}
+          onClick={() => setShowFilters((v) => !v)}
+          aria-label={t("filter")}
+        >
+          ⚑ {allCatKeys.length - hiddenCats.size}/{allCatKeys.length}
+        </button>
         <button className="tb-btn" onClick={locateMe} aria-label={t("locate")}>◎</button>
         <div className="lang">
           <button className="tb-btn" onClick={() => setLangOpen((v) => !v)} aria-label="Language">{i18n.language.toUpperCase()}</button>
@@ -202,15 +280,18 @@ export function App() {
             </div>
           )}
         </div>
-        <a className="tb-btn" href="/guide" target="_blank" rel="noreferrer" aria-label={t("guide")}>{t("guide")}</a>
-        <a className="tb-btn" href="/awareness" target="_blank" rel="noreferrer" aria-label={t("awarenessGuide")}>{t("awarenessGuide")}</a>
+        <a className="tb-btn" href="/guide" target="_blank" rel="noreferrer">{t("guide")}</a>
+        <a className="tb-btn" href="/awareness" target="_blank" rel="noreferrer">{t("awarenessGuide")}</a>
       </div>
 
       {showFilters && (
         <div className="filters">
           <div className="frow">
-            <b>{t("newPerDay", { n: last24 })}</b>
-            <button onClick={() => setHiddenCats(new Set())}>{t("showAll")}</button>
+            <b>{t("filter.categories")}</b>
+            <span>
+              <button onClick={() => setHiddenCats(new Set())}>{t("showAll")}</button>
+              <button onClick={() => setHiddenCats(new Set(allCatKeys))}>{t("hideAll")}</button>
+            </span>
           </div>
           <div className="chips">
             {catList.map((c) => {
@@ -224,20 +305,11 @@ export function App() {
               )
             })}
           </div>
-          <label className="tl">
-            <span>{new Date(earliest * 1000).toLocaleDateString("de-DE")}</span>
-            <b>{cutoff == null ? t("today") : new Date(effectiveCutoff * 1000).toLocaleDateString(i18n.language)}</b>
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={1000}
-            value={timelinePct}
-            onChange={(e) => {
-              const v = +e.target.value
-              setCutoff(v >= 1000 ? null : Math.round(earliest + (v / 1000) * (now - earliest)))
-            }}
-          />
+          {lawFilter && (
+            <button className="chip on" onClick={() => setLawFilter(null)}>
+              {t("laws.filtered", { code: lawFilter })} ✕
+            </button>
+          )}
         </div>
       )}
 
@@ -247,6 +319,7 @@ export function App() {
             className="fab ghost"
             onClick={() => {
               setReportEdit({ id: mine.id, token: mine.token })
+              setReportPreset(null)
               setShowReport(true)
             }}
           >
@@ -257,6 +330,7 @@ export function App() {
           className="fab"
           onClick={() => {
             setReportEdit(null)
+            setReportPreset(null)
             setShowReport(true)
           }}
         >
@@ -264,14 +338,38 @@ export function App() {
         </button>
       </div>
 
+      {/* persistent timeline — filter the map + lists by when incidents happened */}
+      <div className="timeline">
+        <div className="tl-head">
+          <span>{t("timeline.label")}</span>
+          <b>
+            {fromTs == null ? t("timeline.all") : fmtDate(effFrom)} — {t("today")}
+          </b>
+        </div>
+        <div className="tl-hist" aria-hidden>
+          {histogram.map((b, i) => (
+            <span key={i} style={{ height: `${Math.max(4, b.n * 100)}%`, opacity: b.t >= effFrom ? 1 : 0.25 }} />
+          ))}
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={1000}
+          value={fromPct}
+          onChange={(e) => {
+            const v = +e.target.value
+            setFromTs(v <= 0 ? null : Math.round(earliest + (v / 1000) * (now - earliest)))
+          }}
+          aria-label={t("timeline.label")}
+        />
+      </div>
+
       <div className="sheet" style={{ height: SNAP_H[snap] }}>
-        <button className="grip" onClick={cycleSnap} aria-label="Panel-Höhe">
+        <button className="grip" onClick={cycleSnap} aria-label={t("timeline.label")}>
           <span />
         </button>
         <div className="sheet-tabs">
-          {((isReviewer
-            ? ["incidents", "review", "laws", "awareness", "involved"]
-            : ["incidents", "laws", "awareness", "involved"]) as SheetView[]).map((v) => (
+          {TABS.map((v) => (
             <button
               key={v}
               className={view === v || (v === "incidents" && view === "detail") ? "on" : ""}
@@ -285,11 +383,13 @@ export function App() {
                 ? `${t("tab.incidents")} ${filtered.length}`
                 : v === "review"
                   ? `${t("tab.review")} ${queue.length}`
-                  : v === "laws"
-                    ? `${t("tab.laws")} ${laws.length}`
-                    : v === "awareness"
-                      ? t("tab.symbols")
-                      : t("tab.involved")}
+                  : v === "table"
+                    ? t("tab.table")
+                    : v === "laws"
+                      ? `${t("tab.laws")} ${laws.filter((l) => l.count).length}`
+                      : v === "awareness"
+                        ? t("tab.symbols")
+                        : t("tab.involved")}
             </button>
           ))}
         </div>
@@ -299,7 +399,7 @@ export function App() {
             <Detail
               r={selected}
               categories={categories}
-              canModerate={me?.role === "ADMIN" || me?.role === "VERIFIER"}
+              canModerate={isReviewer}
               onModerate={moderate}
               onBack={() => setView("incidents")}
               onLocate={(r) => setFocus({ lat: r.lat!, lon: r.lon!, zoom: 12 })}
@@ -311,22 +411,21 @@ export function App() {
               {reportsQ.isLoading && <p className="muted">{t("loadingMap")}</p>}
               {!reportsQ.isLoading && filtered.length === 0 && <p className="muted">{t("noResults")}</p>}
               {filtered.slice(0, 300).map((r) => {
-                const col = categories[r.category]?.color ?? "#8a97ac"
-                const d = new Date(r.created_at * 1000)
-                const isNew = now - r.created_at < 3 * 86400
+                const col = categories[catOf(r)[0]]?.color ?? "#8a97ac"
+                const isNew = now - when(r) < 3 * DAY
                 return (
                   <button key={r.id} className="row" onClick={() => openDetail(r)}>
                     <span className="bar" style={{ background: col }} />
                     <span className="row-main">
                       <span className="row-t">{r.title}</span>
                       <span className="row-m">
-                        <b style={{ color: col }}>{categories[r.category]?.label ?? r.category}</b>
+                        <b style={{ color: col }}>{categories[catOf(r)[0]]?.label ?? r.category}</b>
                         {" · "}
                         {r.status}
                         {" · "}
                         {r.place || "—"}
                         {" · "}
-                        {d.toLocaleDateString(i18n.language)}
+                        {fmtDate(when(r))}
                         {r.fuzzed ? ` · ${t("detail.approx")}` : ""}
                       </span>
                     </span>
@@ -337,6 +436,10 @@ export function App() {
             </>
           )}
 
+          {view === "table" && (
+            <IncidentTable rows={filtered} categories={categories} onOpen={openDetail} fmtDate={fmtDate} />
+          )}
+
           {view === "review" && isReviewer && (
             <>
               <h3>{t("review.title")}</h3>
@@ -344,7 +447,7 @@ export function App() {
               {queueQ.isLoading && <p className="muted">{t("loadingShort")}</p>}
               {!queueQ.isLoading && queue.length === 0 && <p className="muted">{t("review.empty")}</p>}
               {queue.map((r) => {
-                const col = categories[r.category]?.color ?? "#8a97ac"
+                const col = categories[catOf(r)[0]]?.color ?? "#8a97ac"
                 return (
                   <div key={r.id} className="qrow">
                     <button className="qrow-main" onClick={() => openDetail(r)}>
@@ -352,13 +455,13 @@ export function App() {
                       <span className="row-main">
                         <span className="row-t">{r.title}</span>
                         <span className="row-m">
-                          <b style={{ color: col }}>{categories[r.category]?.label ?? r.category}</b>
+                          <b style={{ color: col }}>{categories[catOf(r)[0]]?.label ?? r.category}</b>
                           {" · "}
                           {r.status}
                           {" · "}
                           {r.place || "—"}
                           {" · "}
-                          {new Date(r.created_at * 1000).toLocaleDateString(i18n.language)}
+                          {fmtDate(when(r))}
                         </span>
                       </span>
                     </button>
@@ -376,14 +479,25 @@ export function App() {
           {view === "laws" && (
             <>
               <p className="muted">{t("laws.intro")}</p>
+              {laws.length === 0 && <p className="muted">{t("loadingShort")}</p>}
               {laws.map((l) => (
-                <div key={l.code} className="card">
-                  <div className="card-k">{l.code}</div>
+                <button
+                  key={l.code}
+                  className={`card card-btn${lawFilter === l.code ? " on" : ""}`}
+                  onClick={() => {
+                    setLawFilter((f) => (f === l.code ? null : l.code))
+                    setView("incidents")
+                  }}
+                >
+                  <div className="card-k">
+                    {l.code}
+                    <span className="law-count">{t("laws.count", { n: l.count })}</span>
+                  </div>
                   <div className="card-t">{l.title}</div>
                   {l.summary && <p className="muted sm">{l.summary}</p>}
-                </div>
+                  {l.penalty && <p className="muted sm"><b>{t("detail.penalty")}:</b> {l.penalty}</p>}
+                </button>
               ))}
-              {laws.length === 0 && <p className="muted">{t("loadingShort")}</p>}
             </>
           )}
 
@@ -422,9 +536,12 @@ export function App() {
           categories={categories}
           editId={reportEdit?.id}
           editToken={reportEdit?.token}
+          presetLat={reportPreset?.lat}
+          presetLon={reportPreset?.lon}
           onClose={() => {
             setShowReport(false)
             setReportEdit(null)
+            setReportPreset(null)
           }}
           onSaved={() => {
             setMine(latestEditable())
@@ -438,6 +555,102 @@ export function App() {
           <p className="splash-slogan">{t("slogan")}</p>
         </div>
       )}
+    </div>
+  )
+}
+
+function IncidentTable({
+  rows,
+  categories,
+  onOpen,
+  fmtDate,
+}: {
+  rows: Report[]
+  categories: Record<string, { label: string; color: string }>
+  onOpen: (r: Report) => void
+  fmtDate: (ts: number) => string
+}) {
+  const { t } = useTranslation()
+  const [sort, setSort] = useState<{ key: keyof Report | "when"; dir: 1 | -1 }>({ key: "when", dir: -1 })
+  const sorted = useMemo(() => {
+    const val = (r: Report) =>
+      sort.key === "when" ? (r.occurred_at ?? r.created_at) : ((r[sort.key] as string | number | null) ?? "")
+    return [...rows].sort((a, b) => (val(a) > val(b) ? sort.dir : val(a) < val(b) ? -sort.dir : 0))
+  }, [rows, sort])
+
+  const th = (key: keyof Report | "when", label: string) => (
+    <th onClick={() => setSort((s) => ({ key, dir: s.key === key && s.dir === 1 ? -1 : 1 }))}>
+      {label}
+      {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
+    </th>
+  )
+
+  const exportCsv = () => {
+    const head = ["id", "date", "category", "status", "place", "source", "title", "url"]
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`
+    const lines = [
+      head.join(","),
+      ...sorted.map((r) =>
+        [
+          r.id,
+          new Date((r.occurred_at ?? r.created_at) * 1000).toISOString().slice(0, 10),
+          r.category,
+          r.status,
+          r.place ?? "",
+          r.source,
+          r.title,
+          r.url ?? "",
+        ]
+          .map(esc)
+          .join(",")
+      ),
+    ]
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = `incidents-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  return (
+    <div className="tablewrap">
+      <div className="table-bar">
+        <span className="muted sm">{t("table.count", { n: sorted.length })}</span>
+        <button className="btn sm" onClick={exportCsv}>{t("table.csv")}</button>
+      </div>
+      <div className="table-scroll">
+        <table className="sheet-table">
+          <thead>
+            <tr>
+              {th("id", "#")}
+              {th("when", t("table.date"))}
+              {th("category", t("table.category"))}
+              {th("status", t("table.status"))}
+              {th("place", t("table.place"))}
+              {th("title", t("table.title"))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.slice(0, 1000).map((r) => {
+              const c0 = r.category.split(/[,|/]/)[0]?.trim()
+              return (
+                <tr key={r.id} onClick={() => onOpen(r)}>
+                  <td>{r.id}</td>
+                  <td>{fmtDate(r.occurred_at ?? r.created_at)}</td>
+                  <td>
+                    <span className="dot" style={{ background: categories[c0]?.color ?? "#8a97ac" }} />
+                    {r.category}
+                  </td>
+                  <td>{r.status}</td>
+                  <td>{r.place || "—"}</td>
+                  <td className="td-title">{r.title}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -459,7 +672,8 @@ function Detail({
 }) {
   const { t, i18n } = useTranslation()
   const [busy, setBusy] = useState<ReportStatus | null>(null)
-  const col = categories[r.category]?.color ?? "#8a97ac"
+  const cats = r.category.split(/[,|/]/).map((s) => s.trim()).filter(Boolean)
+  const col = categories[cats[0]]?.color ?? "#8a97ac"
   const act = async (status: ReportStatus) => {
     setBusy(status)
     try {
@@ -472,11 +686,15 @@ function Detail({
     <div className="detail">
       <button className="back" onClick={onBack}>{t("detail.back")}</button>
       <div className="d-meta">
-        #{String(r.id).padStart(4, "0")} · {new Date(r.created_at * 1000).toLocaleString(i18n.language)} · {r.place ?? "—"}
+        #{String(r.id).padStart(4, "0")} · {t("detail.happened")} {new Date((r.occurred_at ?? r.created_at) * 1000).toLocaleDateString(i18n.language)} · {r.place ?? "—"}
       </div>
       <h3>{r.title}</h3>
       <div className="d-tags">
-        <span className="tag" style={{ background: `${col}22`, color: col }}>{categories[r.category]?.label ?? r.category}</span>
+        {cats.map((c) => (
+          <span key={c} className="tag" style={{ background: `${categories[c]?.color ?? col}22`, color: categories[c]?.color ?? col }}>
+            {categories[c]?.label ?? c}
+          </span>
+        ))}
         <span className="tag">{r.status}</span>
         <span className="tag">{r.fuzzed ? t("detail.approx") : t("detail.exact")}</span>
       </div>
@@ -552,15 +770,20 @@ function Involved({
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState("")
+  const [accept, setAccept] = useState(false)
   const [err, setErr] = useState("")
   const [busy, setBusy] = useState(false)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setErr("")
+    if (mode === "signup" && !accept) {
+      setErr(t("involved.mustAccept"))
+      return
+    }
     setBusy(true)
     try {
-      if (mode === "signup") await api.signup({ name, email, password, message })
+      if (mode === "signup") await api.signup({ name, email, password, message, accept })
       else await api.login(email, password)
       setPassword("")
       await onChanged()
@@ -627,6 +850,17 @@ function Involved({
           />
           {mode === "signup" && (
             <textarea className="field" rows={3} placeholder={t("involved.msgPh")} value={message} onChange={(e) => setMessage(e.target.value)} />
+          )}
+          {mode === "signup" && (
+            <label className="accept">
+              <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} />
+              <span>
+                {t("involved.acceptPre")}{" "}
+                <a href="/terms" target="_blank" rel="noreferrer">{t("involved.terms")}</a>
+                {" "}{t("involved.acceptAnd")}{" "}
+                <a href="/privacy" target="_blank" rel="noreferrer">{t("involved.privacy")}</a>.
+              </span>
+            </label>
           )}
           {err && <p className="muted sm" style={{ color: "#b23b3b" }}>{err}</p>}
           <button className="btn primary" type="submit" disabled={busy}>

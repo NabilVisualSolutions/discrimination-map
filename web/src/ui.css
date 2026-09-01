@@ -444,3 +444,77 @@ input.field, textarea.field {
 }
 .rm-picked { margin-top: 6px; font: 12px var(--sans); color: var(--ink); display: flex; gap: 8px; align-items: center; }
 .rm-tick { color: var(--mint, #1f7a4d); font-weight: 700; }
+
+/* ===================================================================== *
+ *  timeline · spreadsheet · law counts · multi-category picker           *
+ * ===================================================================== */
+
+/* persistent timeline just above the sheet's peek */
+.timeline {
+  position: absolute;
+  inset-inline: 8px;
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  z-index: 21;
+  background: rgba(255, 254, 248, 0.97);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(10, 15, 31, 0.14);
+  padding: 8px 12px 10px;
+}
+.tl-head { display: flex; justify-content: space-between; align-items: baseline; font: 700 10px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
+.tl-head b { color: var(--ink); font-size: 11px; letter-spacing: 0; text-transform: none; }
+.tl-hist { display: flex; align-items: flex-end; gap: 1px; height: 26px; margin: 5px 0 3px; }
+.tl-hist span { flex: 1; background: var(--vermillion); border-radius: 1px 1px 0 0; min-height: 2px; transition: opacity 0.2s; }
+.timeline input[type="range"] { width: 100%; accent-color: var(--vermillion); margin: 0; }
+
+.fab-stack { bottom: calc(168px + env(safe-area-inset-bottom, 0px)) !important; }
+@media (min-width: 900px) {
+  .timeline { inset-inline: 12px auto; width: 460px; bottom: 16px; }
+  .fab-stack { bottom: 20px !important; }
+}
+
+/* filter panel: two clear reset buttons */
+.filters .frow span { display: flex; gap: 6px; }
+.filters .frow span button {
+  border: 1px solid var(--line); background: #fff; border-radius: 8px;
+  padding: 4px 9px; font: 700 11px var(--sans); color: var(--ink); cursor: pointer;
+}
+
+/* laws tab — count badge + tappable card + active filter state */
+.card-btn { display: block; width: 100%; text-align: start; border: 1px solid var(--line); background: var(--paper); border-radius: 12px; padding: 12px 14px; margin-top: 10px; cursor: pointer; }
+.card-btn.on { border-color: var(--vermillion); box-shadow: 0 0 0 2px rgba(225, 29, 45, 0.14); }
+.card-k { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 800 11px var(--mono); color: var(--faint); }
+.law-count { background: var(--paper-2); color: var(--ink); border-radius: 999px; padding: 2px 8px; font-size: 10px; }
+
+/* spreadsheet view */
+.tablewrap { display: flex; flex-direction: column; height: 100%; }
+.table-bar { display: flex; justify-content: space-between; align-items: center; padding: 2px 2px 8px; }
+.table-scroll { overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.sheet-table { width: 100%; border-collapse: collapse; font: 12px var(--sans); }
+.sheet-table th {
+  position: sticky; top: 0; background: var(--paper-2); text-align: start;
+  padding: 8px 10px; font: 700 10.5px var(--mono); text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--faint); cursor: pointer; white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+.sheet-table td { padding: 7px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.sheet-table tbody tr { cursor: pointer; }
+.sheet-table tbody tr:hover { background: var(--paper-2); }
+.sheet-table td .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: 6px; }
+.td-title { max-width: 40ch; }
+
+/* multi-category picker in the report form */
+.rm-hint { font: 400 11px var(--sans); color: var(--faint); text-transform: none; letter-spacing: 0; }
+.rm-catgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.rm-catopt {
+  display: flex; align-items: center; gap: 7px; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: 10px; font: 12.5px var(--sans); color: var(--ink); cursor: pointer;
+}
+.rm-catopt.on { border-color: var(--ink); background: var(--paper-2); }
+.rm-catopt .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.rm-catopt input { flex: none; }
+@media (max-width: 460px) { .rm-catgrid { grid-template-columns: 1fr; } }
+
+/* T&C acceptance row */
+.accept { display: flex; gap: 8px; align-items: flex-start; font: 12px var(--sans); color: var(--ink); }
+.accept input { margin-top: 2px; flex: none; }

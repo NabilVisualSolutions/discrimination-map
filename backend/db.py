@@ -120,6 +120,13 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # Links a "Get involved" application to the account created at signup, so
     # an ADMIN can promote the applicant to VERIFIER in one click.
     ("applications", "ALTER TABLE applications ADD COLUMN user_id INTEGER"),
+    # When the incident actually happened, as opposed to when it was filed
+    # (`created_at`). Lets people report past events; the map timeline and
+    # filters read this. Backfilled to created_at for every existing row.
+    ("reports", "ALTER TABLE reports ADD COLUMN occurred_at INTEGER"),
+    # Records that a self-registered volunteer accepted the Terms + Privacy
+    # Policy at signup (unix seconds).
+    ("users", "ALTER TABLE users ADD COLUMN accepted_terms_at INTEGER"),
 ]
 
 
@@ -143,9 +150,13 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
             "UPDATE reports SET edit_token = ? WHERE id = ?",
             (secrets.token_urlsafe(16), row["id"]),
         )
+    # Backfill occurred_at = created_at for rows written before that column
+    # existed (and for any scraped row that never sets it explicitly).
+    conn.execute("UPDATE reports SET occurred_at = created_at WHERE occurred_at IS NULL")
     # Deferred until here because the column above may not exist until the
     # ALTER TABLE loop just ran.
     conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_occurred ON reports(occurred_at)")
     _migrate_users_table(conn)
 
 
@@ -266,6 +277,7 @@ def insert_report(
     lon: Optional[float] = None,
     place: Optional[str] = None,
     created_at: Optional[int] = None,
+    occurred_at: Optional[int] = None,
 ) -> Optional[int]:
     """
     Insert a report. Returns the new row id, or None if it was a duplicate
@@ -290,6 +302,7 @@ def insert_report(
     if status is None:
         status = "unverified" if normalized_url else "pending"
     ts = created_at if created_at is not None else int(time.time())
+    occ = occurred_at if occurred_at is not None else ts
     try:
         with _conn() as conn:
             if normalized_url:
@@ -303,12 +316,12 @@ def insert_report(
                 INSERT INTO reports
                     (source, external_id, title, body, url, category,
                      reason, evidence, law, impact, verified, status,
-                     lat, lon, place, located, created_at, edit_token)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     lat, lon, place, located, created_at, occurred_at, edit_token)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (source, external_id, title, body, normalized_url, category,
                  reason, evidence, law, impact, 1 if status == "verified" else 0, status,
-                 lat, lon, place, located, ts, secrets.token_urlsafe(16)),
+                 lat, lon, place, located, ts, occ, secrets.token_urlsafe(16)),
             )
             return cur.lastrowid
     except sqlite3.IntegrityError:
@@ -620,6 +633,19 @@ def stats() -> dict[str, Any]:
     }
 
 
+def law_incident_counts() -> dict[str, int]:
+    """How many published (non-dismissed) incidents cite each statute code —
+    powers the Law tab, which lists the laws incidents are actually breaking."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT law, COUNT(*) c FROM reports"
+            " WHERE law IS NOT NULL AND law != ''"
+            "   AND status NOT IN ('dismissed', 'irrelevant')"
+            " GROUP BY law"
+        ).fetchall()
+    return {r["law"]: r["c"] for r in rows}
+
+
 # --------------------------------------------------------------------------- #
 # Users & sessions                                                             #
 # --------------------------------------------------------------------------- #
@@ -645,7 +671,10 @@ def verify_password(password: str, stored: str) -> bool:
 _VALID_ROLES = {"NONE", "VERIFIER", "ADMIN"}
 
 
-def create_user(email: str, password: str, role: str, provider: str = "email") -> Optional[int]:
+def create_user(
+    email: str, password: str, role: str, provider: str = "email",
+    accepted_terms: bool = False,
+) -> Optional[int]:
     """
     Create a user with a hashed password. Returns None if the email is
     already taken. Raises ValueError for an unknown role.
@@ -657,11 +686,14 @@ def create_user(email: str, password: str, role: str, provider: str = "email") -
     """
     if role not in _VALID_ROLES:
         raise ValueError(f"invalid role '{role}'")
+    now = int(time.time())
     with _conn() as conn:
         try:
             cur = conn.execute(
-                "INSERT INTO users (email, password_hash, role, provider, created_at) VALUES (?, ?, ?, ?, ?)",
-                (email.strip().lower(), _hash_password(password), role, provider, int(time.time())),
+                "INSERT INTO users (email, password_hash, role, provider, created_at, accepted_terms_at)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (email.strip().lower(), _hash_password(password), role, provider, now,
+                 now if accepted_terms else None),
             )
             return cur.lastrowid
         except sqlite3.IntegrityError:

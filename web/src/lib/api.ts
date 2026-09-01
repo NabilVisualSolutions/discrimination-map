@@ -36,6 +36,7 @@ export interface Report {
   place: string | null
   located: number
   created_at: number
+  occurred_at?: number
   fuzzed?: boolean
 }
 
@@ -48,6 +49,15 @@ export interface Law {
   code: string
   title: string
   summary?: string
+  penalty?: string
+  count: number
+}
+
+// Raw shape from /api/laws (statute dict keyed by code + per-code incident counts).
+type LawRefRaw = Record<string, Record<string, string>>
+export interface LawsResponse {
+  laws: Law[]
+  totalCited: number
 }
 
 export class ApiError extends Error {
@@ -82,6 +92,7 @@ export interface NewReport {
   category: string
   lat: number
   lon: number
+  occurred_at?: number
 }
 
 export const api = {
@@ -110,7 +121,21 @@ export const api = {
     }),
 
   categories: () => req<{ categories: Record<string, CategoryMeta> }>("/api/categories").then((d) => d.categories),
-  laws: () => req<{ laws: Law[] }>("/api/laws").then((d) => d.laws),
+  laws: (locale = "en"): Promise<LawsResponse> =>
+    req<{ laws: LawRefRaw; counts: Record<string, number> }>("/api/laws").then((d) => {
+      const pick = (m: Record<string, string>, base: string) =>
+        m[`${base}_${locale}`] ?? m[`${base}_en`] ?? m[base] ?? ""
+      const laws: Law[] = Object.entries(d.laws ?? {})
+        .map(([code, m]) => ({
+          code,
+          title: pick(m, "title") || code,
+          summary: pick(m, "summary"),
+          penalty: pick(m, "penalty"),
+          count: d.counts?.[code] ?? 0,
+        }))
+        .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code))
+      return { laws, totalCited: Object.values(d.counts ?? {}).reduce((s, n) => s + n, 0) }
+    }),
   health: () =>
     req<{ status: string; stats: Record<string, number>; sources: unknown }>("/api/health"),
   heartbeat: () => req<Record<string, unknown>>("/api/heartbeat"),
@@ -125,7 +150,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
-  signup: (payload: { name: string; email: string; password: string; message?: string }) =>
+  signup: (payload: {
+    name: string
+    email: string
+    password: string
+    message?: string
+    accept: boolean
+  }) =>
     req<{ email: string; role: string }>("/api/auth/signup", {
       method: "POST",
       body: JSON.stringify(payload),
