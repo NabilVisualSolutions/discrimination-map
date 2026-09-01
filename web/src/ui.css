@@ -301,7 +301,8 @@ a.tb-btn { display: inline-flex; align-items: center; justify-content: center; t
 }
 .field { margin-bottom: 12px; }
 .field label { display: block; font: 800 10px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin-bottom: 5px; }
-.field input, .field textarea, .field select {
+.field input, .field textarea, .field select,
+input.field, textarea.field {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -310,6 +311,25 @@ a.tb-btn { display: inline-flex; align-items: center; justify-content: center; t
   font: 13.5px var(--sans);
   color: var(--ink);
 }
+
+/* ---------- volunteer sign-up / sign-in (Get involved) ---------- */
+.auth { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 16px; }
+.auth-tabs { display: flex; gap: 6px; }
+.auth-tabs button {
+  flex: 1; padding: 8px; border: 1px solid var(--line); border-radius: 10px;
+  background: #fff; font: 700 12px var(--sans); color: var(--ink); cursor: pointer;
+}
+.auth-tabs button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.auth input.field, .auth textarea.field { margin: 0; }
+
+/* ---------- reviewer queue rows ---------- */
+.qrow { border-bottom: 1px solid var(--line-faint, var(--line)); padding: 8px 0; }
+.qrow-main {
+  display: flex; gap: 10px; width: 100%; text-align: start; background: none;
+  border: 0; padding: 4px 2px; cursor: pointer; align-items: flex-start;
+}
+.qrow-acts { display: flex; gap: 6px; padding: 4px 2px 2px; }
+.btn.sm { padding: 6px 8px; font-size: 11.5px; border-radius: 9px; }
 
 /* ---------- desktop: sheet as a right rail ---------- */
 @media (min-width: 900px) {

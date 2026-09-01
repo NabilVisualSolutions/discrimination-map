@@ -435,23 +435,41 @@ async function loadApplications(){
     rows.innerHTML = `<tr><td colspan="5"><div class="empty">${esc(t('admin.noReports'))}</div></td></tr>`;
     return;
   }
-  rows.innerHTML = applications.map(a => `
+  const canApprove = me.role === 'ADMIN';
+  rows.innerHTML = applications.map(a => {
+    const acct = a.user_id
+      ? `<div class="meta" style="font-weight:400;margin-top:4px">account: ${esc(a.account_email||'')} · ${esc(a.account_role||'NONE')}</div>`
+      : `<div class="meta" style="font-weight:400;margin-top:4px">no linked account (applied via old form)</div>`;
+    let approveBtn = '';
+    if (canApprove && a.user_id) {
+      approveBtn = a.account_role === 'VERIFIER'
+        ? `<button class="rowbtn danger" data-approve="NONE">Revoke reviewer</button>`
+        : `<button class="rowbtn ok" data-approve="VERIFIER">Approve as reviewer</button>`;
+    }
+    return `
     <tr data-id="${a.id}">
-      <td class="title">${esc(a.name)}${a.message ? `<div class="meta" style="font-weight:400;margin-top:4px">${esc(a.message)}</div>` : ''}</td>
+      <td class="title">${esc(a.name)}${a.message ? `<div class="meta" style="font-weight:400;margin-top:4px">${esc(a.message)}</div>` : ''}${acct}</td>
       <td><a href="mailto:${esc(a.email)}">${esc(a.email)}</a></td>
       <td>${esc(a.interest)}</td>
       <td><span class="badge ${a.status==='new'?'pending':a.status==='closed'?'dismissed':'verified'}">${esc(a.status)}</span></td>
       <td>
+        ${approveBtn}
         ${a.status!=='contacted' ? `<button class="rowbtn ok" data-act="contacted">${esc(t('admin.appContacted'))}</button>` : ''}
         ${a.status!=='closed' ? `<button class="rowbtn" data-act="closed">${esc(t('admin.appClosed'))}</button>` : ''}
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
   rows.querySelectorAll('tr').forEach(tr=>{
     const id = tr.dataset.id;
     tr.querySelectorAll('button').forEach(btn=>btn.addEventListener('click', async () => {
-      await fetch('/api/admin/applications/' + id, {method:'PATCH', credentials:'include',
-        headers:{'Content-Type':'application/json'}, body: JSON.stringify({status: btn.dataset.act})});
+      if (btn.dataset.approve) {
+        await fetch('/api/admin/applications/' + id + '/approve', {method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({role: btn.dataset.approve})});
+      } else {
+        await fetch('/api/admin/applications/' + id, {method:'PATCH', credentials:'include',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({status: btn.dataset.act})});
+      }
       loadApplications();
     }));
   });

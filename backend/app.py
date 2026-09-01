@@ -15,7 +15,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -188,7 +188,10 @@ def get_reports(
     don't need to fetch the entire dataset.
     """
     limit = max(1, min(limit, 5000))  # headroom above the current ~3.8k public-eligible total
-    reports = db.list_reports(limit=limit, located_only=not all, as_of=as_of)
+    is_reviewer = bool(user and user["role"] in ("VERIFIER", "ADMIN"))
+    reports = db.list_reports(
+        limit=limit, located_only=not all, as_of=as_of, viewer_is_reviewer=is_reviewer
+    )
     if user is None:
         for r in reports:
             if r["lat"] is None or r["lon"] is None:
@@ -252,7 +255,11 @@ def get_own_report(report_id: int, edit_token: str):
 
 
 class StatusUpdate(BaseModel):
-    status: Literal["pending", "unverified", "verified", "dismissed"]
+    # verified  -> shown on the public map
+    # dismissed -> rejected (spam / false positive)
+    # irrelevant-> reviewed, not a discrimination incident
+    # unverified/pending -> still "needs review", hidden from the public map
+    status: Literal["pending", "unverified", "verified", "dismissed", "irrelevant"]
 
 
 class ReportEdit(BaseModel):
@@ -324,8 +331,9 @@ def admin_list_reports(
     limit: int = 100, offset: int = 0, status: str | None = None,
     _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
 ):
-    """Every report, located or not, for the moderation queue. Open to both roles."""
-    limit = max(1, min(limit, 500))
+    """Every report, located or not, for the moderation queue. Open to both
+    roles. `status` accepts a comma list, e.g. ?status=unverified,pending."""
+    limit = max(1, min(limit, 1000))
     return db.list_reports_admin(limit=limit, offset=offset, status=status)
 
 
@@ -363,14 +371,63 @@ class LoginBody(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+# Tiny in-memory sliding-window guard. Valid because this runs as one
+# long-lived process (not serverless). Keyed by client IP.
+_RL: dict[str, list[float]] = collections.defaultdict(list)
+
+
+def _rate_limit(key: str, limit: int, window: float = 3600.0) -> None:
+    now = time.time()
+    hits = [t for t in _RL[key] if now - t < window]
+    if len(hits) >= limit:
+        raise HTTPException(status_code=429, detail="Too many attempts — try again later")
+    hits.append(now)
+    _RL[key] = hits
+
+
+def _client_ip(request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    return (fwd.split(",")[0].strip() if fwd else "") or (request.client.host if request.client else "unknown")
+
+
 @app.post("/api/auth/login")
-def login(body: LoginBody, response: Response):
+def login(body: LoginBody, response: Response, request: Request):
+    _rate_limit(f"login:{_client_ip(request)}", limit=20, window=900)
     user = db.get_user_by_email(body.email)
     if not user or not db.verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Wrong email or password")
     token = db.create_session(user["id"])
     auth.set_session_cookie(response, token)
     return {"email": user["email"], "role": user["role"]}
+
+
+class SignupBody(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=200)
+    message: str = Field(default="", max_length=2000)
+
+
+@app.post("/api/auth/signup", status_code=201)
+def signup(body: SignupBody, response: Response, request: Request):
+    """
+    Public volunteer sign-up from the map's "Get involved" tab. Creates an
+    account with role NONE (no permissions) plus a linked volunteer
+    application. An ADMIN then approves it (POST .../applications/{id}
+    /approve), which promotes the account to VERIFIER — at which point the
+    volunteer sees the review queue on their volunteering page.
+    """
+    _rate_limit(f"signup:{_client_ip(request)}", limit=5, window=3600)
+    uid = db.create_user(body.email, body.password, "NONE")
+    if uid is None:
+        raise HTTPException(status_code=409, detail="That email already has an account")
+    db.create_application(
+        name=body.name, email=body.email, interest="volunteer",
+        message=body.message, user_id=uid,
+    )
+    token = db.create_session(uid)
+    auth.set_session_cookie(response, token)
+    return {"email": body.email, "role": "NONE"}
 
 
 @app.post("/api/auth/logout")
@@ -523,6 +580,35 @@ def admin_set_application_status(
     if not db.set_application_status(app_id, body.status):
         raise HTTPException(status_code=404, detail="Application not found")
     return {"id": app_id, "status": body.status}
+
+
+class ApplicationApproval(BaseModel):
+    role: Literal["VERIFIER", "NONE"] = "VERIFIER"
+
+
+@app.post("/api/admin/applications/{app_id}/approve")
+def admin_approve_application(
+    app_id: int, body: ApplicationApproval | None = None,
+    _: dict = Depends(auth.require_role("ADMIN")),
+):
+    """
+    Confirm a volunteer: promote the account they created at signup to
+    VERIFIER (or demote back to NONE with role='NONE') and close the
+    application. ADMIN only — this is the "admin confirms their
+    volunteering" gate.
+    """
+    row = db.get_application(app_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if not row.get("user_id"):
+        raise HTTPException(
+            status_code=400,
+            detail="This application has no linked account — the applicant must sign up first",
+        )
+    role = (body.role if body else "VERIFIER")
+    db.update_user_role(row["user_id"], role)
+    db.set_application_status(app_id, "closed" if role == "VERIFIER" else "new")
+    return {"id": app_id, "user_id": row["user_id"], "role": role}
 
 
 @app.get("/api/laws")

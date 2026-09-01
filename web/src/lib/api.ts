@@ -2,7 +2,21 @@
 // up) to regenerate src/lib/api-schema.d.ts from /openapi.json and tighten
 // these against it.
 
-export type ReportStatus = "pending" | "unverified" | "verified" | "dismissed"
+export type ReportStatus = "pending" | "unverified" | "verified" | "dismissed" | "irrelevant"
+
+// One "Get involved" volunteer application (backend/db.py `applications`).
+export interface Application {
+  id: number
+  name: string
+  email: string
+  interest: string
+  message: string | null
+  status: string
+  created_at: number
+  user_id: number | null
+  account_email: string | null
+  account_role: string | null
+}
 
 // Mirrors the `reports` table (backend/db.py). `created_at` is unix seconds.
 export interface Report {
@@ -102,15 +116,23 @@ export const api = {
   heartbeat: () => req<Record<string, unknown>>("/api/heartbeat"),
 
   // auth
-  me: () => req<{ user: { email: string; role: string } | null }>("/api/auth/me"),
+  me: (): Promise<{ email: string; role: string } | null> =>
+    req<{ email: string; role: string }>("/api/auth/me")
+      .then((d) => ({ email: d.email, role: d.role }))
+      .catch(() => null),
   login: (email: string, password: string) =>
-    req<{ user: { email: string; role: string } }>("/api/auth/login", {
+    req<{ email: string; role: string }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
+  signup: (payload: { name: string; email: string; password: string; message?: string }) =>
+    req<{ email: string; role: string }>("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   logout: () => req<unknown>("/api/auth/logout", { method: "POST" }),
 
-  // admin
+  // admin / reviewer
   adminReports: (params: { status?: string; limit?: number; offset?: number } = {}) =>
     req<{ reports: Report[]; total: number }>(
       "/api/admin/reports?" +
@@ -120,6 +142,13 @@ export const api = {
           ...(params.status ? { status: params.status } : {}),
         })
     ),
+  adminApplications: () =>
+    req<{ applications: Application[] }>("/api/admin/applications").then((d) => d.applications),
+  approveApplication: (id: number, role: "VERIFIER" | "NONE" = "VERIFIER") =>
+    req<{ id: number; user_id: number; role: string }>(`/api/admin/applications/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    }),
   setStatus: (id: number, status: ReportStatus) =>
     req<{ id: number; status: string }>(`/api/admin/reports/${id}`, {
       method: "PATCH",

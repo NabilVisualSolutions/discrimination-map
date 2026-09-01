@@ -117,6 +117,9 @@ CREATE INDEX IF NOT EXISTS idx_report_history_report ON report_history(report_id
 _MIGRATIONS: list[tuple[str, str]] = [
     ("reports", "ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'unverified'"),
     ("reports", "ALTER TABLE reports ADD COLUMN edit_token TEXT"),
+    # Links a "Get involved" application to the account created at signup, so
+    # an ADMIN can promote the applicant to VERIFIER in one click.
+    ("applications", "ALTER TABLE applications ADD COLUMN user_id INTEGER"),
 ]
 
 
@@ -321,16 +324,29 @@ def set_location(report_id: int, lat: float, lon: float, place: str) -> None:
             (lat, lon, place, report_id))
 
 
-def list_reports(limit: int = 500, located_only: bool = True, as_of: int | None = None) -> list[dict[str, Any]]:
+def list_reports(
+    limit: int = 500, located_only: bool = True, as_of: int | None = None,
+    viewer_is_reviewer: bool = False,
+) -> list[dict[str, Any]]:
     """
-    Return recent reports as plain dicts, newest first. Dismissed reports
-    (moderator judged spam / false positive) are excluded from the public
-    feed but kept in the DB and still visible in the admin/verify queue.
+    Return recent reports as plain dicts, newest first.
+
+    Public feed (`viewer_is_reviewer=False`): only `verified` reports. A
+    scraped or user-filed lead stays off the public map until a confirmed
+    volunteer or admin has reviewed it — "needs review" is never shown to
+    visitors.
+
+    Reviewer feed (`viewer_is_reviewer=True`, i.e. VERIFIER/ADMIN): every
+    report except the ones already judged out (`dismissed`, `irrelevant`),
+    so the review queue and the reviewer's map show the backlog too.
 
     Optional `as_of` (unix timestamp): only return reports with
     created_at <= as_of. Enables server-side timeline filtering.
     """
-    q = "SELECT * FROM reports WHERE status NOT IN ('dismissed', 'pending')"
+    if viewer_is_reviewer:
+        q = "SELECT * FROM reports WHERE status NOT IN ('dismissed', 'irrelevant')"
+    else:
+        q = "SELECT * FROM reports WHERE status = 'verified'"
     params: list[Any] = []
     if located_only:
         q += " AND located = 1"
@@ -357,16 +373,20 @@ def list_reports_admin(
 ) -> dict[str, Any]:
     """
     Every report (located or not), newest first, for the moderation queue.
-    `status` filters to one of unverified/verified/dismissed; `verified` is
-    the older boolean filter, kept for backward compatibility.
+    `status` filters to one or more of pending/unverified/verified/dismissed/
+    irrelevant (comma-separated for several, e.g. "unverified,pending" — the
+    volunteer review queue); `verified` is the older boolean filter, kept
+    for backward compatibility.
     """
     where = ""
     params: list[Any] = []
     if status is not None:
-        if status not in _VALID_STATUSES:
-            raise ValueError(f"invalid status '{status}'")
-        where = " WHERE status = ?"
-        params.append(status)
+        wanted = [s.strip() for s in status.split(",") if s.strip()]
+        bad = [s for s in wanted if s not in _VALID_STATUSES]
+        if bad:
+            raise ValueError(f"invalid status '{bad[0]}'")
+        where = " WHERE status IN (%s)" % ",".join("?" for _ in wanted)
+        params.extend(wanted)
     elif verified is not None:
         where = " WHERE verified = ?"
         params.append(1 if verified else 0)
@@ -385,7 +405,7 @@ def set_verified(report_id: int, verified: bool) -> bool:
     return set_status(report_id, "verified" if verified else "unverified")
 
 
-_VALID_STATUSES = {"pending", "unverified", "verified", "dismissed"}
+_VALID_STATUSES = {"pending", "unverified", "verified", "dismissed", "irrelevant"}
 
 
 def set_status(report_id: int, status: str, edited_by: str = "unknown") -> bool:
@@ -739,13 +759,18 @@ _VALID_INTERESTS = {"volunteer", "translator", "coder", "organization", "other"}
 _VALID_APP_STATUSES = {"new", "contacted", "closed"}
 
 
-def create_application(*, name: str, email: str, interest: str, message: str = "") -> int:
+def create_application(
+    *, name: str, email: str, interest: str, message: str = "",
+    user_id: Optional[int] = None,
+) -> int:
     if interest not in _VALID_INTERESTS:
         raise ValueError(f"invalid interest '{interest}'")
     with _conn() as conn:
         cur = conn.execute(
-            "INSERT INTO applications (name, email, interest, message, created_at) VALUES (?, ?, ?, ?, ?)",
-            (name.strip(), email.strip().lower(), interest, message.strip(), int(time.time())),
+            "INSERT INTO applications (name, email, interest, message, user_id, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (name.strip(), email.strip().lower(), interest, message.strip(),
+             user_id, int(time.time())),
         )
         return cur.lastrowid
 
@@ -755,12 +780,26 @@ def list_applications(status: Optional[str] = None) -> list[dict[str, Any]]:
     if status is not None:
         if status not in _VALID_APP_STATUSES:
             raise ValueError(f"invalid status '{status}'")
-        where, params = " WHERE status = ?", [status]
+        where, params = " WHERE a.status = ?", [status]
     with _conn() as conn:
         rows = conn.execute(
-            f"SELECT * FROM applications{where} ORDER BY created_at DESC", params
+            "SELECT a.*, u.email AS account_email, u.role AS account_role"
+            " FROM applications a LEFT JOIN users u ON u.id = a.user_id"
+            f"{where} ORDER BY a.created_at DESC",
+            params,
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_application(app_id: int) -> Optional[dict[str, Any]]:
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT a.*, u.email AS account_email, u.role AS account_role"
+            " FROM applications a LEFT JOIN users u ON u.id = a.user_id"
+            " WHERE a.id = ?",
+            (app_id,),
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def set_application_status(app_id: int, status: str) -> bool:

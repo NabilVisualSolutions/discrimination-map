@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api, type Report, type ReportStatus } from "./lib/api"
@@ -12,7 +12,7 @@ import { ReportModal } from "./features/report/ReportModal"
 // list, a selected incident's Akte, or the Laws / Symbols / Get-involved
 // pages. Mobile-first; the same layout scales up on desktop.
 
-type SheetView = "incidents" | "detail" | "laws" | "awareness" | "involved"
+type SheetView = "incidents" | "detail" | "laws" | "awareness" | "involved" | "review"
 type SheetSnap = "peek" | "half" | "full"
 type Law = { code: string; title: string; summary?: string; penalty?: string }
 
@@ -37,7 +37,16 @@ export function App() {
   const reportsQ = useQuery({ queryKey: ["reports"], queryFn: () => api.reports({ limit: 5000, all: true }), staleTime: 60_000 })
   const lawsQ = useQuery({ queryKey: ["laws"], queryFn: api.laws, staleTime: 3_600_000 })
   const meQ = useQuery({ queryKey: ["me"], queryFn: api.me, staleTime: 300_000, retry: false })
-  const me = meQ.data?.user ?? null
+  const me = meQ.data ?? null
+  const isReviewer = me?.role === "ADMIN" || me?.role === "VERIFIER"
+
+  const queueQ = useQuery({
+    queryKey: ["review-queue"],
+    queryFn: () => api.adminReports({ status: "unverified,pending", limit: 500 }),
+    enabled: isReviewer,
+    staleTime: 30_000,
+  })
+  const queue = queueQ.data?.reports ?? []
 
   const reports = reportsQ.data ?? []
   const categories = cats.data ?? {}
@@ -65,7 +74,7 @@ export function App() {
 
   const moderate = async (r: Report, status: ReportStatus) => {
     await api.setStatus(r.id, status)
-    await reportsQ.refetch()
+    await Promise.all([reportsQ.refetch(), isReviewer ? queueQ.refetch() : Promise.resolve()])
     setSelected((s) => (s && s.id === r.id ? { ...s, status } : s))
   }
   const locateMe = () => {
@@ -216,7 +225,9 @@ export function App() {
           <span />
         </button>
         <div className="sheet-tabs">
-          {(["incidents", "laws", "awareness", "involved"] as SheetView[]).map((v) => (
+          {((isReviewer
+            ? ["incidents", "review", "laws", "awareness", "involved"]
+            : ["incidents", "laws", "awareness", "involved"]) as SheetView[]).map((v) => (
             <button
               key={v}
               className={view === v || (v === "incidents" && view === "detail") ? "on" : ""}
@@ -228,11 +239,13 @@ export function App() {
             >
               {v === "incidents"
                 ? `${t("tab.incidents")} ${filtered.length}`
-                : v === "laws"
-                  ? `${t("tab.laws")} ${laws.length}`
-                  : v === "awareness"
-                    ? t("tab.symbols")
-                    : t("tab.involved")}
+                : v === "review"
+                  ? `${t("tab.review")} ${queue.length}`
+                  : v === "laws"
+                    ? `${t("tab.laws")} ${laws.length}`
+                    : v === "awareness"
+                      ? t("tab.symbols")
+                      : t("tab.involved")}
             </button>
           ))}
         </div>
@@ -280,6 +293,42 @@ export function App() {
             </>
           )}
 
+          {view === "review" && isReviewer && (
+            <>
+              <h3>{t("review.title")}</h3>
+              <p className="muted sm">{t("review.hint")}</p>
+              {queueQ.isLoading && <p className="muted">{t("loadingShort")}</p>}
+              {!queueQ.isLoading && queue.length === 0 && <p className="muted">{t("review.empty")}</p>}
+              {queue.map((r) => {
+                const col = categories[r.category]?.color ?? "#8a97ac"
+                return (
+                  <div key={r.id} className="qrow">
+                    <button className="qrow-main" onClick={() => openDetail(r)}>
+                      <span className="bar" style={{ background: col }} />
+                      <span className="row-main">
+                        <span className="row-t">{r.title}</span>
+                        <span className="row-m">
+                          <b style={{ color: col }}>{categories[r.category]?.label ?? r.category}</b>
+                          {" · "}
+                          {r.status}
+                          {" · "}
+                          {r.place || "—"}
+                          {" · "}
+                          {new Date(r.created_at * 1000).toLocaleDateString(i18n.language)}
+                        </span>
+                      </span>
+                    </button>
+                    <div className="qrow-acts">
+                      <button className="btn ok sm" onClick={() => moderate(r, "verified")}>{t("mod.confirm")}</button>
+                      <button className="btn no sm" onClick={() => moderate(r, "dismissed")}>{t("mod.decline")}</button>
+                      <button className="btn sm" onClick={() => moderate(r, "irrelevant")}>{t("mod.irrelevant")}</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )}
+
           {view === "laws" && (
             <>
               <p className="muted">{t("laws.intro")}</p>
@@ -309,18 +358,17 @@ export function App() {
           )}
 
           {view === "involved" && (
-            <>
-              <h3>{t("involved.title")}</h3>
-              <p className="muted">{t("involved.body")}</p>
-              <a className="link-row" href="https://nabilvs.com/projects/discrimination-map#get-involved" target="_blank" rel="noreferrer">
-                {t("involved.help")}
-              </a>
-              <a className="link-row" href="/guide">{t("involved.guide")}</a>
-              <a className="link-row" href="/admin">{t("involved.admin")}</a>
-              <a className="link-row" href="/privacy">{t("involved.privacy")}</a>
-              <a className="link-row" href="/terms">{t("involved.terms")}</a>
-              {me && <a className="link-row" href="/admin">{t("involved.signedIn", { email: me.email, role: me.role })}</a>}
-            </>
+            <Involved
+              me={me}
+              onChanged={async () => {
+                await meQ.refetch()
+                await queueQ.refetch()
+              }}
+              onGoReview={() => {
+                setView("review")
+                setSnap((s) => (s === "peek" ? "half" : s))
+              }}
+            />
           )}
         </div>
       </div>
@@ -412,10 +460,121 @@ function Detail({
             <button className="btn no" disabled={!!busy} onClick={() => act("dismissed")}>
               {busy === "dismissed" ? "…" : t("mod.decline")}
             </button>
+          </div>
+          <div className="d-actions">
+            <button className="btn" disabled={!!busy} onClick={() => act("irrelevant")}>
+              {busy === "irrelevant" ? "…" : t("mod.irrelevant")}
+            </button>
             <button className="btn" disabled={!!busy} onClick={onBack}>{t("mod.pass")}</button>
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+function Involved({
+  me,
+  onChanged,
+  onGoReview,
+}: {
+  me: { email: string; role: string } | null
+  onChanged: () => void | Promise<void>
+  onGoReview: () => void
+}) {
+  const { t } = useTranslation()
+  const [mode, setMode] = useState<"signup" | "signin">("signup")
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [message, setMessage] = useState("")
+  const [err, setErr] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    setErr("")
+    setBusy(true)
+    try {
+      if (mode === "signup") await api.signup({ name, email, password, message })
+      else await api.login(email, password)
+      setPassword("")
+      await onChanged()
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : String(e2))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const logout = async () => {
+    await api.logout()
+    await onChanged()
+  }
+
+  const isReviewer = me?.role === "ADMIN" || me?.role === "VERIFIER"
+
+  return (
+    <>
+      <h3>{t("involved.title")}</h3>
+
+      {me && isReviewer && (
+        <div className="card">
+          <div className="card-t">{t("involved.signedInReviewer", { email: me.email, role: me.role })}</div>
+          <div className="d-actions" style={{ marginTop: 10 }}>
+            <button className="btn primary" onClick={onGoReview}>{t("involved.reviewerCta")}</button>
+            <button className="btn" onClick={logout}>{t("involved.logout")}</button>
+          </div>
+        </div>
+      )}
+
+      {me && !isReviewer && (
+        <div className="card">
+          <div className="card-t">{t("involved.pending")}</div>
+          <p className="muted sm">{t("involved.pendingBody")}</p>
+          <div className="d-actions" style={{ marginTop: 10 }}>
+            <button className="btn" onClick={logout}>{t("involved.logout")}</button>
+          </div>
+        </div>
+      )}
+
+      {!me && (
+        <form className="auth" onSubmit={submit}>
+          <div className="auth-tabs">
+            <button type="button" className={mode === "signup" ? "on" : ""} onClick={() => setMode("signup")}>
+              {t("involved.signupBtn")}
+            </button>
+            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => setMode("signin")}>
+              {t("involved.signinBtn")}
+            </button>
+          </div>
+          <p className="muted sm">{mode === "signup" ? t("involved.signupBody") : t("involved.signinBody")}</p>
+          {mode === "signup" && (
+            <input className="field" placeholder={t("involved.name")} value={name} onChange={(e) => setName(e.target.value)} required />
+          )}
+          <input className="field" type="email" placeholder={t("involved.email")} value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input
+            className="field"
+            type="password"
+            placeholder={t("involved.password")}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            required
+          />
+          {mode === "signup" && (
+            <textarea className="field" rows={3} placeholder={t("involved.msgPh")} value={message} onChange={(e) => setMessage(e.target.value)} />
+          )}
+          {err && <p className="muted sm" style={{ color: "#b23b3b" }}>{err}</p>}
+          <button className="btn primary" type="submit" disabled={busy}>
+            {busy ? "…" : mode === "signup" ? t("involved.signupBtn") : t("involved.signinBtn")}
+          </button>
+        </form>
+      )}
+
+      <a className="link-row" href="/guide" target="_blank" rel="noreferrer">{t("involved.guide")}</a>
+      <a className="link-row" href="/awareness" target="_blank" rel="noreferrer">{t("involved.awareness")}</a>
+      <a className="link-row" href="/privacy">{t("involved.privacy")}</a>
+      <a className="link-row" href="/terms">{t("involved.terms")}</a>
+    </>
   )
 }

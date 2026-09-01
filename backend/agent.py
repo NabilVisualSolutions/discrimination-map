@@ -196,11 +196,134 @@ async def source_youtube(client: httpx.AsyncClient) -> list[dict[str, Any]]:
     return items
 
 
+# --------------------------------------------------------------------------- #
+# News + encyclopaedia sources (no key)                                        #
+# --------------------------------------------------------------------------- #
+
+WIKIPEDIA_ENABLED = os.environ.get("DXMAP_WIKIPEDIA", "1") != "0"
+GDELT_ENABLED = os.environ.get("DXMAP_GDELT", "1") != "0"
+
+# Wikipedia: free-text searches plus category sweeps. Categories are the
+# high-signal part — each member is an article about one specific attack,
+# usually naming the town and the victim, which classify()/geocode can use.
+WIKI_SEARCH = [t.strip() for t in os.environ.get(
+    "DXMAP_WIKI_TERMS",
+    "rassistischer Angriff Deutschland,rechtsextremer Mord,rassistischer Mordanschlag,"
+    "Todesopfer rechtsextremer Gewalt,Brandanschlag Asylbewerberheim,"
+    "rassistische Gewalt Deutschland,Angriff auf Geflüchtete,"
+    "racist attack Germany,neo-Nazi murder Germany,racially motivated killing Germany"
+).split(",") if t.strip()]
+WIKI_CATEGORIES = [c.strip() for c in os.environ.get(
+    "DXMAP_WIKI_CATEGORIES",
+    "de:Kategorie:Rassistisch motivierte Gewalt,"
+    "de:Kategorie:Rechtsextremes Attentat,"
+    "de:Kategorie:Rechtsterrorismus in Deutschland,"
+    "en:Category:Far-right terrorist incidents in Germany,"
+    "en:Category:Racially motivated violence in Germany"
+).split(",") if c.strip()]
+
+
+def _wiki_item(lang: str, title: str, snippet: str) -> dict[str, Any]:
+    slug = title.replace(" ", "_")
+    return {
+        "external_id": f"wiki_{lang}_{slug}"[:120],
+        "title": title[:300],
+        "body": (_strip_html(snippet) or title)[:1000],
+        "url": f"https://{lang}.wikipedia.org/wiki/{slug}",
+        "category": "wikipedia",
+    }
+
+
+async def source_wikipedia(client: httpx.AsyncClient) -> list[dict[str, Any]]:
+    """MediaWiki API — free-text search + category members on de/en Wikipedia."""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for term in WIKI_SEARCH:
+        lang = "en" if term.isascii() else "de"
+        try:
+            r = await client.get(
+                f"https://{lang}.wikipedia.org/w/api.php",
+                params={"action": "query", "list": "search", "srsearch": term,
+                        "srlimit": 15, "srnamespace": 0, "format": "json"},
+                headers={"User-Agent": USER_AGENT})
+            r.raise_for_status()
+            for hit in r.json().get("query", {}).get("search", []):
+                key = f"{lang}:{hit['title']}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(_wiki_item(lang, hit["title"], hit.get("snippet", "")))
+        except Exception:
+            continue
+    for spec in WIKI_CATEGORIES:
+        lang, _, cat = spec.partition(":")
+        if not cat:
+            continue
+        try:
+            r = await client.get(
+                f"https://{lang}.wikipedia.org/w/api.php",
+                params={"action": "query", "list": "categorymembers", "cmtitle": cat,
+                        "cmlimit": 40, "cmtype": "page", "format": "json"},
+                headers={"User-Agent": USER_AGENT})
+            r.raise_for_status()
+            for m in r.json().get("query", {}).get("categorymembers", []):
+                key = f"{lang}:{m['title']}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(_wiki_item(lang, m["title"], m["title"]))
+        except Exception:
+            continue
+    return out
+
+
+# GDELT DOC 2.1 — global news index, no key. Rolling recent window per beat;
+# the DB accumulates coverage over time. Coordinates come from the downstream
+# geocode pass on the headline.
+GDELT_QUERIES = [q.strip() for q in os.environ.get(
+    "DXMAP_GDELT_QUERIES",
+    '"racist attack" Germany;"far-right attack" Germany;neo-Nazi attack Germany;'
+    'racially motivated attack Germany;refugee shelter arson Germany;'
+    'person of colour attacked Germany;asylum seeker attacked Germany'
+).split(";") if q.strip()]
+
+
+async def source_gdelt_news(client: httpx.AsyncClient) -> list[dict[str, Any]]:
+    """Recent world news matching racist/far-right attack queries, Germany-scoped."""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for query in GDELT_QUERIES:
+        try:
+            r = await client.get(
+                "https://api.gdeltproject.org/api/v2/doc/doc",
+                params={"query": query, "mode": "ArtList", "maxrecords": 50,
+                        "timespan": "3d", "format": "json", "sort": "DateDesc"},
+                headers={"User-Agent": USER_AGENT})
+            r.raise_for_status()
+            for a in r.json().get("articles", []):
+                url = a.get("url", "")
+                if not url or url in seen:
+                    continue
+                seen.add(url)
+                out.append({
+                    "external_id": f"gdelt_{abs(hash(url)) % (10**12)}",
+                    "title": (a.get("title") or "")[:300],
+                    "body": f"{a.get('domain', '')} · {a.get('seendate', '')}"[:1000],
+                    "url": url,
+                    "category": "news",
+                })
+        except Exception:
+            continue
+    return out
+
+
 def build_sources() -> list[tuple[str, bool, Optional[Callable]]]:
     """Registry: (name, enabled, adapter). Disabled ones are skipped."""
     return [
         ("bluesky", True, source_bluesky),
         ("mastodon", True, source_mastodon),
+        ("wikipedia", WIKIPEDIA_ENABLED, source_wikipedia),
+        ("news", GDELT_ENABLED, source_gdelt_news),
         ("reddit", bool(REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET), source_reddit),
         ("youtube", bool(YOUTUBE_API_KEY), source_youtube),
         ("twitter", False, None),    # paid API — see PLAN.md
