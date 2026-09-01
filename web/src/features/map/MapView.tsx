@@ -1,24 +1,24 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import type { Report, CategoryMeta } from "../../lib/api"
 
-// Real tile map (MapLibre GL). Replaces react-simple-maps, which does not
-// render under React 19 — that was why the map showed nothing. Reports are
-// a clustered GeoJSON source coloured per category; solidarity_event is a
-// separate star-ish layer. Fully responsive; resizes on container change
-// and when the mobile tab toggles it back into view.
+// Real tile map (MapLibre GL). react-simple-maps didn't render under React
+// 19 at all. This version also fixes the pins-never-appear bug: the report
+// data usually arrives before the map's `load` event, so pushing it is
+// gated on a `styleReady` state flag and re-runs whenever data OR readiness
+// changes. On first data it fits the view to the located reports so they're
+// actually on screen instead of lost at world zoom.
 
 const STYLE = "https://tiles.openfreemap.org/styles/positron"
-const WORLD_CENTER: [number, number] = [12, 30]
 
 function ageOpacity(created_at: number) {
   const days = (Date.now() / 1000 - created_at) / 86400
   if (days < 2) return 1
-  if (days > 3650) return 0.4
-  if (days > 720) return 0.58
-  if (days > 180) return 0.78
-  return 0.92
+  if (days > 3650) return 0.42
+  if (days > 720) return 0.6
+  if (days > 180) return 0.8
+  return 0.94
 }
 
 export function MapView({
@@ -36,7 +36,8 @@ export function MapView({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
-  const ready = useRef(false)
+  const [styleReady, setStyleReady] = useState(false)
+  const fitted = useRef(false)
 
   const visible = useMemo(
     () => reports.filter((r) => r.lat != null && r.lon != null && !hiddenCats.has(r.category)),
@@ -49,13 +50,13 @@ export function MapView({
     const m = new maplibregl.Map({
       container: ref.current,
       style: STYLE,
-      center: WORLD_CENTER,
-      zoom: 3.4,
+      center: [12, 30],
+      zoom: 2.6,
       attributionControl: { compact: true },
     })
     map.current = m
-    m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right")
-    m.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "top-right")
+    m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right")
+    m.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "bottom-right")
 
     m.on("load", () => {
       m.addSource("reports", {
@@ -75,7 +76,7 @@ export function MapView({
           "circle-opacity": 0.22,
           "circle-stroke-color": "#0088cc",
           "circle-stroke-width": 1,
-          "circle-radius": ["step", ["get", "point_count"], 15, 25, 20, 100, 26, 500, 34],
+          "circle-radius": ["step", ["get", "point_count"], 16, 25, 22, 100, 28, 500, 36],
         },
       })
       m.addLayer({
@@ -94,8 +95,8 @@ export function MapView({
         paint: {
           "circle-color": ["get", "color"],
           "circle-opacity": ["get", "op"],
-          "circle-radius": 6,
-          "circle-stroke-width": 1.4,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 4, 6, 7, 12, 10],
+          "circle-stroke-width": 1.6,
           "circle-stroke-color": "#fff",
         },
       })
@@ -106,7 +107,7 @@ export function MapView({
         filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "star"], 1]],
         paint: {
           "circle-color": "#FFD23F",
-          "circle-radius": 7.5,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 5, 12, 12],
           "circle-stroke-width": 2,
           "circle-stroke-color": "#b8720b",
         },
@@ -115,27 +116,23 @@ export function MapView({
       m.on("click", "clusters", (e) => {
         const f = m.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0]
         const cid = f?.properties?.cluster_id
-        const src = m.getSource("reports") as maplibregl.GeoJSONSource
-        if (cid != null) {
-          src.getClusterExpansionZoom(cid).then((z) => {
-            m.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: z })
-          })
-        }
+        if (cid == null) return
+        ;(m.getSource("reports") as maplibregl.GeoJSONSource)
+          .getClusterExpansionZoom(cid)
+          .then((z) => m.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: z }))
       })
       for (const layer of ["point", "solidarity"]) {
         m.on("click", layer, (e) => {
           const id = e.features?.[0]?.properties?.id as number | undefined
-          const r = reports.find((x) => x.id === id)
-          if (r) onSelect(r)
+          const r = reportsRef.current.find((x) => x.id === id)
+          if (r) onSelectRef.current(r)
         })
         m.on("mouseenter", layer, () => (m.getCanvas().style.cursor = "pointer"))
         m.on("mouseleave", layer, () => (m.getCanvas().style.cursor = ""))
       }
-      ready.current = true
-      pushData()
+      setStyleReady(true)
     })
 
-    // keep the canvas sized to its container (mobile tab toggle, rotation…)
     const ro = new ResizeObserver(() => m.resize())
     ro.observe(ref.current)
     const onVis = () => !document.hidden && m.resize()
@@ -146,15 +143,22 @@ export function MapView({
       document.removeEventListener("visibilitychange", onVis)
       m.remove()
       map.current = null
-      ready.current = false
+      setStyleReady(false)
+      fitted.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const pushData = () => {
+  // refs so the map's own event handlers always see the latest data/callback
+  const reportsRef = useRef(reports)
+  const onSelectRef = useRef(onSelect)
+  reportsRef.current = reports
+  onSelectRef.current = onSelect
+
+  // push data whenever it — or the map's readiness — changes
+  useEffect(() => {
     const m = map.current
-    if (!m || !ready.current) return
+    if (!m || !styleReady) return
     const src = m.getSource("reports") as maplibregl.GeoJSONSource | undefined
     if (!src) return
     src.setData({
@@ -170,14 +174,18 @@ export function MapView({
         },
       })),
     })
-  }
-
-  useEffect(pushData, [visible, categories])
+    if (!fitted.current && visible.length > 0) {
+      fitted.current = true
+      const b = new maplibregl.LngLatBounds()
+      for (const r of visible) b.extend([r.lon as number, r.lat as number])
+      m.fitBounds(b, { padding: 60, maxZoom: 9, duration: 600 })
+    }
+  }, [visible, categories, styleReady])
 
   useEffect(() => {
     const m = map.current
     if (!m || !focus) return
-    m.flyTo({ center: [focus.lon, focus.lat], zoom: focus.zoom || 4, speed: 1.2 })
+    m.flyTo({ center: [focus.lon, focus.lat], zoom: focus.zoom || 6, speed: 1.2 })
   }, [focus])
 
   return <div ref={ref} style={{ position: "absolute", inset: 0 }} />
