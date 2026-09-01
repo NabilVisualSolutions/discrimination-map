@@ -29,3 +29,7 @@ venv/
 web/node_modules/
 web/dist/
 web/*.tsbuildinfo
+
+.impeccable/
+.claude/skills/
+web/.impeccable/

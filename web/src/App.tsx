@@ -5,6 +5,7 @@ import { api, type Report } from "./lib/api"
 import { LOCALES, applyLocale, type Locale } from "./i18n"
 import { SimpleMap } from "./features/map/SimpleMap"
 import { AWARENESS } from "./lib/awareness"
+import { ReportModal } from "./features/report/ReportModal"
 
 // <!--
 // THESIS: Complete world observatory — every old-map information restored in chromatic Signal Atlas, fluid to any device.
@@ -440,17 +441,7 @@ export function App(){
       )}
 
       {showReport && (
-        <div className="modal-scrim" onClick={()=> setShowReport(false)}>
-          <div className="modal" onClick={e=> e.stopPropagation()}>
-            <div style={{font:"800 9px var(--mono)", letterSpacing:".14em", textTransform:"uppercase", color:"var(--vermillion)"}}>WELTWEIT • AKTE ANLEGEN</div>
-            <h2 style={{margin:"6px 0 6px", font:"800 20px var(--display)"}}>Vorfall weltweit melden</h2>
-            <p style={{margin:0, color:"var(--muted)", fontSize:13, lineHeight:1.55}}>Anonym, ohne Konto, weltweit. Mit belastbarer Quelle erscheint der Eintrag direkt als “unverified lead”, sonst erst nach Prüfung. Keine Namen von Privatpersonen — weltweit gültig.</p>
-            <div className="btnrow" style={{marginTop:14}}>
-              <button className="btn" onClick={()=> setShowReport(false)}>Abbrechen</button>
-              <a className="btn primary" href="http://127.0.0.1:8020/" target="_blank" rel="noreferrer" style={{textDecoration:"none", display:"inline-flex", alignItems:"center"}}>Weltweit melden →</a>
-            </div>
-          </div>
-        </div>
+        <ReportModal categories={categories} onClose={() => setShowReport(false)} />
       )}
 
       {showHunt && (
