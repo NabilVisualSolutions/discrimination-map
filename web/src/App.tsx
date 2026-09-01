@@ -38,6 +38,8 @@ export function App(){
   const cats = useQuery({ queryKey:["categories"], queryFn: api.categories, staleTime: 3_600_000 })
   const reportsQ = useQuery({ queryKey:["reports", "world"], queryFn: ()=> api.reports({limit:5000, all:true}), staleTime:60_000 })
   const lawsQ = useQuery({ queryKey:["laws"], queryFn: api.laws, staleTime: 3_600_000 })
+  const meQ = useQuery({ queryKey:["me"], queryFn: api.me, staleTime: 300_000, retry: false })
+  const me = meQ.data?.user ?? null
 
   const reports = reportsQ.data ?? []
   const categories = cats.data ?? {}
@@ -128,6 +130,12 @@ export function App(){
             <span style={{width:6,height:6, borderRadius:"50%", background:"var(--mint)", display:"inline-block", marginRight:6, boxShadow:"0 0 0 4px rgba(5,150,105,.22)"}}/>
             {stats.last24} NEU / 24H
           </span>
+          {me && (
+            <a href="/admin" title={`${me.email} — ${me.role}`} style={{display:"inline-flex", alignItems:"center", gap:6, textDecoration:"none", background:"rgba(255,254,248,.1)", color:"var(--paper)", border:"1px solid rgba(255,254,248,.2)", borderRadius:8, padding:"5px 9px", font:"700 10px var(--mono)", whiteSpace:"nowrap"}}>
+              <span aria-hidden style={{width:20, height:20, borderRadius:"50%", background:"var(--steel)", color:"#fff", display:"grid", placeItems:"center", font:"800 10px var(--mono)"}}>{me.email[0].toUpperCase()}</span>
+              {me.role} · Admin
+            </a>
+          )}
           <button onClick={()=> setShowAbout(true)} style={{background:"rgba(255,254,248,.1)", color:"var(--paper)", border:"1px solid rgba(255,254,248,.18)", borderRadius:8, padding:"6px 10px", font:"700 10px var(--mono)", cursor:"pointer", whiteSpace:"nowrap"}}>Guide</button>
           <select value={i18n.language} onChange={e=> applyLocale(e.target.value as Locale)} className="langsel" aria-label="Language">
             {LOCALES.map(l=> <option key={l} value={l} style={{color:"#0a0f1f"}}>{l.toUpperCase()}</option>)}
