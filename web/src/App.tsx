@@ -32,7 +32,6 @@ export function App() {
   const [snap, setSnap] = useState<SheetSnap>("peek")
   const [noticeDismissed, setNoticeDismissed] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
-  void t
 
   const cats = useQuery({ queryKey: ["categories"], queryFn: api.categories, staleTime: 3_600_000 })
   const reportsQ = useQuery({ queryKey: ["reports"], queryFn: () => api.reports({ limit: 5000, all: true }), staleTime: 60_000 })
@@ -117,7 +116,7 @@ export function App() {
 
       {!noticeDismissed && (
         <div className="notice">
-          <b>Dokumentation, nicht Anklage.</b> Unverifizierte Hinweise — angeblich, nicht bewiesen. Notfall: 110.
+          {t("notice")}
           <button onClick={() => setNoticeDismissed(true)} aria-label="close">✕</button>
         </div>
       )}
@@ -128,7 +127,7 @@ export function App() {
             <circle cx={11} cy={11} r={7} />
             <path d="M21 21l-4.3-4.3" />
           </svg>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ort, Kategorie oder #ID suchen…" aria-label="Suche" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search.ph")} aria-label="Suche" />
           {geoHits.length > 0 && (
             <div className="geo">
               {geoHits.map((h) => (
@@ -146,10 +145,10 @@ export function App() {
             </div>
           )}
         </div>
-        <button className={`tb-btn${showFilters ? " on" : ""}`} onClick={() => setShowFilters((v) => !v)} aria-label="Filter">⚑</button>
-        <button className="tb-btn" onClick={locateMe} aria-label="Mein Standort">◎</button>
+        <button className={`tb-btn${showFilters ? " on" : ""}`} onClick={() => setShowFilters((v) => !v)} aria-label={t("filter")}>⚑</button>
+        <button className="tb-btn" onClick={locateMe} aria-label={t("locate")}>◎</button>
         <div className="lang">
-          <button className="tb-btn" onClick={() => setLangOpen((v) => !v)} aria-label="Sprache">{i18n.language.toUpperCase()}</button>
+          <button className="tb-btn" onClick={() => setLangOpen((v) => !v)} aria-label="Language">{i18n.language.toUpperCase()}</button>
           {langOpen && (
             <div className="lang-menu">
               {LOCALES.map((l) => (
@@ -167,14 +166,14 @@ export function App() {
             </div>
           )}
         </div>
-        <button className="tb-btn exit" onClick={quickExit}>Exit ✕</button>
+        <button className="tb-btn exit" onClick={quickExit}>{t("exit")} ✕</button>
       </div>
 
       {showFilters && (
         <div className="filters">
           <div className="frow">
-            <b>{last24} neu / 24 h</b>
-            <button onClick={() => setHiddenCats(new Set())}>Alle zeigen</button>
+            <b>{t("newPerDay", { n: last24 })}</b>
+            <button onClick={() => setHiddenCats(new Set())}>{t("showAll")}</button>
           </div>
           <div className="chips">
             {catList.map((c) => {
@@ -190,7 +189,7 @@ export function App() {
           </div>
           <label className="tl">
             <span>{new Date(earliest * 1000).toLocaleDateString("de-DE")}</span>
-            <b>{cutoff == null ? "Heute" : new Date(effectiveCutoff * 1000).toLocaleDateString("de-DE")}</b>
+            <b>{cutoff == null ? t("today") : new Date(effectiveCutoff * 1000).toLocaleDateString(i18n.language)}</b>
           </label>
           <input
             type="range"
@@ -205,7 +204,7 @@ export function App() {
         </div>
       )}
 
-      <button className="fab" onClick={() => setShowReport(true)}>+ Vorfall melden</button>
+      <button className="fab" onClick={() => setShowReport(true)}>+ {t("report.button")}</button>
 
       <div className="sheet" style={{ height: SNAP_H[snap] }}>
         <button className="grip" onClick={cycleSnap} aria-label="Panel-Höhe">
@@ -223,12 +222,12 @@ export function App() {
               }}
             >
               {v === "incidents"
-                ? `Vorfälle ${filtered.length}`
+                ? `${t("tab.incidents")} ${filtered.length}`
                 : v === "laws"
-                  ? `Recht ${laws.length}`
+                  ? `${t("tab.laws")} ${laws.length}`
                   : v === "awareness"
-                    ? "Symbole"
-                    : "Mitmachen"}
+                    ? t("tab.symbols")
+                    : t("tab.involved")}
             </button>
           ))}
         </div>
@@ -245,8 +244,8 @@ export function App() {
 
           {view === "incidents" && (
             <>
-              {reportsQ.isLoading && <p className="muted">Karte wird geladen…</p>}
-              {!reportsQ.isLoading && filtered.length === 0 && <p className="muted">Keine Vorfälle für diese Filter.</p>}
+              {reportsQ.isLoading && <p className="muted">{t("loadingMap")}</p>}
+              {!reportsQ.isLoading && filtered.length === 0 && <p className="muted">{t("noResults")}</p>}
               {filtered.slice(0, 300).map((r) => {
                 const col = categories[r.category]?.color ?? "#8a97ac"
                 const d = new Date(r.created_at * 1000)
@@ -263,11 +262,11 @@ export function App() {
                         {" · "}
                         {r.place || "—"}
                         {" · "}
-                        {d.toLocaleDateString("de-DE")}
-                        {r.fuzzed ? " · ~ungefähr" : ""}
+                        {d.toLocaleDateString(i18n.language)}
+                        {r.fuzzed ? ` · ${t("detail.approx")}` : ""}
                       </span>
                     </span>
-                    {isNew && <span className="new">neu</span>}
+                    {isNew && <span className="new">{t("row.new")}</span>}
                   </button>
                 )
               })}
@@ -276,7 +275,7 @@ export function App() {
 
           {view === "laws" && (
             <>
-              <p className="muted">StGB — Vorschriften, die einschlägig sein können.</p>
+              <p className="muted">{t("laws.intro")}</p>
               {laws.map((l) => (
                 <div key={l.code} className="card">
                   <div className="card-k">{l.code}</div>
@@ -284,7 +283,7 @@ export function App() {
                   {l.summary && <p className="muted sm">{l.summary}</p>}
                 </div>
               ))}
-              {laws.length === 0 && <p className="muted">Wird geladen…</p>}
+              {laws.length === 0 && <p className="muted">{t("loadingShort")}</p>}
             </>
           )}
 
@@ -304,16 +303,16 @@ export function App() {
 
           {view === "involved" && (
             <>
-              <h3>Mitmachen</h3>
-              <p className="muted">Moderator:innen, Übersetzer:innen, Entwickler:innen, Partnerorganisationen.</p>
+              <h3>{t("involved.title")}</h3>
+              <p className="muted">{t("involved.body")}</p>
               <a className="link-row" href="https://nabilvs.com/projects/discrimination-map#get-involved" target="_blank" rel="noreferrer">
-                Freiwillig helfen, übersetzen, mitprogrammieren →
+                {t("involved.help")}
               </a>
-              <a className="link-row" href="/guide">Neu? Zum Schritt-für-Schritt-Leitfaden →</a>
-              <a className="link-row" href="/admin">Reviewer oder Admin? Zu /admin →</a>
-              <a className="link-row" href="/privacy">Datenschutz</a>
-              <a className="link-row" href="/terms">Nutzungsbedingungen</a>
-              {me && <a className="link-row" href="/admin">Angemeldet als {me.email} · {me.role}</a>}
+              <a className="link-row" href="/guide">{t("involved.guide")}</a>
+              <a className="link-row" href="/admin">{t("involved.admin")}</a>
+              <a className="link-row" href="/privacy">{t("involved.privacy")}</a>
+              <a className="link-row" href="/terms">{t("involved.terms")}</a>
+              {me && <a className="link-row" href="/admin">{t("involved.signedIn", { email: me.email, role: me.role })}</a>}
             </>
           )}
         </div>
@@ -335,49 +334,50 @@ function Detail({
   onBack: () => void
   onLocate: (r: Report) => void
 }) {
+  const { t, i18n } = useTranslation()
   const col = categories[r.category]?.color ?? "#8a97ac"
   return (
     <div className="detail">
-      <button className="back" onClick={onBack}>← Alle Vorfälle</button>
+      <button className="back" onClick={onBack}>{t("detail.back")}</button>
       <div className="d-meta">
-        AKTE #{String(r.id).padStart(4, "0")} · {new Date(r.created_at * 1000).toLocaleString("de-DE")} · {r.place ?? "—"}
+        #{String(r.id).padStart(4, "0")} · {new Date(r.created_at * 1000).toLocaleString(i18n.language)} · {r.place ?? "—"}
       </div>
       <h3>{r.title}</h3>
       <div className="d-tags">
         <span className="tag" style={{ background: `${col}22`, color: col }}>{categories[r.category]?.label ?? r.category}</span>
         <span className="tag">{r.status}</span>
-        <span className="tag">{r.fuzzed ? "~ungefähr" : "exakt"}</span>
+        <span className="tag">{r.fuzzed ? t("detail.approx") : t("detail.exact")}</span>
       </div>
       {r.body && <p>{r.body}</p>}
       {r.reason && (
         <>
-          <div className="d-h">Erkennungsgrund</div>
+          <div className="d-h">{t("detail.reason")}</div>
           <p className="muted">{r.reason}</p>
         </>
       )}
       {r.impact && (
         <>
-          <div className="d-h">Auswirkung</div>
+          <div className="d-h">{t("detail.impact")}</div>
           <p className="muted">{r.impact}</p>
         </>
       )}
       {r.evidence && (
         <>
-          <div className="d-h">Beleg</div>
+          <div className="d-h">{t("detail.evidence")}</div>
           <p className="muted sm">{r.evidence}</p>
         </>
       )}
       {r.law && (
         <>
-          <div className="d-h">Recht</div>
+          <div className="d-h">{t("detail.law")}</div>
           <p className="muted">{r.law}</p>
         </>
       )}
       <div className="d-actions">
-        {r.lat != null && <button className="btn" onClick={() => onLocate(r)}>Auf der Karte zeigen</button>}
+        {r.lat != null && <button className="btn" onClick={() => onLocate(r)}>{t("detail.showOnMap")}</button>}
         {r.url && (
           <a className="btn primary" href={r.url} target="_blank" rel="noreferrer">
-            Quelle öffnen ↗
+            {t("detail.openSource")}
           </a>
         )}
       </div>
