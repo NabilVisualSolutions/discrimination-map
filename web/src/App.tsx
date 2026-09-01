@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api, type Report } from "./lib/api"
 import { LOCALES, applyLocale, type Locale } from "./i18n"
-import { SimpleMap } from "./features/map/SimpleMap"
+import { MapView } from "./features/map/MapView"
 import { AWARENESS } from "./lib/awareness"
 import { ReportModal } from "./features/report/ReportModal"
 
@@ -146,7 +146,7 @@ export function App(){
 
       <div className="layout" style={{top:56}}>
         <div className="map-pane" style={{display: mobileTab==="ledger" ? "none" : undefined } as any}>
-          <SimpleMap reports={reports} categories={categories} onSelect={setSelected} hiddenCats={hiddenCats} focus={focus} />
+          <MapView reports={reports} categories={categories} onSelect={setSelected} hiddenCats={hiddenCats} focus={focus} />
           <div style={{position:"absolute", top:0, insetInline:0, zIndex:6, background:"rgba(255,254,248,.94)", borderBottom:"1px solid var(--line)", display:"flex", alignItems:"center", gap:10, padding:"8px 12px", font:"10px var(--mono)", letterSpacing:".08em", textTransform:"uppercase", color:"var(--faint)", backdropFilter:"blur(6px)"}}>
             <span style={{color:"var(--ink)", fontWeight:800, display:"inline-flex", gap:6, alignItems:"center"}}>
               <span style={{width:8,height:8, borderRadius:"50%", background:"var(--vermillion)", display:"inline-block"}}/> WELT • WORLD

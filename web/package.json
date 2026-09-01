@@ -17,13 +17,11 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-i18next": "^15.4.0",
-    "react-simple-maps": "^3.0.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/react-simple-maps": "^3.0.6",
     "@vitejs/plugin-react": "^4.3.4",
     "openapi-typescript": "^7.5.0",
     "typescript": "^5.7.2",

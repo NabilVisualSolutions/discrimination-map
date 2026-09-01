@@ -1,89 +1,69 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import type { Report, CategoryMeta } from "../../lib/api"
 
-// P1 scaffold: MapLibre with a free vector style, reports as a clustered
-// GeoJSON source coloured per category, solidarity_event as a separate
-// star layer. Popups + detail sheet come next.
+// Real tile map (MapLibre GL). Replaces react-simple-maps, which does not
+// render under React 19 — that was why the map showed nothing. Reports are
+// a clustered GeoJSON source coloured per category; solidarity_event is a
+// separate star-ish layer. Fully responsive; resizes on container change
+// and when the mobile tab toggles it back into view.
+
 const STYLE = "https://tiles.openfreemap.org/styles/positron"
-const GERMANY_CENTER: [number, number] = [10.45, 51.16]
+const WORLD_CENTER: [number, number] = [12, 30]
+
+function ageOpacity(created_at: number) {
+  const days = (Date.now() / 1000 - created_at) / 86400
+  if (days < 2) return 1
+  if (days > 3650) return 0.4
+  if (days > 720) return 0.58
+  if (days > 180) return 0.78
+  return 0.92
+}
 
 export function MapView({
   reports,
   categories,
   onSelect,
+  hiddenCats,
+  focus,
 }: {
   reports: Report[]
   categories: Record<string, CategoryMeta>
   onSelect: (r: Report) => void
+  hiddenCats: Set<string>
+  focus?: { lon: number; lat: number; zoom: number } | null
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
+  const ready = useRef(false)
 
+  const visible = useMemo(
+    () => reports.filter((r) => r.lat != null && r.lon != null && !hiddenCats.has(r.category)),
+    [reports, hiddenCats]
+  )
+
+  // init once
   useEffect(() => {
     if (!ref.current || map.current) return
-    map.current = new maplibregl.Map({
+    const m = new maplibregl.Map({
       container: ref.current,
       style: STYLE,
-      center: GERMANY_CENTER,
-      zoom: 5.2,
+      center: WORLD_CENTER,
+      zoom: 3.4,
       attributionControl: { compact: true },
     })
-    map.current.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right")
-    map.current.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "top-right")
-    return () => {
-      map.current?.remove()
-      map.current = null
-    }
-  }, [])
+    map.current = m
+    m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right")
+    m.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "top-right")
 
-  useEffect(() => {
-    const m = map.current
-    if (!m) return
-    const draw = () => {
-      const visibleReports = reports.filter((r) => r.lat != null && r.lon != null)
-      const fc: GeoJSON.FeatureCollection = {
-        type: "FeatureCollection",
-        features: visibleReports.map((r) => ({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [r.lon as number, r.lat as number] },
-          properties: {
-            id: r.id,
-            color: categories[r.category]?.color ?? "#8891A8",
-            star: r.category === "solidarity_event" ? 1 : 0,
-          },
-        })),
-      }
-      const src = m.getSource("reports") as maplibregl.GeoJSONSource | undefined
-      if (src) {
-        src.setData(fc)
-        return
-      }
-      m.addSource("reports", { type: "geojson", data: fc, cluster: true, clusterRadius: 44 })
-      m.addSource("Germany", {
+    m.on("load", () => {
+      m.addSource("reports", {
         type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: [
-            {
-              type: "Feature",
-              geometry: {
-                type: "Polygon",
-                coordinates: [
-                  [
-                    [6.4, 47.2],
-                    [13.6, 47.2],
-                    [13.6, 55.6],
-                    [6.4, 55.6],
-                    [6.4, 47.2],
-                  ],
-                ],
-              },
-              properties: { name: "Germany" },
-            },
-          ],
-        },
+        data: { type: "FeatureCollection", features: [] },
+        cluster: true,
+        clusterRadius: 46,
+        clusterMaxZoom: 12,
       })
       m.addLayer({
         id: "clusters",
@@ -92,8 +72,10 @@ export function MapView({
         filter: ["has", "point_count"],
         paint: {
           "circle-color": "#0088cc",
-          "circle-opacity": 0.25,
-          "circle-radius": ["step", ["get", "point_count"], 16, 25, 22, 100, 30],
+          "circle-opacity": 0.22,
+          "circle-stroke-color": "#0088cc",
+          "circle-stroke-width": 1,
+          "circle-radius": ["step", ["get", "point_count"], 15, 25, 20, 100, 26, 500, 34],
         },
       })
       m.addLayer({
@@ -108,14 +90,15 @@ export function MapView({
         id: "point",
         type: "circle",
         source: "reports",
-        filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "star"], 0]],
-          paint: {
-            "circle-color": ["get", "color"],
-            "circle-radius": 6,
-            "circle-stroke-width": 1.5,
-            "circle-stroke-color": "#fff",
-          },
-        })
+        filter: ["all", ["!", ["has", "point_count"]], ["!=", ["get", "star"], 1]],
+        paint: {
+          "circle-color": ["get", "color"],
+          "circle-opacity": ["get", "op"],
+          "circle-radius": 6,
+          "circle-stroke-width": 1.4,
+          "circle-stroke-color": "#fff",
+        },
+      })
       m.addLayer({
         id: "solidarity",
         type: "circle",
@@ -123,29 +106,79 @@ export function MapView({
         filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "star"], 1]],
         paint: {
           "circle-color": "#FFD23F",
-          "circle-radius": 7,
+          "circle-radius": 7.5,
           "circle-stroke-width": 2,
           "circle-stroke-color": "#b8720b",
         },
       })
-      m.on("click", "point", (e) => {
-        const id = e.features?.[0]?.properties?.id as number | undefined
-        const r = reports.find((x) => x.id === id)
-        if (r) onSelect(r)
+
+      m.on("click", "clusters", (e) => {
+        const f = m.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0]
+        const cid = f?.properties?.cluster_id
+        const src = m.getSource("reports") as maplibregl.GeoJSONSource
+        if (cid != null) {
+          src.getClusterExpansionZoom(cid).then((z) => {
+            m.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: z })
+          })
+        }
       })
-      m.on("click", "solidarity", (e) => {
-        const id = e.features?.[0]?.properties?.id as number | undefined
-        const r = reports.find((x) => x.id === id)
-        if (r) onSelect(r)
-      })
-      for (const layer of ["point", "solidarity", "clusters"]) {
+      for (const layer of ["point", "solidarity"]) {
+        m.on("click", layer, (e) => {
+          const id = e.features?.[0]?.properties?.id as number | undefined
+          const r = reports.find((x) => x.id === id)
+          if (r) onSelect(r)
+        })
         m.on("mouseenter", layer, () => (m.getCanvas().style.cursor = "pointer"))
         m.on("mouseleave", layer, () => (m.getCanvas().style.cursor = ""))
       }
+      ready.current = true
+      pushData()
+    })
+
+    // keep the canvas sized to its container (mobile tab toggle, rotation…)
+    const ro = new ResizeObserver(() => m.resize())
+    ro.observe(ref.current)
+    const onVis = () => !document.hidden && m.resize()
+    document.addEventListener("visibilitychange", onVis)
+
+    return () => {
+      ro.disconnect()
+      document.removeEventListener("visibilitychange", onVis)
+      m.remove()
+      map.current = null
+      ready.current = false
     }
-    if (m.isStyleLoaded()) draw()
-    else m.once("load", draw)
-  }, [reports, categories, onSelect])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pushData = () => {
+    const m = map.current
+    if (!m || !ready.current) return
+    const src = m.getSource("reports") as maplibregl.GeoJSONSource | undefined
+    if (!src) return
+    src.setData({
+      type: "FeatureCollection",
+      features: visible.map((r) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [r.lon as number, r.lat as number] },
+        properties: {
+          id: r.id,
+          color: categories[r.category]?.color ?? "#8891A8",
+          star: r.category === "solidarity_event" ? 1 : 0,
+          op: ageOpacity(r.created_at),
+        },
+      })),
+    })
+  }
+
+  useEffect(pushData, [visible, categories])
+
+  useEffect(() => {
+    const m = map.current
+    if (!m || !focus) return
+    m.flyTo({ center: [focus.lon, focus.lat], zoom: focus.zoom || 4, speed: 1.2 })
+  }, [focus])
 
   return <div ref={ref} style={{ position: "absolute", inset: 0 }} />
 }
