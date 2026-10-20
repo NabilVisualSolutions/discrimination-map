@@ -100,7 +100,7 @@ def test_every_sensitive_spelling_is_blurred(category):
 
 
 def test_non_sensitive_verified_report_keeps_its_exact_location():
-    rid = verified_report("banned_symbols")
+    rid = verified_report("banned_symbol")
     assert coords_for(new_client(), rid) == (52.52, 13.405)
 
 
@@ -119,7 +119,7 @@ def test_report_with_known_categories_is_accepted():
 
 def test_user_reports_get_a_random_external_id():
     import re
-    body = {"title": "Graffiti", "reason": "Swastika", "category": "banned_symbols", "lat": 52.5, "lon": 13.4}
+    body = {"title": "Graffiti", "reason": "Swastika", "category": "banned_symbol", "lat": 52.5, "lon": 13.4}
     rid = new_client().post("/api/reports", json=body, headers=visitor()).json()["id"]
     ext = db.get_report(rid)["external_id"]
     assert not re.fullmatch(r"user_\d+", ext or "")
@@ -129,7 +129,7 @@ def test_user_reports_get_a_random_external_id():
 # ---- AUDIT-05: reviewers must not learn who the other volunteers are --------
 
 def test_verifier_cannot_read_moderator_emails_in_history():
-    rid = verified_report("banned_symbols")
+    rid = verified_report("banned_symbol")
     db.set_status(rid, "dismissed", edited_by="boss@example.org")
     verifier, admin = logged_in("VERIFIER", "a5"), logged_in("ADMIN", "a5")
     seen = str(verifier.get(f"/api/admin/reports/{rid}/history").json())
@@ -232,7 +232,7 @@ def test_public_feed_limit_is_capped():
 # ---- AUDIT-10: the edit token belongs in a header, not a logged URL --------
 
 def _filed():
-    body = {"title": "Graffiti", "reason": "Swastika", "category": "banned_symbols", "lat": 52.5, "lon": 13.4}
+    body = {"title": "Graffiti", "reason": "Swastika", "category": "banned_symbol", "lat": 52.5, "lon": 13.4}
     r = new_client().post("/api/reports", json=body, headers=visitor()).json()
     return r["id"], r["edit_token"]
 
@@ -268,7 +268,7 @@ def test_guessing_the_service_token_is_throttled():
 
 
 def test_oversized_request_bodies_are_refused():
-    big = {"title": "Graffiti", "reason": "Swastika", "category": "banned_symbols", "lat": 52.5, "lon": 13.4,
+    big = {"title": "Graffiti", "reason": "Swastika", "category": "banned_symbol", "lat": 52.5, "lon": 13.4,
            "junk": "x" * 20_000}
     assert new_client().post("/api/reports", json=big, headers=visitor()).status_code == 413
 

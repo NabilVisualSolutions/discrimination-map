@@ -66,7 +66,7 @@ def test_fuzz_depends_on_the_secret(monkeypatch):
 
 def _report(**kw):
     base = dict(source="user", external_id="user_1700000000123", title="Title", body="b",
-                category="banned_symbols", reason="r", evidence="", law=None, impact="",
+                category="banned_symbol", reason="r", evidence="", law=None, impact="",
                 lat=52.5, lon=13.4, place="x", status="verified", created_at=1_700_000_123)
     base.update(kw)
     rid = db.insert_report(**base)
@@ -103,14 +103,14 @@ def test_scraped_report_timestamps_are_untouched():
 def test_non_http_urls_are_rejected():
     for bad in ("javascript:alert(1)", "data:text/html,x", "ftp://example.org/x", "//example.org/x"):
         assert db.insert_report(source="mastodon", external_id=f"bad-{bad}", title="t", url=bad,
-                                category="banned_symbols", lat=52.5, lon=13.4) is None
+                                category="banned_symbol", lat=52.5, lon=13.4) is None
 
 
 def test_http_and_https_urls_are_accepted():
     assert db.insert_report(source="mastodon", external_id="ok-https", title="t", url="https://example.org/ok1",
-                            category="banned_symbols", lat=52.5, lon=13.4) is not None
+                            category="banned_symbol", lat=52.5, lon=13.4) is not None
     assert db.insert_report(source="mastodon", external_id="ok-http", title="t", url="http://example.org/ok2",
-                            category="banned_symbols", lat=52.5, lon=13.4) is not None
+                            category="banned_symbol", lat=52.5, lon=13.4) is not None
 
 
 # ---- AUDIT-15: scraped text must not publish a street address ---------------

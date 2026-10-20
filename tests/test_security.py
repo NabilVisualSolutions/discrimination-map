@@ -24,7 +24,7 @@ app_module.SERVICE_TOKEN = "test-service-token"
 client = TestClient(app_module.app)
 
 CF_EDGE = "162.158.1.10"  # inside Cloudflare's 162.158.0.0/15
-REPORT = {"title": "Graffiti", "reason": "Swastika on a wall", "category": "banned_symbols", "lat": 52.5, "lon": 13.4}
+REPORT = {"title": "Graffiti", "reason": "Swastika on a wall", "category": "banned_symbol", "lat": 52.5, "lon": 13.4}
 
 
 @pytest.fixture(autouse=True)
@@ -158,7 +158,7 @@ def _review(moderator, rid):
 
 def _new_report_id():
     rid = db.insert_report(source="user", external_id=f"t_{os.urandom(4).hex()}", title="t", body="b",
-                           category="banned_symbols", reason="r", evidence="", law=None, impact="",
+                           category="banned_symbol", reason="r", evidence="", law=None, impact="",
                            lat=52.5, lon=13.4, place="x")
     assert rid is not None
     return rid
