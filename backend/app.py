@@ -25,6 +25,7 @@ import agent
 import auth
 import db
 import lawref
+import security
 import selfcheck
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -46,7 +47,10 @@ async def lifespan(app: FastAPI):
     """Init DB, bootstrap the first admin, start the heartbeat + self-check loops."""
     db.init_db()
     auth.bootstrap_admin()
-    _tasks.append(asyncio.create_task(agent.heartbeat_loop()))
+    # DXMAP_AGENT=off: no scraping (local review against a copied database,
+    # or while production is under attack and the feeds are being gamed).
+    if os.environ.get("DXMAP_AGENT", "on").lower() != "off":
+        _tasks.append(asyncio.create_task(agent.heartbeat_loop()))
     _tasks.append(asyncio.create_task(selfcheck.selfcheck_loop()))
     try:
         yield
@@ -65,47 +69,35 @@ app.add_middleware(
 )
 
 
-# Best-effort per-IP rate limiting on the public write endpoints (login,
-# report/apply/symbol-proposal submission) — in-memory, single-process,
-# not a substitute for WAF-level protection but cheap defense against
-# scripted spam/brute-force against a single-container deploy. Reads the
-# client IP from X-Forwarded-For (set by the Caddy reverse proxy in front
-# of this app) so it doesn't collapse every visitor onto the proxy's IP.
-_rate_buckets: dict[str, collections.deque] = collections.defaultdict(collections.deque)
-RATE_LIMITS = {
-    "/api/auth/login": (30, 60),
-    "/api/reports": (30, 60),
-    "/api/apply": (10, 60),
-    "/api/propose-symbol": (10, 60),
+# Per-IP rate limits on the public write endpoints, minute and hour windows
+# (backend/security.py). The hour caps are what stop a slow, scripted flood
+# of fake reports or sign-ups; the old 30-a-minute limit alone allowed
+# 43,000 reports a day from one address. Keyed on the real visitor IP
+# behind Cloudflare (security.client_ip), not the spoofable first
+# X-Forwarded-For entry the old code read.
+RATE_LIMITS: dict[str, list[tuple[int, float]]] = {
+    "/api/auth/login": [(10, 60), (60, 3600)],
+    "/api/auth/signup": [(3, 60), (5, 3600)],
+    "/api/reports": [(5, 60), (20, 3600), (60, 86400)],
+    "/api/apply": [(3, 60), (10, 3600)],
+    "/api/propose-symbol": [(3, 60), (10, 3600)],
 }
-
-
-def _client_ip(request) -> str:
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
 
 
 @app.middleware("http")
 async def rate_limit(request, call_next):
-    limits = RATE_LIMITS.get(request.url.path)
-    if request.method == "POST" and limits:
-        limit, window = limits
-        key = f"{_client_ip(request)}:{request.url.path}"
-        now = time.time()
-        bucket = _rate_buckets[key]
-        while bucket and now - bucket[0] > window:
-            bucket.popleft()
-        if len(bucket) >= limit:
-            return JSONResponse({"detail": "Too many requests, try again shortly"}, status_code=429)
-        bucket.append(now)
+    rules = RATE_LIMITS.get(request.url.path)
+    if request.method == "POST" and rules:
+        try:
+            security.enforce(request, request.url.path, rules)
+        except HTTPException as e:
+            return JSONResponse({"detail": e.detail}, status_code=e.status_code)
     return await call_next(request)
 
 
 @app.middleware("http")
 async def security_headers(request, call_next):
-    """Set baseline security headers on every response."""
+    """Baseline security headers on every response (values: backend/security.py)."""
     resp = await call_next(request)
     resp.headers["X-Content-Type-Options"] = "nosniff"
     # Framing is controlled by CSP frame-ancestors ONLY. We deliberately do
@@ -113,18 +105,18 @@ async def security_headers(request, call_next):
     # SAMEORIGIN), so `XFO: DENY` next to a permissive frame-ancestors does
     # NOT "fall through" to the CSP on modern browsers — XFO wins and blocks
     # every embed, including the trusted nabilvs.com case-study page (this
-    # was a real bug: the embedded map rendered blank). frame-ancestors is
-    # honoured by every browser since ~2017; the rare one without it can
-    # frame the map, an acceptable trade for the embed actually working.
-    resp.headers["Content-Security-Policy"] = (
-        "frame-ancestors 'self' https://nabilvs.com https://www.nabilvs.com"
-    )
+    # was a real bug: the embedded map rendered blank).
+    resp.headers["Content-Security-Policy"] = security.content_security_policy()
+    resp.headers["Content-Security-Policy-Report-Only"] = security.content_security_policy_report_only()
     resp.headers["Referrer-Policy"] = "no-referrer"
+    if ENV == "prod":
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000"
     # "self" plus nabilvs.com — the case-study page embeds this map in an
     # iframe, and the locate-me button needs geolocation delegated to it
     # there too, not just when this origin is loaded top-level.
     resp.headers["Permissions-Policy"] = (
-        'geolocation=(self "https://nabilvs.com" "https://www.nabilvs.com")'
+        'geolocation=(self "https://nabilvs.com" "https://www.nabilvs.com"), '
+        "camera=(), microphone=(), payment=(), usb=()"
     )
     return resp
 
@@ -133,7 +125,18 @@ async def security_headers(request, call_next):
 # Models                                                                        #
 # --------------------------------------------------------------------------- #
 
-class UserReport(BaseModel):
+class BotFields(BaseModel):
+    """Hidden honeypot + optional Turnstile token, on every public form."""
+    website: str = Field(default="", max_length=500)
+    turnstile_token: str = Field(default="", max_length=4096)
+
+
+def _bot_check(body: BotFields, request: Request) -> None:
+    security.honeypot(body.website)
+    security.verify_turnstile(body.turnstile_token, request)
+
+
+class UserReport(BotFields):
     """
     A report filed by a person via the button. The documentation fields make
     each mark accountable: what happened, the evidence, the possibly-applicable
@@ -229,7 +232,7 @@ def get_reports(
 
 
 @app.post("/api/reports", status_code=201)
-def post_report(report: UserReport):
+def post_report(report: UserReport, request: Request):
     """
     Store a user-filed report. Always located (client supplies coords).
     No `url` is ever set for a user submission (the free-text `evidence`
@@ -238,6 +241,7 @@ def post_report(report: UserReport):
     VERIFIER reviews it. Automated agent-scraped reports (which always cite
     a real source url) still publish immediately as 'unverified' leads.
     """
+    _bot_check(report, request)
     new_id = db.insert_report(
         source="user",
         external_id=f"user_{int(time.time()*1000)}",
@@ -405,7 +409,16 @@ def require_service(x_service_token: str = Header(default="")) -> None:
 
 class ServiceReview(BaseModel):
     status: Literal["verified", "dismissed", "irrelevant", "unverified"]
+    # nabilvs.com's HMAC pseudonym for the volunteer ("vol_" + 32 hex).
+    # An email is refused, so report_history never holds who volunteers are.
     moderator: str = Field(min_length=1, max_length=200)
+
+    @field_validator("moderator")
+    @classmethod
+    def _pseudonymous(cls, v: str) -> str:
+        if not security.valid_moderator(v):
+            raise ValueError("moderator must be a pseudonymous id (vol_<32 hex>)")
+        return v
     # Optional reclassification: one or more category slugs, comma-separated.
     category: str | None = Field(default=None, max_length=120)
 
@@ -422,10 +435,16 @@ def service_review_queue(
 @app.post("/api/service/review/{report_id}")
 def service_review(report_id: int, body: ServiceReview, _: None = Depends(require_service)):
     """
-    Apply a volunteer's verdict. `moderator` is the reviewer's identity on
-    the calling system (their nabilvs.com email) — recorded in
-    report_history so the audit trail names a real person.
+    Apply a volunteer's verdict. `moderator` is the reviewer's stable
+    pseudonym from nabilvs.com — recorded in report_history so one
+    reviewer's verdicts can be audited and reverted together, without the
+    history naming a person. Capped per reviewer against brigading by a
+    hijacked account (nabilvs.com caps it too).
     """
+    if security.limiter.hit(f"service-review:{body.moderator}", 30, 60) or security.limiter.hit(
+        f"service-review-hour:{body.moderator}", 300, 3600
+    ):
+        raise HTTPException(status_code=429, detail="Too many reviews from this reviewer, slow down")
     if not db.set_status(report_id, body.status, edited_by=f"pantheon:{body.moderator}"):
         raise HTTPException(status_code=404, detail="Report not found")
     if body.category:
@@ -451,23 +470,14 @@ class LoginBody(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
-# Tiny in-memory sliding-window guard. Valid because this runs as one
-# long-lived process (not serverless). Keyed by client IP.
-_RL: dict[str, list[float]] = collections.defaultdict(list)
-
-
 def _rate_limit(key: str, limit: int, window: float = 3600.0) -> None:
-    now = time.time()
-    hits = [t for t in _RL[key] if now - t < window]
-    if len(hits) >= limit:
+    """Extra per-route limits on top of the middleware (security.limiter)."""
+    if security.limiter.hit(key, limit, window):
         raise HTTPException(status_code=429, detail="Too many attempts — try again later")
-    hits.append(now)
-    _RL[key] = hits
 
 
 def _client_ip(request) -> str:
-    fwd = request.headers.get("x-forwarded-for", "")
-    return (fwd.split(",")[0].strip() if fwd else "") or (request.client.host if request.client else "unknown")
+    return security.client_ip(request)
 
 
 @app.post("/api/auth/login")
@@ -481,7 +491,7 @@ def login(body: LoginBody, response: Response, request: Request):
     return {"email": user["email"], "role": user["role"]}
 
 
-class SignupBody(BaseModel):
+class SignupBody(BotFields):
     name: str = Field(min_length=1, max_length=200)
     email: EmailStr
     password: str = Field(min_length=8, max_length=200)
@@ -506,6 +516,7 @@ def signup(body: SignupBody, response: Response, request: Request):
     volunteer sees the review queue on their volunteering page.
     """
     _rate_limit(f"signup:{_client_ip(request)}", limit=5, window=3600)
+    _bot_check(body, request)
     uid = db.create_user(body.email, body.password, "NONE", accepted_terms=body.accept)
     if uid is None:
         raise HTTPException(status_code=409, detail="That email already has an account")
@@ -593,7 +604,7 @@ def admin_delete_user(user_id: int, current: dict = Depends(auth.require_role("A
 # Applications — the public "Get involved" tab                                 #
 # --------------------------------------------------------------------------- #
 
-class ApplicationBody(BaseModel):
+class ApplicationBody(BotFields):
     name: str = Field(min_length=1, max_length=200)
     email: EmailStr
     interest: Literal["volunteer", "translator", "coder", "organization", "other"]
@@ -601,15 +612,16 @@ class ApplicationBody(BaseModel):
 
 
 @app.post("/api/apply", status_code=201)
-def apply(body: ApplicationBody):
+def apply(body: ApplicationBody, request: Request):
     """Public — volunteer/translator/coder/organization applications, reviewed from /admin."""
+    _bot_check(body, request)
     new_id = db.create_application(
         name=body.name, email=body.email, interest=body.interest, message=body.message,
     )
     return {"id": new_id, "status": "received"}
 
 
-class SymbolProposalBody(BaseModel):
+class SymbolProposalBody(BotFields):
     """
     Someone spotted a possible symbol/code/gesture that isn't in the
     awareness guide yet. Deliberately not tied to the strict `EmailStr`
@@ -631,12 +643,13 @@ class SymbolProposalBody(BaseModel):
 
 
 @app.post("/api/propose-symbol", status_code=201)
-def propose_symbol(body: SymbolProposalBody):
+def propose_symbol(body: SymbolProposalBody, request: Request):
     """
     Public — reuses the applications table (interest='other', message
     tagged) so a proposed symbol lands in the same /admin review queue as
     volunteer applications, without needing a new table or migration.
     """
+    _bot_check(body, request)
     message = f"[SYMBOL PROPOSAL] {body.description}"
     if body.context:
         message += f"\nContext: {body.context}"

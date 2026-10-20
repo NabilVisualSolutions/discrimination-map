@@ -20,8 +20,18 @@ import app as app_module  # noqa: E402
 import db  # noqa: E402
 import geolocate  # noqa: E402
 import lawref  # noqa: E402
+import security  # noqa: E402
+import pytest  # noqa: E402
 
 db.init_db()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    # The public write limits (backend/security.py) are per minute; tests
+    # file many reports back to back from one TestClient address.
+    security.limiter.reset()
+    yield
 client = TestClient(app_module.app)
 
 

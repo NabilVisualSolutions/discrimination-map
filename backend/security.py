@@ -1,0 +1,252 @@
+"""
+Abuse protection for the public write endpoints and the service API.
+
+The map documents far-right incidents, so it is a target for organised
+trolling: fake reports, mass sign-ups, brigading of the review queue and
+scraping. This module holds the pieces every public route shares:
+
+- client_ip():     the real visitor IP behind Cloudflare + Caddy
+- RateLimiter:     in-memory sliding windows (valid: one long-lived process)
+- honeypot():      a hidden form field people never fill
+- verify_turnstile(): Cloudflare Turnstile, ONLY when DXMAP_TURNSTILE_SECRET
+                   is set (otherwise skipped, so local dev and tests work)
+- valid_moderator(): the pseudonymous reviewer ids nabilvs.com sends
+
+Nothing here logs or stores IPs beyond the in-memory windows.
+"""
+from __future__ import annotations
+
+import collections
+import ipaddress
+import json
+import os
+import re
+import time
+import urllib.parse
+import urllib.request
+
+from fastapi import HTTPException, Request
+
+
+# --------------------------------------------------------------------------- #
+# Client IP                                                                     #
+# --------------------------------------------------------------------------- #
+
+def _valid_ip(value: str) -> str | None:
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError:
+        return None
+
+
+# Cloudflare's published edge ranges (https://www.cloudflare.com/ips/),
+# checked 2026-10-20. Only a request whose proxy hop is one of these may
+# tell us the visitor's IP through CF-Connecting-IP; anyone connecting to
+# the origin directly could otherwise pick any IP they like.
+CLOUDFLARE_RANGES = [ipaddress.ip_network(n) for n in (
+    "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+    "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
+    "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+    "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+    "2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32",
+    "2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32",
+)]
+
+
+def from_cloudflare(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(addr in net for net in CLOUDFLARE_RANGES)
+
+
+def client_ip(request: Request) -> str:
+    """
+    The visitor's IP. Path in production: visitor -> Cloudflare -> Caddy ->
+    this app. Caddy has no trusted_proxies, so it REPLACES X-Forwarded-For
+    with its peer: a Cloudflare edge address, shared by many visitors.
+    Cloudflare puts the real visitor in CF-Connecting-IP.
+
+    So: the proxy hop is the last X-Forwarded-For entry (or the socket peer).
+    If that hop is Cloudflare, use CF-Connecting-IP; otherwise the hop itself.
+    The old code read the FIRST X-Forwarded-For entry, which a client
+    controls, so a script could pick a fresh rate-limit bucket per request.
+    """
+    xff = request.headers.get("x-forwarded-for", "")
+    hop = _valid_ip(xff.split(",")[-1]) if xff else None
+    if hop is None:
+        hop = request.client.host if request.client else "unknown"
+    if from_cloudflare(hop):
+        cf = _valid_ip(request.headers.get("cf-connecting-ip", ""))
+        if cf:
+            return cf
+    return hop
+
+
+# --------------------------------------------------------------------------- #
+# Rate limiting                                                                 #
+# --------------------------------------------------------------------------- #
+
+class RateLimiter:
+    """Sliding-window counters keyed by an arbitrary string. Bounded in size."""
+
+    MAX_KEYS = 50_000
+
+    def __init__(self) -> None:
+        self._hits: dict[str, collections.deque] = {}
+
+    def hit(self, key: str, limit: int, window: float, now: float | None = None) -> bool:
+        """Count one hit. Returns True when the caller is over the limit (reject)."""
+        now = time.time() if now is None else now
+        if len(self._hits) > self.MAX_KEYS:
+            self._sweep(now)
+        q = self._hits.setdefault(key, collections.deque())
+        while q and now - q[0] >= window:
+            q.popleft()
+        if len(q) >= limit:
+            return True
+        q.append(now)
+        return False
+
+    def _sweep(self, now: float) -> None:
+        # Drop keys whose newest hit is over a day old, then the oldest keys.
+        for k in [k for k, q in self._hits.items() if not q or now - q[-1] > 86400]:
+            del self._hits[k]
+        while len(self._hits) > self.MAX_KEYS:
+            del self._hits[next(iter(self._hits))]
+
+    def reset(self) -> None:
+        self._hits.clear()
+
+
+limiter = RateLimiter()
+
+TOO_MANY = "Too many requests, try again later"
+
+
+def enforce(request: Request, scope: str, rules: list[tuple[int, float]], key: str | None = None) -> None:
+    """
+    Apply every (limit, window_seconds) rule to `scope`, keyed by client IP
+    (or `key`). Raises 429 on the first one exceeded.
+    """
+    who = key if key is not None else client_ip(request)
+    for limit, window in rules:
+        if limiter.hit(f"{scope}:{int(window)}:{who}", limit, window):
+            raise HTTPException(status_code=429, detail=TOO_MANY)
+
+
+# --------------------------------------------------------------------------- #
+# Honeypot + Turnstile                                                          #
+# --------------------------------------------------------------------------- #
+
+HONEYPOT_FIELD = "website"
+BOT_CHECK_FAILED = "Verification failed. Reload the page and try again."
+
+
+def honeypot(value: str | None) -> None:
+    """Reject when the hidden field has a value. People never see it."""
+    if value and value.strip():
+        raise HTTPException(status_code=400, detail=BOT_CHECK_FAILED)
+
+
+TURNSTILE_ACTION = "dxmap-submit"
+
+
+def _turnstile_secret() -> str:
+    return os.environ.get("DXMAP_TURNSTILE_SECRET", "").strip()
+
+
+def turnstile_enabled() -> bool:
+    return bool(_turnstile_secret())
+
+
+def _allowed_hostname(hostname: str) -> bool:
+    h = (hostname or "").lower()
+    extra = {x.strip().lower() for x in os.environ.get("DXMAP_TURNSTILE_HOSTNAMES", "").split(",") if x.strip()}
+    return h == "nabilvs.com" or h.endswith(".nabilvs.com") or h in extra
+
+
+def _siteverify(secret: str, token: str, ip: str) -> dict:
+    data = urllib.parse.urlencode({"secret": secret, "response": token, "remoteip": ip}).encode()
+    req = urllib.request.Request(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify", data=data, method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=8) as resp:  # noqa: S310 — fixed https URL
+        return json.loads(resp.read().decode())
+
+
+# Cloudflare's published test secrets (always pass / always fail / spent).
+_TEST_SECRET = re.compile(r"^[123]x0{30,}AA$")
+
+
+def verify_turnstile(token: str | None, request: Request) -> None:
+    """
+    Raise 403 unless the token is a valid Turnstile token for this site.
+    No-op while DXMAP_TURNSTILE_SECRET is unset (local dev, tests, and
+    production until the widget's hostname list includes map.nabilvs.com).
+    """
+    secret = _turnstile_secret()
+    if not secret:
+        return
+    if not token or len(token) > 4096:
+        raise HTTPException(status_code=403, detail=BOT_CHECK_FAILED)
+    try:
+        result = _siteverify(secret, token, client_ip(request))
+    except Exception:  # Cloudflare unreachable: fail closed
+        raise HTTPException(status_code=403, detail=BOT_CHECK_FAILED)
+    if result.get("success") is not True:
+        raise HTTPException(status_code=403, detail=BOT_CHECK_FAILED)
+    if _TEST_SECRET.match(secret):
+        return
+    if result.get("action") != TURNSTILE_ACTION or not _allowed_hostname(result.get("hostname", "")):
+        raise HTTPException(status_code=403, detail=BOT_CHECK_FAILED)
+
+
+# --------------------------------------------------------------------------- #
+# Service-API moderator ids                                                     #
+# --------------------------------------------------------------------------- #
+
+# nabilvs.com sends an HMAC pseudonym per volunteer (its
+# src/lib/volunteer/pseudonym.ts): "vol_" + 32 hex chars. Never an email,
+# so report_history holds no list of who the volunteers are.
+PSEUDONYM = re.compile(r"^vol_[0-9a-f]{32}$")
+
+
+def valid_moderator(moderator: str) -> bool:
+    return bool(PSEUDONYM.match(moderator))
+
+
+# --------------------------------------------------------------------------- #
+# Security headers                                                              #
+# --------------------------------------------------------------------------- #
+
+def frame_ancestors() -> str:
+    """nabilvs.com embeds the map. DXMAP_FRAME_ANCESTORS_EXTRA adds origins
+    (local preview: http://localhost:3100) and is only honoured outside prod."""
+    base = ["'self'", "https://nabilvs.com", "https://www.nabilvs.com"]
+    if os.environ.get("DXMAP_ENV", "dev") != "prod":
+        base += [o.strip() for o in os.environ.get("DXMAP_FRAME_ANCESTORS_EXTRA", "").split() if o.strip()]
+    return " ".join(base)
+
+
+def content_security_policy() -> str:
+    """Enforced: framing, plugins, <base>. Kept small on purpose: a wrong
+    script-src would blank the map, so the full policy below ships as
+    Report-Only until a browser run shows no violations."""
+    return f"frame-ancestors {frame_ancestors()}; object-src 'none'; base-uri 'self'"
+
+
+def content_security_policy_report_only() -> str:
+    turnstile = " https://challenges.cloudflare.com" if turnstile_enabled() else ""
+    return "; ".join([
+        "default-src 'self'",
+        f"script-src 'self'{turnstile}",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob: https:",
+        "font-src 'self' data:",
+        "connect-src 'self' https://tiles.openfreemap.org https://*.amplitude.com",
+        "worker-src 'self' blob:",
+        f"frame-src 'self'{turnstile}",
+        "form-action 'self'",
+    ])
