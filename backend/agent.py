@@ -40,7 +40,7 @@ def redact_secrets(text: str) -> str:
     """
     # Regex captures the key (group 1) and the value (group 2)
     # It targets parameters that look like standard query params in a URL.
-    pattern = r"(\b(?:key|api_key|apikey|token|secret|access_token)\b)=([a-zA-Z0-9_\-.]+)"
+    pattern = r"(\b(?:key|api_key|apikey|token|secret|access_token)\b)=([^&\s\"']+)"
     return re.sub(pattern, r"\1=REDACTED", text)
 
 
