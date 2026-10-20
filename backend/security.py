@@ -17,10 +17,13 @@ Nothing here logs or stores IPs beyond the in-memory windows.
 from __future__ import annotations
 
 import collections
+import hashlib
+import hmac
 import ipaddress
 import json
 import os
 import re
+import secrets
 import time
 import urllib.parse
 import urllib.request
@@ -250,3 +253,102 @@ def content_security_policy_report_only() -> str:
         f"frame-src 'self'{turnstile}",
         "form-action 'self'",
     ])
+
+
+SENSITIVE = {"sexual_violence", "harassment", "homophobia_transphobia"}
+
+def is_sensitive(category: str) -> bool:
+    tokens = [t.strip().lower() for t in re.split(r"[,|/]", category or "")]
+    return any(t in SENSITIVE for t in tokens)
+
+
+_MASK_KEY = secrets.token_bytes(32)
+
+
+def mask_moderator(edited_by: str) -> str:
+    value = edited_by or ""
+    if value.startswith("pantheon:vol_"):
+        return value
+    digest = hmac.new(_MASK_KEY, value.lower().encode(), hashlib.sha256).hexdigest()
+    return "moderator-" + digest[:8]
+
+
+# --------------------------------------------------------------------------- #
+# Per-account login lockout                                                     #
+# --------------------------------------------------------------------------- #
+
+# Keyed on the e-mail the caller TYPED, whether or not an account exists, so a
+# locked unknown address answers exactly like a locked real one (no account
+# enumeration). 5 failures lock for 60 s, doubling per further failure up to
+# 1 h; a good login clears it; failures older than a day are forgotten. An
+# active lock is never evicted to make room (flooding junk addresses must not
+# clear a victim's lock). In memory, per process: valid for one container.
+LOCK_FREE_FAILURES = 5
+LOCK_BASE_S = 60
+LOCK_MAX_S = 3600
+LOCK_FORGET_S = 24 * 3600
+LOCK_MAX_ENTRIES = 20_000
+_locks: dict[str, dict] = {}
+
+
+def _lock_key(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+def _prune_locks(now: float) -> None:
+    for k in [k for k, e in _locks.items() if now - e["last"] >= LOCK_FORGET_S]:
+        del _locks[k]
+    for k in [k for k, e in _locks.items() if len(_locks) > LOCK_MAX_ENTRIES and e["until"] <= now]:
+        if len(_locks) <= LOCK_MAX_ENTRIES:
+            break
+        del _locks[k]
+
+
+def login_locked(email: str, now: float | None = None) -> bool:
+    now = time.time() if now is None else now
+    e = _locks.get(_lock_key(email))
+    return bool(e and e["until"] > now)
+
+
+def login_failed(email: str, now: float | None = None) -> None:
+    now = time.time() if now is None else now
+    if len(_locks) > LOCK_MAX_ENTRIES:
+        _prune_locks(now)
+    k = _lock_key(email)
+    e = _locks.get(k)
+    if e is None or now - e["last"] >= LOCK_FORGET_S:
+        e = {"fails": 0, "until": 0.0, "last": now}
+    e["fails"] += 1
+    e["last"] = now
+    if e["fails"] >= LOCK_FREE_FAILURES:
+        e["until"] = now + min(LOCK_BASE_S * 2 ** (e["fails"] - LOCK_FREE_FAILURES), LOCK_MAX_S)
+    _locks[k] = e
+
+
+def login_ok(email: str) -> None:
+    _locks.pop(_lock_key(email), None)
+
+
+def reset_login_locks() -> None:
+    _locks.clear()
+
+
+# --------------------------------------------------------------------------- #
+# Constant-time compare that cannot raise                                       #
+# --------------------------------------------------------------------------- #
+
+def token_equal(supplied: str | None, stored: str | None) -> bool:
+    """False for empty values on either side; compares bytes so non-ASCII
+    text cannot raise TypeError (which answered 500 instead of 401/403)."""
+    if not supplied or not stored:
+        return False
+    return secrets.compare_digest(supplied.encode("utf-8", "replace"), stored.encode("utf-8", "replace"))
+
+
+def origin_allowed(origin: str, host: str, extra: list[str]) -> bool:
+    """Cross-site write check: Origin must be this host, or listed explicitly."""
+    try:
+        netloc = urllib.parse.urlparse(origin).netloc.lower()
+    except ValueError:
+        return False
+    return bool(netloc) and (netloc == (host or "").lower() or origin.rstrip("/") in extra)

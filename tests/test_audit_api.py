@@ -257,7 +257,8 @@ def test_wrong_or_empty_edit_token_is_403_never_500(bad):
 # ---- AUDIT-11: service API and request size --------------------------------
 
 def test_service_token_with_non_ascii_text_is_401_not_500():
-    r = new_client().get("/api/service/stats", headers={"X-Service-Token": "tøken-ünïcode".encode("latin-1", "ignore").decode("latin-1")})
+    # httpx only sends non-ASCII header values as bytes; a real client can do the same.
+    r = new_client().get("/api/service/stats", headers={"X-Service-Token": "tøken-ünïcode".encode("utf-8")})
     assert r.status_code == 401
 
 

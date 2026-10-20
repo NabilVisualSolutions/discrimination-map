@@ -10,12 +10,13 @@ from __future__ import annotations
 import asyncio
 import collections
 import os
+import re
 import secrets
 import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -29,8 +30,10 @@ import security
 import selfcheck
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-ENV = os.environ.get("DXMAP_ENV", "dev")
-ALLOW_ORIGINS = os.environ.get("DXMAP_ALLOW_ORIGINS", "*").split(",")
+ENV = os.environ.get("DXMAP_ENV", "prod")  # secure by default; dev must be asked for
+# Extra origins allowed to make credentialed writes / CORS. The UI is
+# same-origin, so the default is none; "*" is ignored.
+ALLOW_ORIGINS = [o.strip().rstrip("/") for o in os.environ.get("DXMAP_ALLOW_ORIGINS", "").split(",") if o.strip() and o.strip() != "*"]
 
 # Shared secret for the trusted server-to-server integration: nabilvs.com's
 # Pantheon dashboard calls /api/service/* with this in an X-Service-Token
@@ -61,12 +64,48 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Discrimination Map", version="1.0", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOW_ORIGINS,
-    allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["*"],
-)
+if ALLOW_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOW_ORIGINS,
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=["*"],
+        allow_credentials=True,
+    )
+
+
+MAX_BODY_BYTES = 16 * 1024
+
+
+@app.middleware("http")
+async def refuse_cross_site_writes(request, call_next):
+    """
+    A write that carries an Origin header must come from this host (or an
+    origin listed in DXMAP_ALLOW_ORIGINS). SameSite=Lax cookies still travel
+    between sibling subdomains of nabilvs.com, so without this a page on any
+    of them could send credentialed PATCH/DELETE to /api/admin/*. Requests
+    with no Origin (curl, nabilvs.com's server calling /api/service/*) pass.
+    """
+    if request.method in ("POST", "PATCH", "PUT", "DELETE"):
+        origin = request.headers.get("origin")
+        if origin and not security.origin_allowed(origin, request.headers.get("host", ""), ALLOW_ORIGINS):
+            return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def cap_request_body(request, call_next):
+    """No endpoint here takes more than a few KB of JSON; refuse the rest
+    before it is buffered (Content-Length first, then the actual bytes)."""
+    if request.method in ("POST", "PATCH", "PUT"):
+        declared = request.headers.get("content-length")
+        if declared and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+            return JSONResponse({"detail": "Request too large"}, status_code=413)
+        if not declared:
+            body = await request.body()
+            if len(body) > MAX_BODY_BYTES:
+                return JSONResponse({"detail": "Request too large"}, status_code=413)
+    return await call_next(request)
 
 
 # Per-IP rate limits on the public write endpoints, minute and hour windows
@@ -173,6 +212,18 @@ class UserReport(BotFields):
             raise ValueError("occurred_at is implausibly far in the past")
         return v
 
+
+    @field_validator("category")
+    @classmethod
+    def _known_categories(cls, v: str) -> str:
+        tokens = [t.strip().lower() for t in re.split(r"[,|/]", v or "")]
+        tokens = [t for t in tokens if t]
+        if not tokens: tokens = ["user_report"]
+        for t in tokens:
+            if t != "user_report" and t not in lawref.CATEGORIES:
+                raise ValueError(f"unknown category {t!r}")
+        return ",".join(tokens)
+
     @field_validator("law")
     @classmethod
     def _known_law(cls, v: str) -> str:
@@ -197,6 +248,7 @@ ANON_EDIT_WINDOW_SECONDS = int(os.environ.get("DXMAP_ANON_EDIT_WINDOW", str(60 *
 
 @app.get("/api/reports")
 def get_reports(
+    request: Request,
     limit: int = 500,
     all: bool = False,
     as_of: int | None = None,
@@ -214,16 +266,19 @@ def get_reports(
     created_at <= as_of. Enables server-side timeline filtering so clients
     don't need to fetch the entire dataset.
     """
+    # The whole feed in one call is cheap to scrape: 60 a minute per visitor
+    # is far above what the map's own loading and timeline use.
+    security.enforce(request, "reports-feed", [(60, 60)])
     limit = max(1, min(limit, 5000))  # headroom above the current ~3.8k public-eligible total
     is_reviewer = bool(user and user["role"] in ("VERIFIER", "ADMIN"))
     reports = db.list_reports(
         limit=limit, located_only=not all, as_of=as_of, viewer_is_reviewer=is_reviewer
     )
-    if user is None:
+    if not is_reviewer:
         for r in reports:
             if r["lat"] is None or r["lon"] is None:
                 continue
-            sensitive = r["category"] in SENSITIVE_CATEGORIES
+            sensitive = security.is_sensitive(r["category"])
             if sensitive or r["status"] != "verified":
                 radius = SENSITIVE_FUZZ_RADIUS_M if sensitive else DEFAULT_FUZZ_RADIUS_M
                 r["lat"], r["lon"] = db.fuzz_coords(r["id"], r["lat"], r["lon"], radius_m=radius)
@@ -244,7 +299,7 @@ def post_report(report: UserReport, request: Request):
     _bot_check(report, request)
     new_id = db.insert_report(
         source="user",
-        external_id=f"user_{int(time.time()*1000)}",
+        external_id=f"user_{secrets.token_hex(12)}",
         title=report.title,
         body=report.reason,
         category=report.category,
@@ -263,7 +318,9 @@ def post_report(report: UserReport, request: Request):
 
 
 @app.get("/api/reports/{report_id}")
-def get_own_report(report_id: int, edit_token: str):
+def get_own_report(
+    report_id: int, edit_token: str = "", x_edit_token: str = Header(default=""),
+):
     """
     Fetch a single report by id, gated by its edit_token. This is the only
     way an anonymous submitter can see their own report on the map again —
@@ -277,7 +334,9 @@ def get_own_report(report_id: int, edit_token: str):
     existing = db.get_report(report_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Report not found")
-    if not secrets.compare_digest(existing.get("edit_token") or "", edit_token):
+    # Header preferred (URLs end up in access logs); the query form stays for
+    # links issued before 2026-10-20.
+    if not security.token_equal(x_edit_token or edit_token, existing.get("edit_token")):
         raise HTTPException(status_code=403, detail="Wrong edit token")
     existing.pop("edit_token", None)
     return existing
@@ -324,7 +383,7 @@ def user_edit_report(report_id: int, body: UserReportEdit):
     existing = db.get_report(report_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Report not found")
-    if not secrets.compare_digest(existing.get("edit_token") or "", body.edit_token):
+    if not security.token_equal(body.edit_token, existing.get("edit_token")):
         raise HTTPException(status_code=403, detail="Wrong edit token")
     if existing["status"] not in ("pending", "unverified"):
         raise HTTPException(status_code=409, detail="Already reviewed — no longer self-editable")
@@ -352,12 +411,15 @@ def admin_edit_report(
 
 @app.get("/api/admin/reports/{report_id}/history")
 def admin_report_history(
-    report_id: int, _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+    report_id: int, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
 ):
     """Full edit trail for one report — who changed what, when."""
     if db.get_report(report_id) is None:
         raise HTTPException(status_code=404, detail="Report not found")
-    return {"history": db.get_report_history(report_id)}
+    rows = db.get_report_history(report_id)
+    if user["role"] != "ADMIN":
+        rows = [{**row, "edited_by": security.mask_moderator(row.get("edited_by") or "")} for row in rows]
+    return {"history": rows}
 
 
 @app.get("/api/admin/reports")
@@ -400,10 +462,14 @@ def admin_find_duplicates(_: dict = Depends(auth.require_role("ADMIN", "VERIFIER
 # Service API — trusted server-to-server (nabilvs.com Pantheon)               #
 # --------------------------------------------------------------------------- #
 
-def require_service(x_service_token: str = Header(default="")) -> None:
+def require_service(request: Request, x_service_token: str = Header(default="")) -> None:
     if not SERVICE_TOKEN:
         raise HTTPException(status_code=503, detail="Service integration not configured")
-    if not secrets.compare_digest(x_service_token, SERVICE_TOKEN):
+    if not security.token_equal(x_service_token, SERVICE_TOKEN):
+        # Only FAILED attempts count (10 a minute per visitor), so the token
+        # cannot be guessed at speed while nabilvs.com's real traffic, which
+        # always carries the right token, is never throttled here.
+        security.enforce(request, "service-bad-token", [(10, 60)])
         raise HTTPException(status_code=401, detail="Bad service token")
 
 
@@ -480,12 +546,35 @@ def _client_ip(request) -> str:
     return security.client_ip(request)
 
 
+_DUMMY_HASH: str | None = None
+
+
+def _dummy_hash() -> str:
+    global _DUMMY_HASH
+    if _DUMMY_HASH is None:
+        _DUMMY_HASH = db._hash_password(secrets.token_hex(16))
+    return _DUMMY_HASH
+
+
 @app.post("/api/auth/login")
 def login(body: LoginBody, response: Response, request: Request):
     _rate_limit(f"login:{_client_ip(request)}", limit=20, window=900)
+    # Per-address lockout with backoff (security.py), checked before the
+    # password and for addresses with no account too, so a locked unknown
+    # address answers exactly like a locked real one.
+    if security.login_locked(body.email):
+        raise HTTPException(status_code=429, detail="Too many attempts — try again later")
     user = db.get_user_by_email(body.email)
-    if not user or not db.verify_password(body.password, user["password_hash"]):
+    if not user:
+        # Same PBKDF2 cost as a real check: response time must not reveal
+        # which e-mail addresses have accounts.
+        db.verify_password(body.password, _dummy_hash())
+        security.login_failed(body.email)
         raise HTTPException(status_code=401, detail="Wrong email or password")
+    if not db.verify_password(body.password, user["password_hash"]):
+        security.login_failed(body.email)
+        raise HTTPException(status_code=401, detail="Wrong email or password")
+    security.login_ok(body.email)
     token = db.create_session(user["id"])
     auth.set_session_cookie(response, token)
     return {"email": user["email"], "role": user["role"]}
@@ -664,7 +753,9 @@ def propose_symbol(body: SymbolProposalBody, request: Request):
 
 @app.get("/api/admin/applications")
 def admin_list_applications(
-    status: str | None = None, _: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+    # ADMIN only: the table holds every applicant's name, e-mail and free text.
+    # A volunteer reviewer must not be able to list the other volunteers.
+    status: str | None = None, _: dict = Depends(auth.require_role("ADMIN")),
 ):
     return {"applications": db.list_applications(status=status)}
 
@@ -690,7 +781,7 @@ class ApplicationApproval(BaseModel):
 @app.post("/api/admin/applications/{app_id}/approve")
 def admin_approve_application(
     app_id: int, body: ApplicationApproval | None = None,
-    _: dict = Depends(auth.require_role("ADMIN")),
+    current: dict = Depends(auth.require_role("ADMIN")),
 ):
     """
     Confirm a volunteer: promote the account they created at signup to
@@ -707,6 +798,8 @@ def admin_approve_application(
             detail="This application has no linked account — the applicant must sign up first",
         )
     role = (body.role if body else "VERIFIER")
+    if row["user_id"] == current["id"] and role != "ADMIN":
+        raise HTTPException(status_code=400, detail="Cannot demote your own account")
     db.update_user_role(row["user_id"], role)
     db.set_application_status(app_id, "closed" if role == "VERIFIER" else "new")
     return {"id": app_id, "user_id": row["user_id"], "role": role}
@@ -725,11 +818,13 @@ def laws():
 # funnels it through one identified server with a short in-memory cache.
 _GEOCODE_CACHE: dict[str, tuple[float, list[dict]]] = {}
 _GEOCODE_TTL = 3600.0
+_GEOCODE_MAX = 2000
 _GEOCODE_UA = "discrimination-map/1.0 (+https://map.nabilvs.com)"
 
 
 @app.get("/api/geocode")
-async def geocode(q: str = ""):
+async def geocode(request: Request, q: str = Query(default="", max_length=120)):
+    security.enforce(request, "geocode", [(30, 60)])
     q = q.strip()
     if len(q) < 2:
         return {"results": []}
@@ -756,6 +851,8 @@ async def geocode(q: str = ""):
         if d.get("lat") and d.get("lon")
     ]
     _GEOCODE_CACHE[key] = (now, results)
+    while len(_GEOCODE_CACHE) > _GEOCODE_MAX:
+        _GEOCODE_CACHE.pop(next(iter(_GEOCODE_CACHE)))  # oldest first
     return {"results": results}
 
 
