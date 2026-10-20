@@ -92,7 +92,6 @@ def test_signed_in_none_account_still_gets_blurred_sensitive_reports():
 
 @pytest.mark.parametrize("category", [
     "harassment,racism", "racism,sexual_violence", "Harassment", " harassment ", "HARASSMENT|racism",
-    "homophobia_transphobia",
 ])
 def test_every_sensitive_spelling_is_blurred(category):
     rid = verified_report(category)

@@ -11,7 +11,7 @@ import { Honeypot, Turnstile, turnstileEnabled } from "../../lib/botguard"
 // get an explicit consent gate. Fully localised (en/de/fr/ar).
 
 // Keep in step with SENSITIVE in backend/security.py.
-const SENSITIVE = new Set(["sexual_violence", "harassment", "homophobia_transphobia"])
+const SENSITIVE = new Set(["sexual_violence", "harassment"])
 type Step = "form" | "done"
 type Picked = { lat: number; lon: number; label: string }
 

@@ -273,7 +273,7 @@ def content_security_policy_report_only() -> str:
     ])
 
 
-SENSITIVE = {"sexual_violence", "harassment", "homophobia_transphobia"}
+SENSITIVE = {"sexual_violence", "harassment"}  # owner decision 2026-10-20: homophobia_transphobia is NOT blurred
 
 def is_sensitive(category: str) -> bool:
     tokens = [t.strip().lower() for t in re.split(r"[,|/]", category or "")]
