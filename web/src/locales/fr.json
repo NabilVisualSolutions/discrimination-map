@@ -140,6 +140,7 @@
   "involved.code": "Code de votre application d'authentification",
   "involved.codeNeeded": "Saisissez le code à 6 chiffres de votre application d'authentification.",
   "involved.codeWrong": "Ce code est incorrect ou déjà utilisé. Attendez le suivant.",
+  "involved.signupExisting": "Votre candidature a été reçue. Si cet e-mail a déjà un compte, connectez-vous avec son mot de passe.",
   "involved.acceptPre": "J'accepte les",
   "involved.acceptAnd": "et la",
   "rm.catMulti": "(une ou plusieurs)",

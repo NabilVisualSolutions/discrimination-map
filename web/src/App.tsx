@@ -801,9 +801,16 @@ function Involved({
     }
     setBusy(true)
     try {
-      if (mode === "signup")
+      if (mode === "signup") {
         await api.signup({ name, email, password, message, accept, hp_contact: hp, turnstile_token: botToken ?? "" })
-      else await api.login(email, password, code)
+        // Sign-up answers the same for a new and a registered email (so it
+        // cannot be used to list accounts) and no longer signs anyone in.
+        try {
+          await api.login(email, password)
+        } catch {
+          throw new Error(t("involved.signupExisting"))
+        }
+      } else await api.login(email, password, code)
       setPassword("")
       setCode("")
       setNeedCode(false)

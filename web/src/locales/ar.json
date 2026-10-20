@@ -140,6 +140,7 @@
   "involved.code": "الرمز من تطبيق المصادقة",
   "involved.codeNeeded": "أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة.",
   "involved.codeWrong": "الرمز غير صحيح أو استُخدم من قبل. انتظر الرمز التالي.",
+  "involved.signupExisting": "تم استلام طلبك. إذا كان لهذا البريد حساب بالفعل، فسجّل الدخول بكلمة مروره.",
   "involved.acceptPre": "أوافق على",
   "involved.acceptAnd": "و",
   "rm.catMulti": "(واحدة أو أكثر)",

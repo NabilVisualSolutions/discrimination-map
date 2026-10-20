@@ -140,6 +140,7 @@
   "involved.code": "Code from your authenticator app",
   "involved.codeNeeded": "Enter the 6-digit code from your authenticator app.",
   "involved.codeWrong": "That code is not right, or was already used. Wait for the next one.",
+  "involved.signupExisting": "Your application was received. If this email already has an account, sign in with its own password instead.",
   "involved.acceptPre": "I accept the",
   "involved.acceptAnd": "and the",
   "rm.catMulti": "(one or more)",

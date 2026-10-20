@@ -763,13 +763,14 @@ def signup(body: SignupBody, response: Response, request: Request):
     _bot_check(body, request)
     uid = db.create_user(body.email, body.password, "NONE", accepted_terms=body.accept)
     if uid is None:
-        raise HTTPException(status_code=409, detail="That email already has an account")
+        # Same answer as for a new account, so the form cannot be used to find
+        # out which emails are registered. The person signs in with the password
+        # they typed; if the account was not theirs, that sign-in fails.
+        return {"email": body.email, "role": "NONE"}
     db.create_application(
         name=body.name, email=body.email, interest="volunteer",
         message=body.message, user_id=uid,
     )
-    token = db.create_session(uid)
-    auth.set_session_cookie(response, token)
     return {"email": body.email, "role": "NONE"}
 
 
