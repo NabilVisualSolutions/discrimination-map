@@ -196,14 +196,16 @@ def test_wrong_password_rejected():
     assert r.status_code == 401
 
 
-def test_no_public_signin_endpoints():
+def test_signup_requires_accepting_the_terms_and_there_is_no_social_login():
     """
-    There's deliberately no way to create an account except an ADMIN
-    inviting one via /api/admin/users — applications go through nabilvs.com
-    instead, and the public map has no sign-in UI at all.
+    Volunteers sign up from the map's "Get involved" tab, and that must be an
+    explicit acceptance of the Terms and Privacy Policy (the account starts
+    with role NONE and no permissions until an ADMIN approves it). There is
+    still no social login.
     """
     anon = TestClient(app_module.app)
-    assert anon.post("/api/auth/signup", json={"email": "x@example.dev", "password": "whatever123"}).status_code == 404
+    r = anon.post("/api/auth/signup", json={"name": "X", "email": "x@example.dev", "password": "whatever123"})
+    assert r.status_code == 422  # `accept` is required, so the route exists but refuses
     assert anon.get("/api/auth/google/login").status_code == 404
     assert anon.get("/api/auth/google/callback").status_code == 404
 
@@ -254,11 +256,12 @@ def test_apply_endpoint_and_admin_listing():
     assert any(a["email"] == "volunteer@dxmap-tests.example-org.dev" for a in apps)
 
 
-def test_scraped_report_with_url_is_unverified_and_fuzzed_for_public():
+def test_scraped_report_with_url_is_unverified_and_only_reviewers_see_it():
     """
-    Agent-scraped items always carry a real source `url`, so they publish
-    immediately as 'unverified' leads (not 'pending') — but still fuzzed for
-    anyone not logged in as ADMIN/VERIFIER.
+    Agent-scraped items always carry a real source `url`, so they enter as
+    'unverified' leads (not 'pending'). The public map shows VERIFIED
+    incidents only, so a lead is invisible to visitors; reviewers see it, at
+    its real location, to judge it.
     """
     new_id = db.insert_report(
         source="mastodon", external_id="test_scraped_1", title="Scraped test",
@@ -267,10 +270,15 @@ def test_scraped_report_with_url_is_unverified_and_fuzzed_for_public():
         lat=52.5200, lon=13.4000, place="Berlin",
     )
     assert new_id is not None
-    listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
+    public_ids = [r["id"] for r in client.get("/api/reports?all=true").json()["reports"]]
+    assert new_id not in public_ids
+
+    reviewer = TestClient(app_module.app)
+    reviewer.post("/api/auth/login", json={
+        "email": "verifier@dxmap-tests.example-org.dev", "password": "verifierpass123"})
+    listed = [r for r in reviewer.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
     assert listed["status"] == "unverified"
-    assert (listed["lat"], listed["lon"]) != (52.5200, 13.4000)
-    assert listed.get("fuzzed") is True
+    assert (listed["lat"], listed["lon"]) == (52.5200, 13.4000)
 
 
 def test_sexual_violence_report_uses_wider_fuzz_radius():
@@ -278,10 +286,10 @@ def test_sexual_violence_report_uses_wider_fuzz_radius():
         source="mastodon", external_id="test_scraped_2", title="Sensitive scraped test",
         body="sensitive", url="https://example.social/@x/2",
         category="sexual_violence", reason="sensitive scraped reason",
-        lat=52.5200, lon=13.4000, place="Berlin",
+        lat=52.5200, lon=13.4000, place="Berlin", status="verified",
     )
     listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
-    assert listed["status"] == "unverified"  # has a url, so not pending
+    assert listed["status"] == "verified"
     assert listed.get("fuzzed") is True
     dist_deg = ((listed["lat"] - 52.52) ** 2 + (listed["lon"] - 13.40) ** 2) ** 0.5
     assert dist_deg * 111 > 1.0  # well beyond the default 500m radius (in km)
@@ -515,13 +523,13 @@ def test_as_of_filters_reports_by_timestamp():
     now = int(time.time())
     past = now - 86400  # 1 day ago
     
-    # Insert an old report directly with a known timestamp (status=unverified so it appears in public feed)
+    # Insert an old report directly with a known timestamp (status=verified so it appears in public feed)
     old_id = db.insert_report(
         source="mastodon", external_id="test_old", title="Old report", reason="old test",
         category="racism", lat=52.5, lon=13.4, place="Berlin",
         url="https://example.social/@x/old",
         created_at=past,
-        status="unverified",
+        status="verified",
     )
     # Insert a new report
     new_id = db.insert_report(
@@ -529,7 +537,7 @@ def test_as_of_filters_reports_by_timestamp():
         category="racism", lat=52.5, lon=13.4, place="Berlin",
         url="https://example.social/@x/new",
         created_at=now,
-        status="unverified",
+        status="verified",
     )
     assert old_id is not None and new_id is not None
     
@@ -557,7 +565,7 @@ def test_as_of_combines_with_all_flag():
         source="user", title="Unlocated old", reason="unlocated old test",
         category="racism", lat=None, lon=None, place="",
         created_at=now - 86400,
-        status="unverified",  # so it appears in public feed
+        status="verified",  # so it appears in public feed
     )
     assert old_id is not None
     
