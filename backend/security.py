@@ -209,7 +209,7 @@ def verify_turnstile(token: str | None, request: Request) -> None:
     secret = _turnstile_secret()
     if not secret:
         return
-    if not token or len(token) > 4096:
+    if not token or not isinstance(token, str) or len(token) > 2048:
         raise HTTPException(status_code=403, detail=BOT_CHECK_FAILED)
     try:
         result = _siteverify(secret, token, client_ip(request))

@@ -146,5 +146,17 @@
   "rm.catMulti": "(one or more)",
   "rm.fWhen": "When did it happen?",
   "rm.fWhenHint": "you can report something from the past",
-  "rm.pinnedNote": "Location pinned. Search or use ◎ to change it."
+  "rm.pinnedNote": "Location pinned. Search or use ◎ to change it.",
+  "consent.title": "Anonymous usage statistics?",
+  "consent.body": "We would like to count visits and which tabs are used to improve the map, with Amplitude (EU servers). No recording of clicks or typing, never what you report. Off unless you accept.",
+  "consent.more": "Privacy policy",
+  "consent.decline": "Decline",
+  "consent.accept": "Accept",
+  "consent.footer": "Privacy choices",
+  "involved.verifyPending": "Please confirm your email",
+  "involved.verifyBody": "We sent a link to your address. Until you open it, an admin cannot approve your application.",
+  "involved.verifyResend": "Send the link again",
+  "involved.verifySent": "Sent. Check your inbox and spam folder.",
+  "involved.verifiedOk": "Email confirmed. Thank you.",
+  "involved.verifiedBad": "That link did not work. It may have expired: sign in and send a new one."
 }

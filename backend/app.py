@@ -16,9 +16,9 @@ import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Request, Response
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -26,12 +26,14 @@ import agent
 import auth
 import db
 import lawref
+import mailer
 import security
 import selfcheck
 import totp
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 ENV = os.environ.get("DXMAP_ENV", "prod")  # secure by default; dev must be asked for
+PUBLIC_URL = os.environ.get("DXMAP_PUBLIC_URL", "https://map.nabilvs.com").rstrip("/")
 # Extra origins allowed to make credentialed writes / CORS. The UI is
 # same-origin, so the default is none; "*" is ignored.
 ALLOW_ORIGINS = [o.strip().rstrip("/") for o in os.environ.get("DXMAP_ALLOW_ORIGINS", "").split(",") if o.strip() and o.strip() != "*"]
@@ -202,7 +204,7 @@ async def security_headers(request, call_next):
 class BotFields(BaseModel):
     """Hidden honeypot + optional Turnstile token, on every public form."""
     hp_contact: str = Field(default="", max_length=500)
-    turnstile_token: str = Field(default="", max_length=4096)
+    turnstile_token: str = Field(default="", max_length=2048)
 
 
 def _bot_check(body: BotFields, request: Request) -> None:
@@ -751,7 +753,7 @@ class SignupBody(BotFields):
 
 
 @app.post("/api/auth/signup", status_code=201)
-def signup(body: SignupBody, response: Response, request: Request):
+def signup(body: SignupBody, response: Response, request: Request, background: BackgroundTasks):
     """
     Public volunteer sign-up from the map's "Get involved" tab. Creates an
     account with role NONE (no permissions) plus a linked volunteer
@@ -761,7 +763,9 @@ def signup(body: SignupBody, response: Response, request: Request):
     """
     _rate_limit(f"signup:{_client_ip(request)}", limit=5, window=3600)
     _bot_check(body, request)
-    uid = db.create_user(body.email, body.password, "NONE", accepted_terms=body.accept)
+    uid = db.create_user(body.email, body.password, "NONE", accepted_terms=body.accept,
+                         # With no mail setup nobody could ever confirm: do not strand applicants.
+                         verified=not mailer.can_send())
     if uid is None:
         # Same answer as for a new account, so the form cannot be used to find
         # out which emails are registered. The person signs in with the password
@@ -771,7 +775,38 @@ def signup(body: SignupBody, response: Response, request: Request):
         name=body.name, email=body.email, interest="volunteer",
         message=body.message, user_id=uid,
     )
+    if mailer.can_send():
+        _queue_verification_mail(background, uid, body.email)
     return {"email": body.email, "role": "NONE"}
+
+
+def _queue_verification_mail(background: BackgroundTasks, user_id: int, email: str) -> None:
+    token = db.create_email_token(user_id)
+    link = f"{PUBLIC_URL}/api/auth/verify-email?token={token}"
+    background.add_task(
+        mailer.send, email, "Confirm your email for the Discrimination Map",
+        "Hello,\n\nplease confirm this email address to finish your volunteer application "
+        f"for the Discrimination Map:\n\n{link}\n\nThe link works once and expires in 48 hours. "
+        "If you did not apply, ignore this mail; nothing happens until the link is opened.\n",
+    )
+
+
+@app.get("/api/auth/verify-email")
+def verify_email(request: Request, token: str = ""):
+    """The link in the mail. Always redirects (never shows whether a token existed)."""
+    security.enforce(request, "verify-email", [(20, 600)])
+    ok = bool(token) and db.consume_email_token(token) is not None
+    return RedirectResponse(f"/?verified={'1' if ok else '0'}", status_code=303)
+
+
+@app.post("/api/auth/verify-email/resend")
+def resend_verification(
+    request: Request, background: BackgroundTasks, user: dict = Depends(auth.require_user),
+):
+    security.enforce(request, "verify-resend", [(3, 3600)], key=str(user["id"]))
+    if not db.is_email_verified(user["id"]):
+        _queue_verification_mail(background, user["id"], user["email"])
+    return {"sent": True}
 
 
 @app.post("/api/auth/logout")
@@ -789,6 +824,7 @@ def me(user: dict = Depends(auth.require_user)):
     return {
         "email": user["email"], "role": user["role"], "provider": full["provider"] if full else "email",
         "totp": bool(state and state["totp_enabled"]),
+        "verified": bool(full and full.get("email_verified_at")),
     }
 
 
@@ -958,6 +994,11 @@ def admin_approve_application(
             detail="This application has no linked account — the applicant must sign up first",
         )
     role = (body.role if body else "VERIFIER")
+    if role == "VERIFIER" and not row.get("email_verified_at"):
+        raise HTTPException(
+            status_code=409,
+            detail="The applicant has not confirmed their email yet. Ask them to open the link we mailed.",
+        )
     if row["user_id"] == current["id"] and role != "ADMIN":
         raise HTTPException(status_code=400, detail="Cannot demote your own account")
     db.update_user_role(row["user_id"], role)

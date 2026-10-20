@@ -7,6 +7,8 @@ import { Honeypot, Turnstile, turnstileEnabled } from "./lib/botguard"
 import { MapView } from "./features/map/MapView"
 import { AWARENESS } from "./lib/awareness"
 import { ReportModal } from "./features/report/ReportModal"
+import { ConsentBanner } from "./ConsentBanner"
+import { analyticsAvailable, clearConsent } from "./lib/analytics"
 import { latestEditable, minutesLeft, type MineEntry } from "./lib/mine"
 
 // Full-screen map. Everything floats over it: a top search/filter bar, a
@@ -221,6 +223,7 @@ export function App() {
 
   return (
     <div className="app">
+      <ConsentBanner />
       <MapView
         reports={mapReports}
         categories={categories}
@@ -768,7 +771,7 @@ function Involved({
   onChanged,
   onGoReview,
 }: {
-  me: { email: string; role: string } | null
+  me: { email: string; role: string; verified?: boolean } | null
   onChanged: () => void | Promise<void>
   onGoReview: () => void
 }) {
@@ -787,6 +790,19 @@ function Involved({
   // Two-step sign-in: the server asks for a code only after a right password.
   const [code, setCode] = useState("")
   const [needCode, setNeedCode] = useState(false)
+  // Mailbox check: the link in the mail lands on /?verified=1|0.
+  const [verifyNote, setVerifyNote] = useState(() => {
+    const v = new URLSearchParams(window.location.search).get("verified")
+    return v === "1" ? "involved.verifiedOk" : v === "0" ? "involved.verifiedBad" : ""
+  })
+  const resend = async () => {
+    try {
+      await api.resendVerification()
+      setVerifyNote("involved.verifySent")
+    } catch (e3) {
+      setErr(e3 instanceof Error ? e3.message : String(e3))
+    }
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -846,6 +862,22 @@ function Involved({
           <div className="d-actions" style={{ marginTop: 10 }}>
             <button className="btn primary" onClick={onGoReview}>{t("involved.reviewerCta")}</button>
             <button className="btn" onClick={logout}>{t("involved.logout")}</button>
+          </div>
+        </div>
+      )}
+
+      {verifyNote && (
+        <div className="card" role="status">
+          <p className="muted sm">{t(verifyNote)}</p>
+        </div>
+      )}
+
+      {me && !isReviewer && me.verified === false && (
+        <div className="card">
+          <div className="card-t">{t("involved.verifyPending")}</div>
+          <p className="muted sm">{t("involved.verifyBody")}</p>
+          <div className="d-actions" style={{ marginTop: 10 }}>
+            <button className="btn" onClick={resend}>{t("involved.verifyResend")}</button>
           </div>
         </div>
       )}
@@ -923,6 +955,11 @@ function Involved({
       <a className="link-row" href="/awareness" target="_blank" rel="noreferrer">{t("involved.awareness")}</a>
       <a className="link-row" href="/privacy">{t("involved.privacy")}</a>
       <a className="link-row" href="/terms">{t("involved.terms")}</a>
+      {analyticsAvailable && (
+        <p className="muted sm" style={{ marginTop: 14 }}>
+          <button type="button" className="linklike" onClick={clearConsent}>{t("consent.footer")}</button>
+        </p>
+      )}
     </>
   )
 }

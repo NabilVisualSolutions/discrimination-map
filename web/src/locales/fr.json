@@ -146,5 +146,17 @@
   "rm.catMulti": "(une ou plusieurs)",
   "rm.fWhen": "Quand est-ce arrivé ?",
   "rm.fWhenHint": "vous pouvez signaler un événement passé",
-  "rm.pinnedNote": "Lieu épinglé. Recherchez ou utilisez ◎ pour le changer."
+  "rm.pinnedNote": "Lieu épinglé. Recherchez ou utilisez ◎ pour le changer.",
+  "consent.title": "Statistiques d'usage anonymes ?",
+  "consent.body": "Nous aimerions compter les visites et les onglets utilisés pour améliorer la carte, avec Amplitude (serveurs UE). Aucun enregistrement des clics ou de la saisie, jamais ce que vous signalez. Désactivé sauf si vous acceptez.",
+  "consent.more": "Confidentialité",
+  "consent.decline": "Refuser",
+  "consent.accept": "Accepter",
+  "consent.footer": "Choix de confidentialité",
+  "involved.verifyPending": "Veuillez confirmer votre e-mail",
+  "involved.verifyBody": "Nous avons envoyé un lien à votre adresse. Tant que vous ne l'ouvrez pas, un administrateur ne peut pas valider votre candidature.",
+  "involved.verifyResend": "Renvoyer le lien",
+  "involved.verifySent": "Envoyé. Vérifiez votre boîte et vos spams.",
+  "involved.verifiedOk": "E-mail confirmé. Merci.",
+  "involved.verifiedBad": "Ce lien n'a pas fonctionné. Il a peut-être expiré : connectez-vous et demandez-en un nouveau."
 }

@@ -83,6 +83,12 @@ CREATE TABLE IF NOT EXISTS users (
     created_at    INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS email_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id    INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
     token       TEXT    PRIMARY KEY,
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -162,6 +168,9 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # Records that a self-registered volunteer accepted the Terms + Privacy
     # Policy at signup (unix seconds).
     ("users", "ALTER TABLE users ADD COLUMN accepted_terms_at INTEGER"),
+    # Set when the person clicks the link mailed to them at sign-up. Accounts
+    # older than the feature are treated as verified (backfill below).
+    ("users", "ALTER TABLE users ADD COLUMN email_verified_at INTEGER"),
     # Two-step sign-in (authenticator app, RFC 6238). The secret is only
     # trusted once totp_enabled=1; totp_last_step stops a code being reused.
     ("users", "ALTER TABLE users ADD COLUMN totp_secret TEXT"),
@@ -180,6 +189,12 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
         if col not in existing:
             conn.execute(ddl)
+    # Accounts that existed before email verification were vouched for by an
+    # admin or came in another way: do not lock them out.
+    conn.execute(
+        "UPDATE users SET email_verified_at = created_at"
+        " WHERE email_verified_at IS NULL AND created_at < 1792529911"
+    )
     # Backfill status from the legacy `verified` flag for rows written before
     # `status` existed (verified=1 -> 'verified', everything else stays as
     # the column default, 'unverified').
@@ -816,7 +831,7 @@ _VALID_ROLES = {"NONE", "VERIFIER", "ADMIN"}
 
 def create_user(
     email: str, password: str, role: str, provider: str = "email",
-    accepted_terms: bool = False,
+    accepted_terms: bool = False, verified: bool = True,
 ) -> Optional[int]:
     """
     Create a user with a hashed password. Returns None if the email is
@@ -833,10 +848,10 @@ def create_user(
     with _conn() as conn:
         try:
             cur = conn.execute(
-                "INSERT INTO users (email, password_hash, role, provider, created_at, accepted_terms_at)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO users (email, password_hash, role, provider, created_at, accepted_terms_at,"
+                " email_verified_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (email.strip().lower(), _hash_password(password), role, provider, now,
-                 now if accepted_terms else None),
+                 now if accepted_terms else None, now if verified else None),
             )
             return cur.lastrowid
         except sqlite3.IntegrityError:
@@ -923,6 +938,48 @@ def get_user_by_email(email: str) -> Optional[dict[str, Any]]:
             "SELECT * FROM users WHERE email = ?", (email.strip().lower(),)
         ).fetchone()
     return dict(row) if row else None
+
+
+EMAIL_TOKEN_TTL_SECONDS = 48 * 3600
+
+
+def _token_hash(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def create_email_token(user_id: int) -> str:
+    """A one-time link token for the mailbox check. Stored hashed; replaces older ones."""
+    raw = secrets.token_urlsafe(32)
+    with _conn() as conn:
+        conn.execute("DELETE FROM email_tokens WHERE user_id = ?", (user_id,))
+        conn.execute(
+            "INSERT INTO email_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
+            (_token_hash(raw), user_id, int(time.time()) + EMAIL_TOKEN_TTL_SECONDS),
+        )
+    return raw
+
+
+def consume_email_token(raw: str) -> Optional[int]:
+    """Mark the account verified and return its id, or None for an unknown/expired token."""
+    now = int(time.time())
+    with _conn() as conn:
+        conn.execute("DELETE FROM email_tokens WHERE expires_at < ?", (now,))
+        row = conn.execute(
+            "SELECT user_id FROM email_tokens WHERE token_hash = ?", (_token_hash(raw or ""),)
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute("DELETE FROM email_tokens WHERE token_hash = ?", (_token_hash(raw),))
+        conn.execute(
+            "UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?",
+            (now, row["user_id"]),
+        )
+        return row["user_id"]
+
+
+def is_email_verified(user_id: int) -> bool:
+    u = get_user_by_id(user_id)
+    return bool(u and u.get("email_verified_at"))
 
 
 def get_user_by_id(user_id: int) -> Optional[dict[str, Any]]:
@@ -1048,7 +1105,7 @@ def list_applications(status: Optional[str] = None) -> list[dict[str, Any]]:
         where, params = " WHERE a.status = ?", [status]
     with _conn() as conn:
         rows = conn.execute(
-            "SELECT a.*, u.email AS account_email, u.role AS account_role"
+            "SELECT a.*, u.email AS account_email, u.role AS account_role, u.email_verified_at AS email_verified_at"
             " FROM applications a LEFT JOIN users u ON u.id = a.user_id"
             f"{where} ORDER BY a.created_at DESC",
             params,
@@ -1059,7 +1116,7 @@ def list_applications(status: Optional[str] = None) -> list[dict[str, Any]]:
 def get_application(app_id: int) -> Optional[dict[str, Any]]:
     with _conn() as conn:
         row = conn.execute(
-            "SELECT a.*, u.email AS account_email, u.role AS account_role"
+            "SELECT a.*, u.email AS account_email, u.role AS account_role, u.email_verified_at AS email_verified_at"
             " FROM applications a LEFT JOIN users u ON u.id = a.user_id"
             " WHERE a.id = ?",
             (app_id,),

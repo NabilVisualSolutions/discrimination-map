@@ -145,7 +145,7 @@ export const api = {
   heartbeat: () => req<Record<string, unknown>>("/api/heartbeat"),
 
   // auth
-  me: (): Promise<{ email: string; role: string } | null> =>
+  me: (): Promise<{ email: string; role: string; verified?: boolean } | null> =>
     req<{ email: string; role: string }>("/api/auth/me")
       .then((d) => ({ email: d.email, role: d.role }))
       .catch(() => null),
@@ -168,6 +168,7 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   logout: () => req<unknown>("/api/auth/logout", { method: "POST" }),
+  resendVerification: () => req<{ sent: boolean }>("/api/auth/verify-email/resend", { method: "POST" }),
 
   // admin / reviewer
   adminReports: (params: { status?: string; limit?: number; offset?: number } = {}) =>

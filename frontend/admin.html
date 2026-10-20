@@ -514,7 +514,7 @@ async function loadApplications(){
   const canApprove = me.role === 'ADMIN';
   rows.innerHTML = applications.map(a => {
     const acct = a.user_id
-      ? `<div class="meta" style="font-weight:400;margin-top:4px">account: ${esc(a.account_email||'')} · ${esc(a.account_role||'NONE')}</div>`
+      ? `<div class="meta" style="font-weight:400;margin-top:4px">account: ${esc(a.account_email||'')} · ${esc(a.account_role||'NONE')} · ${a.email_verified_at ? 'email confirmed' : 'email NOT confirmed'}</div>`
       : `<div class="meta" style="font-weight:400;margin-top:4px">no linked account (applied via old form)</div>`;
     let approveBtn = '';
     if (canApprove && a.user_id) {

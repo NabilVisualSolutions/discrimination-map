@@ -5,6 +5,9 @@ import "./i18n"
 import "./theme.css"
 import "./ui.css"
 import { App } from "./App"
+import { initAnalyticsIfConsented } from "./lib/analytics"
+
+initAnalyticsIfConsented()
 
 const qc = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
