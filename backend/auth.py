@@ -67,13 +67,24 @@ def require_user(dxmap_session: str = Cookie(default=None)) -> dict:
     return user
 
 
-def require_role(*roles: str):
-    """Dependency factory: 401 if not logged in, 403 if role isn't allowed."""
+def require_role(*roles: str, allow_without_2fa: bool = False):
+    """Dependency factory: 401 if not logged in, 403 if role isn't allowed.
+
+    In prod an ADMIN without two-step sign-in enabled gets 403 unless the route
+    sets allow_without_2fa (the setup/enable routes). DXMAP_ENV is read per call."""
     def _dep(dxmap_session: str = Cookie(default=None)) -> dict:
         user = db.get_session_user(dxmap_session) if dxmap_session else None
         if not user:
             raise HTTPException(status_code=401, detail="Not authenticated")
         if user["role"] not in roles:
             raise HTTPException(status_code=403, detail="Not permitted for this role")
+        if (
+            user["role"] == "ADMIN"
+            and not allow_without_2fa
+            and os.environ.get("DXMAP_ENV", "prod") == "prod"
+        ):
+            state = db.get_totp(user["id"])
+            if not (state and state["totp_enabled"]):
+                raise HTTPException(status_code=403, detail="Set up two-step sign-in first")
         return user
     return _dep
