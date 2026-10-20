@@ -169,14 +169,21 @@ export function App() {
     )
   }, [])
 
-  // Deep link from the "edit link" handed back at submission time.
+  // Deep link from the "edit link" handed back at submission time. The link
+  // keeps the token in the URL FRAGMENT (#report=..&token=..): a fragment is
+  // never sent to the server, so it stays out of Cloudflare, Caddy and uvicorn
+  // access logs. Links issued before 2026-10-20 used the query string; those
+  // still open, and the token is removed from the address bar at once.
   useEffect(() => {
-    const p = new URLSearchParams(location.search)
+    const fromHash = new URLSearchParams(location.hash.replace(/^#/, ""))
+    const fromQuery = new URLSearchParams(location.search)
+    const p = fromHash.get("token") ? fromHash : fromQuery
     const id = Number(p.get("report"))
     const token = p.get("token")
     if (id && token) {
       setReportEdit({ id, token })
       setShowReport(true)
+      history.replaceState(null, "", location.pathname)
     }
   }, [])
 

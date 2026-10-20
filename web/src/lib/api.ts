@@ -108,8 +108,9 @@ export const api = {
         })
     ).then((d) => d.reports),
 
+  // The token goes in a header, not the URL: URLs are written to access logs.
   ownReport: (id: number, editToken: string) =>
-    req<Report>(`/api/reports/${id}?edit_token=${encodeURIComponent(editToken)}`),
+    req<Report>(`/api/reports/${id}`, { headers: { "X-Edit-Token": editToken } }),
 
   createReport: (payload: NewReport) =>
     req<{ id: number; status: ReportStatus; edit_token: string }>("/api/reports", {

@@ -202,7 +202,7 @@ export function ReportModal({
             {!isEdit && (
               <div className="rm-token">
                 <div className="rm-token-h">{t("rm.editLinkLabel")}</div>
-                {`${location.origin}/?report=${result.id}&token=${result.edit_token}`}
+                {`${location.origin}/#report=${result.id}&token=${result.edit_token}`}
               </div>
             )}
             <div className="btnrow" style={{ marginTop: 14 }}>
