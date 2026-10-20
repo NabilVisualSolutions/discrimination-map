@@ -99,6 +99,10 @@
   <input id="gEmail" type="email" autocomplete="username" />
   <label for="gPassword" data-i18n="login.password">Password</label>
   <input id="gPassword" type="password" autocomplete="current-password" />
+  <div id="codeRow" style="display:none">
+    <label for="gCode" data-i18n="login.code">Code from your authenticator app</label>
+    <input id="gCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" />
+  </div>
   <button id="loginBtn" data-i18n="login.submit">Log in</button>
   <div class="err" id="gateErr" data-i18n="login.error">Wrong email or password.</div>
 </div>
@@ -146,6 +150,24 @@
         <button class="rowbtn" id="prevPage" data-i18n="admin.prev">← Prev</button>
         <button class="rowbtn" id="nextPage" data-i18n="admin.next">Next →</button>
       </div>
+    </div>
+
+    <div class="section" id="tfaSection">
+      <h2 data-i18n="admin.tfaTitle">Two-step sign-in</h2>
+      <p class="sub" data-i18n="admin.tfaIntro"></p>
+      <p class="sub"><b id="tfaState"></b></p>
+      <div id="tfaOffBox"><button id="tfaStart" data-i18n="admin.tfaStart">Set it up</button></div>
+      <div id="tfaSetupBox" style="display:none">
+        <p class="sub" data-i18n="admin.tfaSecretIntro"></p>
+        <p><code id="tfaSecret" style="font-size:1.1em;letter-spacing:.08em;user-select:all"></code></p>
+        <p class="sub"><a id="tfaLink" href="#" data-i18n="admin.tfaOpen">Open in authenticator app</a></p>
+      </div>
+      <div id="tfaCodeBox" style="display:none">
+        <input id="tfaCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" style="max-width:10em" />
+        <button id="tfaConfirm" data-i18n="admin.tfaConfirm">Turn it on</button>
+        <button id="tfaDisable" style="display:none" data-i18n="admin.tfaDisable">Turn it off</button>
+      </div>
+      <div class="err" id="tfaMsg" style="display:none"></div>
     </div>
 
     <div class="section" id="usersSection" style="display:none">
@@ -201,7 +223,7 @@
   </div>
 </div>
 
-<script src="/static/i18n.js?v=20260831w"></script>
+<script src="/static/i18n.js?v=20261020a"></script>
 <script>
 const I = window.DXMAP_I18N_RUNTIME;
 const t = I.t;
@@ -226,21 +248,69 @@ function renderLangBar(){
 renderLangBar();
 document.addEventListener('dxmap:lang', ()=>{ renderLangBar(); if(me) loadReports(); });
 
-async function tryEnter(email, password){
+async function tryEnter(email, password, code){
   const res = await fetch('/api/auth/login', {method:'POST', credentials:'include',
-    headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password, code: code || ''})});
+  const err = document.getElementById('gateErr');
   if(res.ok){
     me = await res.json();
     enterApp();
+    return;
+  }
+  const detail = (await res.json().catch(()=>({}))).detail || '';
+  err.style.display = 'block';
+  if(detail === 'TOTP_REQUIRED' || detail === 'TOTP_INVALID'){
+    document.getElementById('codeRow').style.display = 'block';
+    document.getElementById('gCode').focus();
+    err.textContent = t(detail === 'TOTP_REQUIRED' ? 'login.codeNeeded' : 'login.codeError');
+  } else if(res.status === 429){
+    err.textContent = t('login.locked');
   } else {
-    document.getElementById('gateErr').style.display = 'block';
+    err.textContent = t('login.error');
   }
 }
+
+// ---- two-step sign-in section ----
+function tfaRefresh(){
+  const on = !!(me && me.totp);
+  document.getElementById('tfaState').textContent = t(on ? 'admin.tfaOn' : 'admin.tfaOff');
+  document.getElementById('tfaOffBox').style.display = on ? 'none' : 'block';
+  document.getElementById('tfaSetupBox').style.display = 'none';
+  document.getElementById('tfaCodeBox').style.display = on ? 'block' : 'none';
+  document.getElementById('tfaConfirm').style.display = on ? 'none' : 'inline-block';
+  document.getElementById('tfaDisable').style.display = on ? 'inline-block' : 'none';
+}
+async function tfaPost(path, body){
+  const res = await fetch(path, {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
+  return {ok: res.ok, data: await res.json().catch(()=>({}))};
+}
+function tfaMsg(text){ const m = document.getElementById('tfaMsg'); m.textContent = text; m.style.display = text ? 'block' : 'none'; }
+document.getElementById('tfaStart').onclick = async () => {
+  tfaMsg('');
+  const r = await tfaPost('/api/auth/totp/setup');
+  if(!r.ok) return tfaMsg(r.data.detail || 'Error');
+  document.getElementById('tfaSecret').textContent = r.data.secret;
+  document.getElementById('tfaLink').href = r.data.uri;
+  document.getElementById('tfaSetupBox').style.display = 'block';
+  document.getElementById('tfaCodeBox').style.display = 'block';
+  document.getElementById('tfaOffBox').style.display = 'none';
+};
+document.getElementById('tfaConfirm').onclick = async () => {
+  const r = await tfaPost('/api/auth/totp/enable', {code: document.getElementById('tfaCode').value.trim()});
+  if(!r.ok) return tfaMsg(t('admin.tfaBad'));
+  me.totp = true; document.getElementById('tfaCode').value = ''; tfaRefresh(); tfaMsg(t('admin.tfaDone'));
+};
+document.getElementById('tfaDisable').onclick = async () => {
+  const r = await tfaPost('/api/auth/totp/disable', {code: document.getElementById('tfaCode').value.trim()});
+  if(!r.ok) return tfaMsg(t('admin.tfaBad'));
+  me.totp = false; document.getElementById('tfaCode').value = ''; tfaRefresh(); tfaMsg(t('admin.tfaDone'));
+};
 
 function enterApp(){
   document.getElementById('gate').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('whoami').textContent = `${me.email} · ${me.role}`;
+  tfaRefresh();
   document.getElementById('usersSection').style.display = me.role === 'ADMIN' ? 'block' : 'none';
   document.getElementById('applicationsSection').style.display = 'block';
   loadReports();
@@ -249,8 +319,8 @@ function enterApp(){
 }
 
 document.getElementById('loginBtn').onclick = () =>
-  tryEnter(document.getElementById('gEmail').value.trim(), document.getElementById('gPassword').value);
-document.getElementById('gPassword').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('loginBtn').click(); });
+  tryEnter(document.getElementById('gEmail').value.trim(), document.getElementById('gPassword').value, document.getElementById('gCode').value.trim());
+['gPassword','gCode'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('loginBtn').click(); }));
 document.getElementById('logout').onclick = async (e) => {
   e.preventDefault();
   await fetch('/api/auth/logout', {method:'POST', credentials:'include'});

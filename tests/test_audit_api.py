@@ -278,9 +278,11 @@ def test_edit_token_works_in_a_header():
     assert new_client().get(f"/api/reports/{rid}", headers={"X-Edit-Token": tok}).status_code == 200
 
 
-def test_edit_token_still_works_in_the_query_for_old_links():
+def test_edit_token_in_the_query_string_is_no_longer_accepted():
+    # Tokens work for one hour, so every old link has expired; the URL form would
+    # only keep writing tokens into access logs.
     rid, tok = _filed()
-    assert new_client().get(f"/api/reports/{rid}?edit_token={tok}").status_code == 200
+    assert new_client().get(f"/api/reports/{rid}?edit_token={tok}").status_code == 403
 
 
 @pytest.mark.parametrize("bad", ["", "wrong", "ünïcödé-tøken"])

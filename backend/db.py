@@ -117,6 +117,22 @@ CREATE TABLE IF NOT EXISTS report_history (
     edited_at   INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_report_history_report ON report_history(report_id, edited_at DESC);
+
+-- What remains after a report is hard-deleted. report_history cascades away with
+-- its report, so without this a deletion left no trace at all. Deliberately NO
+-- content: not the title, text, evidence or old/new field values, because a
+-- deletion is often a takedown or a privacy request. Only who, when, what kind,
+-- and which fields had been edited by whom.
+CREATE TABLE IF NOT EXISTS report_deletions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_id   INTEGER NOT NULL,
+    source      TEXT,
+    category    TEXT,
+    status      TEXT,
+    deleted_by  TEXT NOT NULL,
+    deleted_at  INTEGER NOT NULL,
+    history     TEXT     -- JSON [{field, edited_by, edited_at}], no values
+);
 """
 
 # Additive migrations for columns added after the initial CREATE TABLE, so
@@ -135,6 +151,11 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # Records that a self-registered volunteer accepted the Terms + Privacy
     # Policy at signup (unix seconds).
     ("users", "ALTER TABLE users ADD COLUMN accepted_terms_at INTEGER"),
+    # Two-step sign-in (authenticator app, RFC 6238). The secret is only
+    # trusted once totp_enabled=1; totp_last_step stops a code being reused.
+    ("users", "ALTER TABLE users ADD COLUMN totp_secret TEXT"),
+    ("users", "ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0"),
+    ("users", "ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
@@ -576,11 +597,45 @@ def fuzz_coords(report_id: int, lat: float, lon: float, radius_m: int = 500) -> 
     return round(lat + dlat, 6), round(lon + dlon, 6)
 
 
-def delete_report(report_id: int) -> bool:
-    """Remove a report (spam, false positive, takedown request). Returns False if no such row."""
+def delete_report(report_id: int, deleted_by: str = "unknown") -> bool:
+    """
+    Remove a report (spam, false positive, takedown request). Returns False if
+    no such row. Leaves a content-free record in report_deletions (who, when,
+    which fields were edited by whom) so the audit trail survives the delete.
+    """
     with _conn() as conn:
+        row = conn.execute(
+            "SELECT id, source, category, status FROM reports WHERE id = ?", (report_id,)
+        ).fetchone()
+        if row is None:
+            return False
+        trail = [
+            {"field": h["field"], "edited_by": h["edited_by"], "edited_at": h["edited_at"]}
+            for h in conn.execute(
+                "SELECT field, edited_by, edited_at FROM report_history WHERE report_id = ? ORDER BY edited_at",
+                (report_id,),
+            ).fetchall()
+        ]
+        conn.execute(
+            """INSERT INTO report_deletions (report_id, source, category, status, deleted_by, deleted_at, history)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (report_id, row["source"], row["category"], row["status"], deleted_by, int(time.time()), json.dumps(trail)),
+        )
         cur = conn.execute("DELETE FROM reports WHERE id = ?", (report_id,))
         return cur.rowcount > 0
+
+
+def list_report_deletions(limit: int = 200) -> list[dict[str, Any]]:
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM report_deletions ORDER BY deleted_at DESC LIMIT ?", (max(1, min(limit, 1000)),)
+        ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["history"] = json.loads(d["history"] or "[]")
+        out.append(d)
+    return out
 
 
 def find_url_duplicates() -> list[dict[str, Any]]:
@@ -747,6 +802,42 @@ def create_user(
             return None
 
 
+# ---- two-step sign-in ----------------------------------------------------
+
+def get_totp(user_id: int) -> Optional[dict[str, Any]]:
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT totp_secret, totp_enabled, totp_last_step FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def set_totp_pending(user_id: int, secret: str) -> None:
+    """Store a freshly generated secret, NOT yet required at sign-in."""
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE users SET totp_secret = ?, totp_enabled = 0, totp_last_step = 0 WHERE id = ?",
+            (secret, user_id),
+        )
+
+
+def enable_totp(user_id: int, step: int) -> None:
+    with _conn() as conn:
+        conn.execute("UPDATE users SET totp_enabled = 1, totp_last_step = ? WHERE id = ?", (step, user_id))
+
+
+def set_totp_last_step(user_id: int, step: int) -> None:
+    with _conn() as conn:
+        conn.execute("UPDATE users SET totp_last_step = ? WHERE id = ?", (step, user_id))
+
+
+def disable_totp(user_id: int) -> None:
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE users SET totp_secret = NULL, totp_enabled = 0, totp_last_step = 0 WHERE id = ?", (user_id,)
+        )
+
+
 def get_user_by_email(email: str) -> Optional[dict[str, Any]]:
     with _conn() as conn:
         row = conn.execute(
@@ -793,15 +884,26 @@ def delete_user(user_id: int) -> bool:
         return cur.rowcount > 0
 
 
-SESSION_TTL_SECONDS = 60 * 60 * 24 * 14  # 14 days
+# Reviewers and volunteers stay signed in a week; the ADMIN session, which can
+# delete reports and users, lasts 12 hours. (Both were 14 days.)
+SESSION_TTL_SECONDS = 60 * 60 * 24 * 7
+ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 12
+
+
+def _session_key(token: str) -> str:
+    """Sessions are stored as SHA-256 of the cookie value, so a copy of the
+    database (or a backup) cannot be replayed as logged-in sessions."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def create_session(user_id: int) -> str:
     token = secrets.token_urlsafe(32)
     with _conn() as conn:
+        role = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+        ttl = ADMIN_SESSION_TTL_SECONDS if role and role["role"] == "ADMIN" else SESSION_TTL_SECONDS
         conn.execute(
             "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
-            (token, user_id, int(time.time()) + SESSION_TTL_SECONDS),
+            (_session_key(token), user_id, int(time.time()) + ttl),
         )
     return token
 
@@ -819,7 +921,7 @@ def get_session_user(token: str) -> Optional[dict[str, Any]]:
             JOIN users u ON u.id = s.user_id
             WHERE s.token = ? AND s.expires_at > ?
             """,
-            (token, now),
+            (_session_key(token), now),
         ).fetchone()
         conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (now,))
     return dict(row) if row else None
@@ -827,7 +929,7 @@ def get_session_user(token: str) -> Optional[dict[str, Any]]:
 
 def delete_session(token: str) -> None:
     with _conn() as conn:
-        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        conn.execute("DELETE FROM sessions WHERE token = ?", (_session_key(token),))
 
 
 # --------------------------------------------------------------------------- #

@@ -28,6 +28,7 @@ import db
 import lawref
 import security
 import selfcheck
+import totp
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 ENV = os.environ.get("DXMAP_ENV", "prod")  # secure by default; dev must be asked for
@@ -353,9 +354,7 @@ def post_report(report: UserReport, request: Request):
 
 
 @app.get("/api/reports/{report_id}")
-def get_own_report(
-    report_id: int, edit_token: str = "", x_edit_token: str = Header(default=""),
-):
+def get_own_report(report_id: int, x_edit_token: str = Header(default="")):
     """
     Fetch a single report by id, gated by its edit_token. This is the only
     way an anonymous submitter can see their own report on the map again —
@@ -369,9 +368,9 @@ def get_own_report(
     existing = db.get_report(report_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Report not found")
-    # Header preferred (URLs end up in access logs); the query form stays for
-    # links issued before 2026-10-20.
-    if not security.token_equal(x_edit_token or edit_token, existing.get("edit_token")):
+    # Header only: URLs end up in access logs. (The old ?edit_token= form is
+    # gone; a token only works for one hour, so every old link has expired.)
+    if not security.token_equal(x_edit_token, existing.get("edit_token")):
         raise HTTPException(status_code=403, detail="Wrong edit token")
     existing.pop("edit_token", None)
     return existing
@@ -480,11 +479,18 @@ def admin_set_report_status(
 
 
 @app.delete("/api/admin/reports/{report_id}")
-def admin_delete_report(report_id: int, _: dict = Depends(auth.require_role("ADMIN"))):
-    """Permanently remove a report — ADMIN only (VERIFIER should dismiss instead)."""
-    if not db.delete_report(report_id):
+def admin_delete_report(report_id: int, user: dict = Depends(auth.require_role("ADMIN"))):
+    """Permanently remove a report — ADMIN only (VERIFIER should dismiss instead).
+    A content-free record of the deletion is kept (GET /api/admin/deletions)."""
+    if not db.delete_report(report_id, deleted_by=user["email"]):
         raise HTTPException(status_code=404, detail="Report not found")
     return {"id": report_id, "status": "deleted"}
+
+
+@app.get("/api/admin/deletions")
+def admin_list_deletions(limit: int = 200, _: dict = Depends(auth.require_role("ADMIN"))):
+    """Who deleted which report and when. No content: see db.report_deletions."""
+    return {"deletions": db.list_report_deletions(limit)}
 
 
 @app.get("/api/admin/duplicates")
@@ -569,6 +575,7 @@ def service_stats(_: None = Depends(require_service)):
 class LoginBody(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=200)
+    code: str = Field(default="", max_length=16)  # authenticator code, when two-step sign-in is on
 
 
 def _rate_limit(key: str, limit: int, window: float = 3600.0) -> None:
@@ -610,10 +617,67 @@ def login(body: LoginBody, response: Response, request: Request):
     if not db.verify_password(body.password, user["password_hash"]):
         security.login_failed(body.email, ip)
         raise HTTPException(status_code=401, detail="Wrong email or password")
+    # Two-step sign-in. Only asked AFTER the password was right, so it tells
+    # nobody which accounts exist; a wrong or missing code counts as a failed
+    # attempt (the same lockout as a wrong password) and is single-use.
+    totp_state = db.get_totp(user["id"])
+    if totp_state and totp_state["totp_enabled"]:
+        if not body.code.strip():
+            raise HTTPException(status_code=401, detail="TOTP_REQUIRED")
+        step = totp.verify(totp_state["totp_secret"], body.code, totp_state["totp_last_step"])
+        if step is None:
+            security.login_failed(body.email, ip)
+            raise HTTPException(status_code=401, detail="TOTP_INVALID")
+        db.set_totp_last_step(user["id"], step)
     security.login_ok(body.email, ip)
     token = db.create_session(user["id"])
     auth.set_session_cookie(response, token)
-    return {"email": user["email"], "role": user["role"]}
+    return {"email": user["email"], "role": user["role"], "totp": bool(totp_state and totp_state["totp_enabled"])}
+
+
+# ---- two-step sign-in management (any signed-in reviewer or admin) ----------
+
+class TotpCode(BaseModel):
+    code: str = Field(min_length=6, max_length=16)
+
+
+@app.post("/api/auth/totp/setup")
+def totp_setup(request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER"))):
+    """Start enrolment: a new secret (not required at sign-in until confirmed)."""
+    security.enforce(request, "totp-setup", [(10, 3600)], key=str(user["id"]))
+    state = db.get_totp(user["id"])
+    if state and state["totp_enabled"]:
+        raise HTTPException(status_code=409, detail="Two-step sign-in is already on; turn it off first")
+    secret = totp.new_secret()
+    db.set_totp_pending(user["id"], secret)
+    return {"secret": secret, "uri": totp.provisioning_uri(secret, user["email"])}
+
+
+@app.post("/api/auth/totp/enable")
+def totp_enable(body: TotpCode, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER"))):
+    """Confirm enrolment with a first code from the app."""
+    security.enforce(request, "totp-confirm", [(10, 600)], key=str(user["id"]))
+    state = db.get_totp(user["id"])
+    if not state or not state["totp_secret"]:
+        raise HTTPException(status_code=409, detail="Start setup first")
+    step = totp.verify(state["totp_secret"], body.code, 0)
+    if step is None:
+        raise HTTPException(status_code=400, detail="That code is not right. Check the clock on your phone.")
+    db.enable_totp(user["id"], step)
+    return {"totp": True}
+
+
+@app.post("/api/auth/totp/disable")
+def totp_disable(body: TotpCode, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER"))):
+    """Turn it off: needs a current code, so a stolen session cannot remove it."""
+    security.enforce(request, "totp-disable", [(10, 600)], key=str(user["id"]))
+    state = db.get_totp(user["id"])
+    if not state or not state["totp_enabled"]:
+        raise HTTPException(status_code=409, detail="Two-step sign-in is not on")
+    if totp.verify(state["totp_secret"], body.code, state["totp_last_step"]) is None:
+        raise HTTPException(status_code=400, detail="That code is not right")
+    db.disable_totp(user["id"])
+    return {"totp": False}
 
 
 class SignupBody(BotFields):
@@ -665,7 +729,11 @@ def logout(response: Response, dxmap_session: str = Cookie(default=None)):
 @app.get("/api/auth/me")
 def me(user: dict = Depends(auth.require_user)):
     full = db.get_user_by_id(user["id"])
-    return {"email": user["email"], "role": user["role"], "provider": full["provider"] if full else "email"}
+    state = db.get_totp(user["id"])
+    return {
+        "email": user["email"], "role": user["role"], "provider": full["provider"] if full else "email",
+        "totp": bool(state and state["totp_enabled"]),
+    }
 
 
 # Public self-registration and Google sign-in were removed: applications now

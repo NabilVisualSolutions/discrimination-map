@@ -784,6 +784,9 @@ function Involved({
   const [hp, setHp] = useState("")
   const [botToken, setBotToken] = useState<string | null>(null)
   const [widgetKey, setWidgetKey] = useState(0)
+  // Two-step sign-in: the server asks for a code only after a right password.
+  const [code, setCode] = useState("")
+  const [needCode, setNeedCode] = useState(false)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -800,11 +803,19 @@ function Involved({
     try {
       if (mode === "signup")
         await api.signup({ name, email, password, message, accept, hp_contact: hp, turnstile_token: botToken ?? "" })
-      else await api.login(email, password)
+      else await api.login(email, password, code)
       setPassword("")
+      setCode("")
+      setNeedCode(false)
       await onChanged()
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : String(e2))
+      const m = e2 instanceof Error ? e2.message : String(e2)
+      if (m === "TOTP_REQUIRED" || m === "TOTP_INVALID") {
+        setNeedCode(true)
+        setErr(t(m === "TOTP_REQUIRED" ? "involved.codeNeeded" : "involved.codeWrong"))
+      } else {
+        setErr(m)
+      }
     } finally {
       setBusy(false)
       setBotToken(null)
@@ -866,6 +877,18 @@ function Involved({
             minLength={8}
             required
           />
+          {mode === "signin" && needCode && (
+            <input
+              className="field"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={8}
+              placeholder={t("involved.code")}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              autoFocus
+            />
+          )}
           {mode === "signup" && (
             <textarea className="field" rows={3} placeholder={t("involved.msgPh")} value={message} onChange={(e) => setMessage(e.target.value)} />
           )}

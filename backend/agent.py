@@ -358,7 +358,18 @@ def build_sources() -> list[tuple[str, bool, Optional[Callable]]]:
 # Processing                                                                    #
 # --------------------------------------------------------------------------- #
 
+# Most new reports one source may add per heartbeat. A few dozen relevant posts
+# per source per beat is normal; hundreds means someone is stuffing keywords
+# into public posts to bury the review queue with planted incidents. Items over
+# the cap are simply picked up on a later beat if they are still in the feed.
+MAX_NEW_PER_SOURCE_PER_BEAT = int(os.environ.get("DXMAP_MAX_NEW_PER_SOURCE", "60"))
+
+
 def _store_item(source: str, item: dict[str, Any]) -> Optional[tuple[int, str]]:
+    return _store_item_ex(source, item)[1]
+
+
+def _store_item_ex(source: str, item: dict[str, Any]) -> tuple[bool, Optional[tuple[int, str]]]:
     """
     Classify one scraped item, and persist it IF it is far-right-relevant.
     Uses only the instant offline gazetteer for location here; unlocated items
@@ -373,7 +384,7 @@ def _store_item(source: str, item: dict[str, Any]) -> Optional[tuple[int, str]]:
     text = f"{item.get('title', '')} {item.get('body', '')}"
     verdict = lawref.classify(text)
     if not verdict["relevant"]:
-        return None  # keep the map focused: skip unrelated posts
+        return False, None  # keep the map focused: skip unrelated posts
 
     # Gazetteer is Germany-biased (its city list is heaviest there) but not
     # Germany-restricted — a global taxonomy shouldn't silently drop a real
@@ -396,8 +407,8 @@ def _store_item(source: str, item: dict[str, Any]) -> Optional[tuple[int, str]]:
         # scraped item always carries a real source `url` as evidence.
         lat=lat, lon=lon, place=place)
     if new_id is not None and hit is None:
-        return new_id, text              # newly stored, awaiting geocode
-    return None
+        return True, (new_id, text)      # newly stored, awaiting geocode
+    return new_id is not None, None
 
 
 async def run_one_source(name: str, adapter: Callable,
@@ -411,10 +422,20 @@ async def run_one_source(name: str, adapter: Callable,
     try:
         raw = await adapter(client)
         fetch_ms = int((time.time() - t0) * 1000)
-        pending = [pr for it in raw if (pr := _store_item(name, it))]
+        pending: list[tuple[int, str]] = []
+        stored = 0
+        for it in raw:
+            if stored >= MAX_NEW_PER_SOURCE_PER_BEAT:
+                break
+            was_stored, pr = _store_item_ex(name, it)
+            stored += was_stored
+            if pr:
+                pending.append(pr)
+        capped = stored >= MAX_NEW_PER_SOURCE_PER_BEAT and len(raw) > 0
         db.record_heartbeat(source=name, ok=True, found=len(raw),
                             latency_ms=fetch_ms,
-                            detail=f"fetched={len(raw)} pending_geocode={len(pending)}")
+                            detail=f"fetched={len(raw)} stored={stored} pending_geocode={len(pending)}"
+                                   + (" CAPPED" if capped else ""))
         return pending
     except Exception as exc:  # isolate: one bad source must not stop others
         db.record_heartbeat(source=name, ok=False,

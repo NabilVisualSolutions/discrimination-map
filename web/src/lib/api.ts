@@ -149,10 +149,10 @@ export const api = {
     req<{ email: string; role: string }>("/api/auth/me")
       .then((d) => ({ email: d.email, role: d.role }))
       .catch(() => null),
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, code = "") =>
     req<{ email: string; role: string }>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, code }),
     }),
   signup: (payload: {
     name: string

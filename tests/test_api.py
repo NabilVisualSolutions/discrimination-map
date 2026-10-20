@@ -379,7 +379,7 @@ def test_own_pending_report_fetchable_by_edit_token():
     body = r.json()
     rid, token = body["id"], body["edit_token"]
 
-    ok = client.get(f"/api/reports/{rid}", params={"edit_token": token})
+    ok = client.get(f"/api/reports/{rid}", headers={"X-Edit-Token": token})
     assert ok.status_code == 200
     fetched = ok.json()
     assert fetched["id"] == rid
