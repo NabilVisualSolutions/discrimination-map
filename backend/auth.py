@@ -24,7 +24,8 @@ SESSION_COOKIE = "dxmap_session"
 # Secure-only cookies require HTTPS. Prod is always behind Cloudflare/Caddy
 # TLS; dev/test run over plain http, where a Secure cookie would silently
 # never be sent back by the browser (or by TestClient), breaking login.
-SECURE_COOKIE = os.environ.get("DXMAP_ENV", "dev") == "prod"
+# Secure by default: only an explicit DXMAP_ENV=dev (run-dev.sh, tests) turns it off.
+SECURE_COOKIE = os.environ.get("DXMAP_ENV", "prod") != "dev"
 
 
 def bootstrap_admin() -> None:
