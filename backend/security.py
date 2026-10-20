@@ -21,6 +21,7 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import functools
 import os
 import re
 import secrets
@@ -252,17 +253,45 @@ def frame_ancestors() -> str:
 
 
 def content_security_policy() -> str:
-    """Enforced: framing, plugins, <base>. Kept small on purpose: a wrong
-    script-src would blank the map, so the full policy below ships as
-    Report-Only until a browser run shows no violations."""
-    return f"frame-ancestors {frame_ancestors()}; object-src 'none'; base-uri 'self'"
+    """Enforced since 2026-10-20 after a Chrome run of the map and /admin showed
+    no blocking. Inline scripts of the plain pages are allowed by hash.
+    DXMAP_CSP_ENFORCE=0 falls back to framing/plugins/base only."""
+    base = f"frame-ancestors {frame_ancestors()}; object-src 'none'; base-uri 'self'"
+    if os.environ.get("DXMAP_CSP_ENFORCE", "1") != "0":
+        return base + "; " + _page_policy()
+    return base
 
 
 def content_security_policy_report_only() -> str:
+    return _page_policy()
+
+
+_INLINE_SCRIPT = re.compile(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", re.S | re.I)
+
+
+@functools.lru_cache(maxsize=1)
+def _inline_script_hashes() -> str:
+    """The plain pages (admin, guide, privacy...) carry one inline script each.
+    Allow exactly those, by SHA-256 of their text, instead of 'unsafe-inline'."""
+    import base64, glob, hashlib
+    here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
+    out = set()
+    for path in glob.glob(os.path.join(here, "*.html")):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        for body in _INLINE_SCRIPT.findall(text):
+            if body.strip():
+                out.add("'sha256-" + base64.b64encode(hashlib.sha256(body.encode("utf-8")).digest()).decode() + "'")
+    return " ".join(sorted(out))
+
+
+def _page_policy() -> str:
     turnstile = " https://challenges.cloudflare.com" if turnstile_enabled() else ""
     return "; ".join([
         "default-src 'self'",
-        f"script-src 'self'{turnstile}",
+        f"script-src 'self' {_inline_script_hashes()}{turnstile}".replace("  ", " "),
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: blob: https:",
         "font-src 'self' data: https://fonts.gstatic.com",

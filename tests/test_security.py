@@ -203,3 +203,9 @@ def test_extra_frame_ancestors_only_outside_prod(monkeypatch):
     assert "http://localhost:3100" in security.frame_ancestors()
     monkeypatch.setenv("DXMAP_ENV", "prod")
     assert "localhost" not in security.frame_ancestors()
+
+
+def test_page_policy_is_enforced_with_hashes_for_inline_scripts():
+    csp = security.content_security_policy()
+    assert "script-src 'self'" in csp and "'unsafe-inline'" not in csp.split("style-src")[0]
+    assert "'sha256-" in csp and "object-src 'none'" in csp
