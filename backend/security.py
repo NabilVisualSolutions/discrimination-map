@@ -245,9 +245,9 @@ def content_security_policy_report_only() -> str:
     return "; ".join([
         "default-src 'self'",
         f"script-src 'self'{turnstile}",
-        "style-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: blob: https:",
-        "font-src 'self' data:",
+        "font-src 'self' data: https://fonts.gstatic.com",
         "connect-src 'self' https://tiles.openfreemap.org https://*.amplitude.com",
         "worker-src 'self' blob:",
         f"frame-src 'self'{turnstile}",
