@@ -202,15 +202,15 @@ def test_a_distributed_flood_locks_unknown_addresses_but_not_the_owners_usual_on
     assert login(c, email, headers=home).status_code == 200        # the owner's usual address is not
 
 
-def test_one_wrong_guess_after_a_served_lock_does_not_restore_the_longest_lock():
-    t = [1_000_000.0]
-    for _ in range(12):
-        security.login_failed("decay@example.org", "9.9.9.9", now=t[0])
-        t[0] += 1
-    longest = security._locks[("decay@example.org", "9.9.9.9")]["until"]
-    later = longest + 5  # lock served
-    security.login_failed("decay@example.org", "9.9.9.9", now=later)
-    assert security._locks[("decay@example.org", "9.9.9.9")]["until"] - later < security.LOCK_MAX_S
+def test_a_persistent_guesser_keeps_escalating_but_only_locks_their_own_address():
+    t = 1_000_000.0
+    for _ in range(security.LOCK_FREE_FAILURES):
+        security.login_failed("esc@example.org", "9.9.9.9", now=t)
+    first = security._locks[("esc@example.org", "9.9.9.9")]["until"] - t
+    t += first + 1
+    security.login_failed("esc@example.org", "9.9.9.9", now=t)
+    assert security._locks[("esc@example.org", "9.9.9.9")]["until"] - t == first * 2
+    assert not security.login_locked("esc@example.org", "198.51.100.4", now=t)  # someone else is unaffected
 
 
 def test_unknown_email_still_pays_for_a_password_hash(monkeypatch):
@@ -389,3 +389,32 @@ def test_cloudflares_test_secret_is_refused_in_production(monkeypatch):
     r = new_client().post("/api/reports", json={"title": "Graffiti", "reason": "Swastika", "category": "banned_symbol",
                                                  "lat": 52.5, "lon": 13.4, "turnstile_token": "t"}, headers=visitor())
     assert r.status_code == 403
+
+
+# ---- review round 2: lockout edge cases -------------------------------------
+
+def test_no_usable_address_never_locks():
+    for ip in ("", "unknown"):
+        for _ in range(50):
+            security.login_failed("noip@example.org", ip, now=1_000.0)
+        assert not security.login_locked("noip@example.org", ip, now=1_001.0)
+
+
+def test_engaging_the_email_ceiling_spends_the_count():
+    t = 1_000_000.0
+    for i in range(security.GLOBAL_FAILS):
+        security.login_failed("spent@example.org", f"192.0.2.{i % 250}", now=t)
+    assert security.login_locked("spent@example.org", "198.51.100.9", now=t + 1)
+    t += security.GLOBAL_LOCK_S + 1
+    assert not security.login_locked("spent@example.org", "198.51.100.9", now=t)
+    security.login_failed("spent@example.org", "198.51.100.8", now=t)  # one stray failure
+    assert not security.login_locked("spent@example.org", "198.51.100.9", now=t + 1)
+
+
+def test_expired_email_counters_are_pruned():
+    t = 1_000_000.0
+    for i in range(security.LOCK_MAX_ENTRIES + 10):
+        security.login_failed(f"junk{i}@example.org", "192.0.2.1", now=t)
+    later = t + security.GLOBAL_WINDOW_S + 5
+    security.login_failed("trigger@example.org", "192.0.2.2", now=later)
+    assert len(security._global) < security.LOCK_MAX_ENTRIES

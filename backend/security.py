@@ -311,8 +311,9 @@ def mask_moderator(edited_by: str) -> str:
 # usual locations), so the real owner still gets through.
 #
 # A good login clears the pair and remembers the address. Failures older
-# than a day are forgotten; when a lock expires the failure count is halved,
-# so one wrong guess after expiry cannot restore the maximum lock.
+# than a day are forgotten. The count is not reset when a lock expires, so a
+# persistent guesser climbs to the hour-long lock; that is safe for the owner
+# because the pair is keyed on the address (it only ever locks the guesser).
 # In memory, per process: valid for one container.
 LOCK_FREE_FAILURES = 5
 LOCK_BASE_S = 60
@@ -333,7 +334,16 @@ def _norm(email: str) -> str:
     return (email or "").strip().lower()
 
 
+def _has_address(ip: str) -> bool:
+    # No usable client address: a pair key would collapse to one shared lock per
+    # e-mail, which is the stranger-locks-the-owner problem. Never lock then.
+    return bool(ip) and ip != "unknown"
+
+
 def _prune_locks(now: float) -> None:
+    # The per-e-mail counters never expire by themselves.
+    for k in [k for k, g in _global.items() if now - g["start"] >= GLOBAL_WINDOW_S and g["until"] <= now]:
+        del _global[k]
     for k in [k for k, e in _locks.items() if now - e["last"] >= LOCK_FORGET_S]:
         del _locks[k]
     # Over the cap: drop the oldest entries that are NOT locked right now
@@ -345,6 +355,8 @@ def _prune_locks(now: float) -> None:
 
 
 def login_locked(email: str, ip: str = "", now: float | None = None) -> bool:
+    if not _has_address(ip):
+        return False
     now = time.time() if now is None else now
     e = _norm(email)
     pair = _locks.get((e, ip))
@@ -358,17 +370,16 @@ def login_locked(email: str, ip: str = "", now: float | None = None) -> bool:
 
 
 def login_failed(email: str, ip: str = "", now: float | None = None) -> None:
+    if not _has_address(ip):
+        return
     now = time.time() if now is None else now
-    if len(_locks) > LOCK_MAX_ENTRIES:
+    if len(_locks) > LOCK_MAX_ENTRIES or len(_global) > LOCK_MAX_ENTRIES:
         _prune_locks(now)
     e = _norm(email)
     key = (e, ip)
     p = _locks.get(key)
     if p is None or now - p["last"] >= LOCK_FORGET_S:
         p = {"fails": 0, "until": 0.0, "last": now}
-    if p["until"] and now >= p["until"]:
-        p["fails"] = max(LOCK_FREE_FAILURES - 1, p["fails"] // 2)  # decay after a served lock
-        p["until"] = 0.0
     p["fails"] += 1
     p["last"] = now
     if p["fails"] >= LOCK_FREE_FAILURES:
@@ -380,11 +391,18 @@ def login_failed(email: str, ip: str = "", now: float | None = None) -> None:
         g = {"start": now, "n": 0, "until": 0.0}
     g["n"] += 1
     if g["n"] >= GLOBAL_FAILS:
+        # Engaging the ceiling spends the count: another GLOBAL_FAILS failures
+        # are needed to engage it again, so one stray failure after a lock
+        # lapses cannot re-arm it.
         g["until"] = now + GLOBAL_LOCK_S
+        g["n"] = 0
+        g["start"] = now
     _global[e] = g
 
 
 def login_ok(email: str, ip: str = "", now: float | None = None) -> None:
+    if not _has_address(ip):
+        return
     now = time.time() if now is None else now
     e = _norm(email)
     _locks.pop((e, ip), None)
