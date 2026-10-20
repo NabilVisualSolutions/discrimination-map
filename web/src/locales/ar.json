@@ -136,6 +136,7 @@
   "detail.happened": "حدث في",
   "detail.penalty": "العقوبة",
   "involved.mustAccept": "يرجى قبول شروط الاستخدام وسياسة الخصوصية للمتابعة.",
+  "involved.botWait": "يرجى الانتظار حتى ينتهي التحقق من أنك لست روبوتاً، ثم حاول مرة أخرى.",
   "involved.acceptPre": "أوافق على",
   "involved.acceptAnd": "و",
   "rm.catMulti": "(واحدة أو أكثر)",

@@ -93,6 +93,9 @@ export interface NewReport {
   lat: number
   lon: number
   occurred_at?: number
+  /** Honeypot + Turnstile (lib/botguard.tsx). */
+  website?: string
+  turnstile_token?: string
 }
 
 export const api = {
@@ -156,6 +159,8 @@ export const api = {
     password: string
     message?: string
     accept: boolean
+    website?: string
+    turnstile_token?: string
   }) =>
     req<{ email: string; role: string }>("/api/auth/signup", {
       method: "POST",

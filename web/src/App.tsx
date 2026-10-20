@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api, type Law, type Report, type ReportStatus } from "./lib/api"
 import { LOCALES, applyLocale, type Locale } from "./i18n"
+import { Honeypot, Turnstile, turnstileEnabled } from "./lib/botguard"
 import { MapView } from "./features/map/MapView"
 import { AWARENESS } from "./lib/awareness"
 import { ReportModal } from "./features/report/ReportModal"
@@ -773,17 +774,25 @@ function Involved({
   const [accept, setAccept] = useState(false)
   const [err, setErr] = useState("")
   const [busy, setBusy] = useState(false)
+  const [hp, setHp] = useState("")
+  const [botToken, setBotToken] = useState<string | null>(null)
+  const [widgetKey, setWidgetKey] = useState(0)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setErr("")
+    if (mode === "signup" && turnstileEnabled && !botToken) {
+      setErr(t("involved.botWait"))
+      return
+    }
     if (mode === "signup" && !accept) {
       setErr(t("involved.mustAccept"))
       return
     }
     setBusy(true)
     try {
-      if (mode === "signup") await api.signup({ name, email, password, message, accept })
+      if (mode === "signup")
+        await api.signup({ name, email, password, message, accept, website: hp, turnstile_token: botToken ?? "" })
       else await api.login(email, password)
       setPassword("")
       await onChanged()
@@ -791,6 +800,8 @@ function Involved({
       setErr(e2 instanceof Error ? e2.message : String(e2))
     } finally {
       setBusy(false)
+      setBotToken(null)
+      setWidgetKey((k) => k + 1)
     }
   }
   const logout = async () => {
@@ -862,6 +873,8 @@ function Involved({
               </span>
             </label>
           )}
+          {mode === "signup" && <Honeypot value={hp} onChange={setHp} />}
+          {mode === "signup" && <Turnstile key={widgetKey} onToken={setBotToken} />}
           {err && <p className="muted sm" style={{ color: "#b23b3b" }}>{err}</p>}
           <button className="btn primary" type="submit" disabled={busy}>
             {busy ? "…" : mode === "signup" ? t("involved.signupBtn") : t("involved.signinBtn")}

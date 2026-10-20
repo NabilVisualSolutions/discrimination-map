@@ -136,6 +136,7 @@
   "detail.happened": "survenu le",
   "detail.penalty": "Peine",
   "involved.mustAccept": "Veuillez accepter les Conditions et la Politique de confidentialité.",
+  "involved.botWait": "Veuillez attendre la fin de la vérification anti-robot, puis réessayez.",
   "involved.acceptPre": "J'accepte les",
   "involved.acceptAnd": "et la",
   "rm.catMulti": "(une ou plusieurs)",

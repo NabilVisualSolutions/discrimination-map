@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { api, ApiError, type CategoryMeta, type NewReport } from "../../lib/api"
 import { rememberReport } from "../../lib/mine"
+import { Honeypot, Turnstile, turnstileEnabled } from "../../lib/botguard"
 
 // Anonymous incident report — no account. New reports POST to /api/reports;
 // the same device can edit for one hour (token kept in localStorage, window
@@ -58,6 +59,10 @@ export function ReportModal({
   const [err, setErr] = useState("")
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ id: number; status: string; edit_token: string } | null>(null)
+  const [hp, setHp] = useState("")
+  // Turnstile tokens are single-use: the widget remounts after every submit.
+  const [botToken, setBotToken] = useState<string | null>(null)
+  const [widgetKey, setWidgetKey] = useState(0)
 
   const isSensitive = [...cats].some((c) => SENSITIVE.has(c))
   const catEntries = useMemo(
@@ -128,7 +133,8 @@ export function ReportModal({
     reason.trim().length >= 3 &&
     !!picked &&
     occurredValid &&
-    (!isSensitive || sensitiveOk)
+    (!isSensitive || sensitiveOk) &&
+    (isEdit || !turnstileEnabled || !!botToken)
 
   const submit = async () => {
     if (!canSubmit || !picked) return
@@ -155,6 +161,8 @@ export function ReportModal({
           lat: picked.lat,
           lon: picked.lon,
           occurred_at: occurredTs,
+          website: hp,
+          turnstile_token: botToken ?? "",
         }
         const r = await api.createReport(payload)
         rememberReport(r.id, r.edit_token)
@@ -174,6 +182,8 @@ export function ReportModal({
       )
     } finally {
       setBusy(false)
+      setBotToken(null)
+      setWidgetKey((k) => k + 1)
     }
   }
 
@@ -316,6 +326,8 @@ export function ReportModal({
 
             {err && <p className="rm-err">{err}</p>}
 
+            <Honeypot value={hp} onChange={setHp} />
+            {!isEdit && <Turnstile key={widgetKey} onToken={setBotToken} />}
             <div className="btnrow" style={{ marginTop: 8 }}>
               <button className="btn" onClick={onClose}>{t("rm.cancel")}</button>
               <button className="btn primary" onClick={submit} disabled={!canSubmit || busy}>

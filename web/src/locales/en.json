@@ -136,6 +136,7 @@
   "detail.happened": "happened",
   "detail.penalty": "Penalty",
   "involved.mustAccept": "Please accept the Terms and Privacy Policy to continue.",
+  "involved.botWait": "Please wait for the bot check to finish, then try again.",
   "involved.acceptPre": "I accept the",
   "involved.acceptAnd": "and the",
   "rm.catMulti": "(one or more)",

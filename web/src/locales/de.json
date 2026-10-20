@@ -136,6 +136,7 @@
   "detail.happened": "geschehen am",
   "detail.penalty": "Strafmaß",
   "involved.mustAccept": "Bitte akzeptiere die Nutzungsbedingungen und die Datenschutzerklärung.",
+  "involved.botWait": "Bitte warte, bis die Bot-Prüfung abgeschlossen ist, und versuche es dann erneut.",
   "involved.acceptPre": "Ich akzeptiere die",
   "involved.acceptAnd": "und die",
   "rm.catMulti": "(eine oder mehrere)",
