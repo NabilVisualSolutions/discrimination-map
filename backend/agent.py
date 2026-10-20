@@ -32,6 +32,18 @@ import db
 import geolocate
 import lawref
 
+def redact_secrets(text: str) -> str:
+    """
+    Redacts common secrets from a string that might contain URLs or credentials.
+    Replaces parameters matching key/api_key/apikey/token/secret/access_token
+    with a placeholder, e.g., 'param=value' -> 'param=REDACTED'.
+    """
+    # Regex captures the key (group 1) and the value (group 2)
+    # It targets parameters that look like standard query params in a URL.
+    pattern = r"(\b(?:key|api_key|apikey|token|secret|access_token)\b)=([a-zA-Z0-9_\-.]+)"
+    return re.sub(pattern, r"\1=REDACTED", text)
+
+
 HEARTBEAT_SECONDS = int(os.environ.get("DXMAP_HEARTBEAT_SECONDS", "180"))  # 3 min
 USER_AGENT = "DxMap/1.0 (far-right-monitoring prototype; worldwide)"
 
@@ -403,7 +415,7 @@ async def run_one_source(name: str, adapter: Callable,
     except Exception as exc:  # isolate: one bad source must not stop others
         db.record_heartbeat(source=name, ok=False,
                             latency_ms=int((time.time() - t0) * 1000),
-                            detail=str(exc)[:200])
+                            detail=redact_secrets(str(exc))[:200])
         return []
 
 

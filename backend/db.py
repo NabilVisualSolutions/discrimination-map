@@ -8,6 +8,7 @@ connection factory for Postgres later without touching the API surface.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import math
 import os
@@ -57,6 +58,13 @@ CREATE TABLE IF NOT EXISTS heartbeats (
     detail      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_heartbeats_ran ON heartbeats(ran_at DESC);
+
+-- Server-side secrets that must survive restarts (the report-blur key). Never
+-- selected by any API route.
+CREATE TABLE IF NOT EXISTS app_secrets (
+    name  TEXT PRIMARY KEY,
+    value BLOB NOT NULL
+);
 
 -- Three roles: NONE (self-registered via email/Google, no permissions until
 -- an ADMIN promotes them — this is the "only I can assign reviewers" gate),
@@ -299,6 +307,10 @@ def insert_report(
     """
     located = 1 if (lat is not None and lon is not None) else 0
     normalized_url = url.strip().rstrip("/") if url else None
+    # Only web links are ever stored as a source: a javascript:, data: or
+    # protocol-relative URL here would become a clickable link in the UI.
+    if normalized_url and not normalized_url.lower().startswith(("http://", "https://")):
+        return None
     if status is None:
         status = "unverified" if normalized_url else "pending"
     ts = created_at if created_at is not None else int(time.time())
@@ -370,7 +382,19 @@ def list_reports(
     params.append(limit)
     with _conn() as conn:
         rows = conn.execute(q, params).fetchall()
-    return [_strip_token(dict(r)) for r in rows]
+    out = []
+    for r in rows:
+        row = _strip_token(dict(r))
+        # external_id of a user report was `user_<ms>`: a value that matches
+        # one request in the server's access logs. It has no use in the UI.
+        row.pop("external_id", None)
+        if not viewer_is_reviewer and row.get("source") == "user" and row.get("created_at") is not None:
+            # Round the filing time down to 15 minutes so a published report
+            # cannot be matched to a single logged request. Reviewers, and
+            # automated sources (public posts anyway), keep exact times.
+            row["created_at"] -= row["created_at"] % 900
+        out.append(row)
+    return out
 
 
 def _strip_token(row: dict[str, Any]) -> dict[str, Any]:
@@ -512,6 +536,29 @@ def update_report_fields(report_id: int, fields: dict[str, Any], edited_by: str 
         return cur.rowcount > 0
 
 
+_FUZZ_SECRET: bytes | None = None
+
+
+def get_fuzz_secret() -> bytes:
+    """
+    The key behind the public location blur. 32 random bytes, created on first
+    use and stored in the database (app_secrets), so it survives restarts and
+    never needs an operator step. Without it the blur offset was a function of
+    the report id alone, which anyone could recompute and subtract.
+    """
+    global _FUZZ_SECRET
+    if _FUZZ_SECRET is not None:
+        return _FUZZ_SECRET
+    with _conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO app_secrets (name, value) VALUES ('fuzz', ?)",
+            (secrets.token_bytes(32),),
+        )
+        row = conn.execute("SELECT value FROM app_secrets WHERE name = 'fuzz'").fetchone()
+    _FUZZ_SECRET = bytes(row["value"])
+    return _FUZZ_SECRET
+
+
 def fuzz_coords(report_id: int, lat: float, lon: float, radius_m: int = 500) -> tuple[float, float]:
     """
     Displace a report's public coordinates by a deterministic pseudo-random
@@ -520,7 +567,7 @@ def fuzz_coords(report_id: int, lat: float, lon: float, radius_m: int = 500) -> 
     single unconfirmed post can't pinpoint a real address. Verified reports
     are shown at their real location.
     """
-    h = hashlib.sha256(f"dxmap-fuzz-{report_id}".encode()).digest()
+    h = hmac.new(get_fuzz_secret(), f"fuzz-{report_id}".encode(), hashlib.sha256).digest()
     angle = (int.from_bytes(h[:4], "big") / 0xFFFFFFFF) * 2 * math.pi
     frac = int.from_bytes(h[4:8], "big") / 0xFFFFFFFF
     dist = radius_m * math.sqrt(frac)  # sqrt for uniform density over the disc

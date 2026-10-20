@@ -168,7 +168,9 @@ async def selfcheck_loop() -> None:
     import asyncio
     while True:
         try:
-            run_selfcheck()
+            # pytest (up to 2 min) and an HTTP self-call block: off the event
+            # loop, or the whole API freezes every 15 minutes.
+            await asyncio.to_thread(run_selfcheck)
         except Exception:
             pass
         await asyncio.sleep(SELFCHECK_SECONDS)

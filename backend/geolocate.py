@@ -245,6 +245,12 @@ def from_gazetteer(text: str) -> Optional[tuple[float, float, str]]:
     return None
 
 
+def coarsen(lat: float, lon: float) -> tuple[float, float]:
+    """Round to two decimals (about a kilometre): scraped text that names a
+    street address must not become a house-level pin on a public map."""
+    return round(lat, 2), round(lon, 2)
+
+
 def from_nominatim(text: str, timeout: float = 8.0) -> Optional[tuple[float, float, str]]:
     """
     Geocode a free-text place via Nominatim. Respects the 1 req/s policy by
@@ -271,7 +277,8 @@ def from_nominatim(text: str, timeout: float = 8.0) -> Optional[tuple[float, flo
         data = resp.json()
         if data:
             hit = data[0]
-            return float(hit["lat"]), float(hit["lon"]), hit.get("display_name", text)
+            lat, lon = coarsen(float(hit["lat"]), float(hit["lon"]))
+            return lat, lon, hit.get("display_name", text)
     except Exception:
         # Network hiccup / rate limit / bad response -> caller stores unlocated.
         return None
