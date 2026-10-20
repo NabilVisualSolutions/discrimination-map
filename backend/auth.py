@@ -81,6 +81,7 @@ def require_role(*roles: str, allow_without_2fa: bool = False):
         if (
             user["role"] == "ADMIN"
             and not allow_without_2fa
+            and user.get("via") != "google"
             and os.environ.get("DXMAP_ENV", "prod") == "prod"
         ):
             state = db.get_totp(user["id"])

@@ -201,7 +201,7 @@ def test_signup_requires_accepting_the_terms_and_there_is_no_social_login():
     Volunteers sign up from the map's "Get involved" tab, and that must be an
     explicit acceptance of the Terms and Privacy Policy (the account starts
     with role NONE and no permissions until an ADMIN approves it). There is
-    still no social login.
+    no social login unless the Google client settings are set.
     """
     anon = TestClient(app_module.app)
     r = anon.post("/api/auth/signup", json={"name": "X", "email": "x@example.dev", "password": "whatever123"})

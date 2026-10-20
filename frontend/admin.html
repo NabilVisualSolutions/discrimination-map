@@ -104,6 +104,7 @@
     <input id="gCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" />
   </div>
   <button id="loginBtn" data-i18n="login.submit">Log in</button>
+  <a id="googleBtn" href="/api/auth/google/start" style="display:none;text-align:center;margin-top:10px;padding:10px;border:1px solid #cbd5e1;border-radius:6px;text-decoration:none;color:inherit" data-i18n="login.google">Sign in with Google</a>
   <div class="err" id="gateErr" data-i18n="login.error">Wrong email or password.</div>
 </div>
 
@@ -324,6 +325,8 @@ function enterApp(){
   if(me.role === 'ADMIN') loadUsers();
 }
 
+fetch('/api/auth/google/enabled').then(r => r.json()).then(d => { if (d.enabled) document.getElementById('googleBtn').style.display = 'block'; }).catch(() => {});
+if (new URLSearchParams(location.search).get('google') === '0') { const e = document.getElementById('gateErr'); e.style.display = 'block'; e.textContent = 'Google sign-in did not work for that account.'; }
 document.getElementById('loginBtn').onclick = () =>
   tryEnter(document.getElementById('gEmail').value.trim(), document.getElementById('gPassword').value, document.getElementById('gCode').value.trim());
 ['gPassword','gCode'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('loginBtn').click(); }));

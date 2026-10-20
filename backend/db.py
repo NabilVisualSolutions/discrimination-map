@@ -171,6 +171,9 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # Set when the person clicks the link mailed to them at sign-up. Accounts
     # older than the feature are treated as verified (backfill below).
     ("users", "ALTER TABLE users ADD COLUMN email_verified_at INTEGER"),
+    # How the session was opened: 'password' or 'google'. Google sign-in counts
+    # as the second factor for ADMIN (the Google account's own 2-step applies).
+    ("sessions", "ALTER TABLE sessions ADD COLUMN via TEXT NOT NULL DEFAULT 'password'"),
     # Two-step sign-in (authenticator app, RFC 6238). The secret is only
     # trusted once totp_enabled=1; totp_last_step stops a code being reused.
     ("users", "ALTER TABLE users ADD COLUMN totp_secret TEXT"),
@@ -1037,14 +1040,14 @@ def _session_key(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def create_session(user_id: int) -> str:
+def create_session(user_id: int, via: str = "password") -> str:
     token = secrets.token_urlsafe(32)
     with _conn() as conn:
         role = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
         ttl = ADMIN_SESSION_TTL_SECONDS if role and role["role"] == "ADMIN" else SESSION_TTL_SECONDS
         conn.execute(
-            "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
-            (_session_key(token), user_id, int(time.time()) + ttl),
+            "INSERT INTO sessions (token, user_id, expires_at, via) VALUES (?, ?, ?, ?)",
+            (_session_key(token), user_id, int(time.time()) + ttl, via),
         )
     return token
 
@@ -1058,7 +1061,7 @@ def get_session_user(token: str) -> Optional[dict[str, Any]]:
     with _conn() as conn:
         row = conn.execute(
             """
-            SELECT u.id, u.email, u.role FROM sessions s
+            SELECT u.id, u.email, u.role, s.via AS via FROM sessions s
             JOIN users u ON u.id = s.user_id
             WHERE s.token = ? AND s.expires_at > ?
             """,

@@ -25,6 +25,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 import agent
 import auth
 import db
+import google_login
 import lawref
 import mailer
 import security
@@ -807,6 +808,48 @@ def resend_verification(
     if not db.is_email_verified(user["id"]):
         _queue_verification_mail(background, user["id"], user["email"])
     return {"sent": True}
+
+
+@app.get("/api/auth/google/enabled")
+def google_enabled():
+    return {"enabled": google_login.enabled()}
+
+
+@app.get("/api/auth/google/start")
+def google_start(request: Request):
+    if not google_login.enabled():
+        raise HTTPException(status_code=404, detail="Not found")
+    security.enforce(request, "google-start", [(20, 600)])
+    state = google_login.new_state()
+    resp = RedirectResponse(
+        google_login.authorize_url(state, f"{PUBLIC_URL}/api/auth/google/callback"), status_code=303,
+    )
+    resp.set_cookie(google_login.STATE_COOKIE, state, max_age=600, httponly=True,
+                    samesite="lax", secure=auth.SECURE_COOKIE, path="/api/auth/google")
+    return resp
+
+
+@app.get("/api/auth/google/callback")
+def google_callback(
+    request: Request, code: str = "", state: str = "",
+    dxmap_oauth: str = Cookie(default=None),
+):
+    """Always ends in a redirect to /admin; a failure never says why."""
+    if not google_login.enabled():
+        raise HTTPException(status_code=404, detail="Not found")
+    security.enforce(request, "google-callback", [(20, 600)])
+    fail = RedirectResponse("/admin?google=0", status_code=303)
+    fail.delete_cookie(google_login.STATE_COOKIE, path="/api/auth/google")
+    if not google_login.enabled() or not code or not dxmap_oauth or not secrets.compare_digest(dxmap_oauth, state):
+        return fail
+    email = google_login.email_from_code(code, f"{PUBLIC_URL}/api/auth/google/callback")
+    user = db.get_user_by_email(email) if email else None
+    if not user or user["role"] not in ("ADMIN", "VERIFIER"):
+        return fail
+    resp = RedirectResponse("/admin", status_code=303)
+    resp.delete_cookie(google_login.STATE_COOKIE, path="/api/auth/google")
+    auth.set_session_cookie(resp, db.create_session(user["id"], via="google"), user["role"])
+    return resp
 
 
 @app.post("/api/auth/logout")
