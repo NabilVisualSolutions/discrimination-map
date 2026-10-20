@@ -661,7 +661,7 @@ def _password_ok(user: dict, password: str) -> bool:
 
 @app.post("/api/auth/totp/setup")
 def totp_setup(
-    body: TotpSetupBody, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+    body: TotpSetupBody, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER", allow_without_2fa=True)),
 ):
     """
     Start enrolment: a new secret (not required at sign-in until confirmed).
@@ -681,7 +681,7 @@ def totp_setup(
 
 @app.post("/api/auth/totp/enable")
 def totp_enable(
-    body: TotpCode, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+    body: TotpCode, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER", allow_without_2fa=True)),
     dxmap_session: str = Cookie(default=None),
 ):
     """Confirm enrolment with a first code from the app. Ends the user's other sessions."""
