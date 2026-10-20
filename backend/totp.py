@@ -39,6 +39,8 @@ def verify(secret: str, code: str, last_step: int = 0, now: float | None = None)
     Return the step the code matched (store it as the new last_step), or None.
     A step <= last_step is refused: one code, one use.
     """
+    if not secret:
+        return None
     code = (code or "").strip().replace(" ", "")
     if not (code.isdigit() and len(code) == DIGITS):
         return None

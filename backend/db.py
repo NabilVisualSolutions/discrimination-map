@@ -18,6 +18,8 @@ import time
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional
 
+import secretbox
+
 # DB lives next to the app data, NOT under any web-served directory.
 DB_PATH = os.environ.get("DXMAP_DB_PATH", os.path.join(os.path.dirname(__file__), "dxmap.db"))
 
@@ -848,7 +850,17 @@ def get_totp(user_id: int) -> Optional[dict[str, Any]]:
         row = conn.execute(
             "SELECT totp_secret, totp_enabled, totp_last_step FROM users WHERE id = ?", (user_id,)
         ).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    out = dict(row)
+    if out.get("totp_secret"):
+        try:
+            out["totp_secret"] = secretbox.open_(out["totp_secret"])
+        except ValueError:
+            # Key rotated or row tampered: fail closed (no code can match; an
+            # admin reset clears it) instead of answering 500.
+            out["totp_secret"] = ""
+    return out
 
 
 def set_totp_pending(user_id: int, secret: str) -> None:
@@ -856,7 +868,7 @@ def set_totp_pending(user_id: int, secret: str) -> None:
     with _conn() as conn:
         conn.execute(
             "UPDATE users SET totp_secret = ?, totp_enabled = 0, totp_last_step = 0 WHERE id = ?",
-            (secret, user_id),
+            (secretbox.seal(secret), user_id),
         )
 
 
