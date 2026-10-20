@@ -123,6 +123,15 @@ CREATE INDEX IF NOT EXISTS idx_report_history_report ON report_history(report_id
 -- content: not the title, text, evidence or old/new field values, because a
 -- deletion is often a takedown or a privacy request. Only who, when, what kind,
 -- and which fields had been edited by whom.
+-- Sensitive account actions (resetting someone's two-step sign-in, ...).
+CREATE TABLE IF NOT EXISTS admin_actions (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor  TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT NOT NULL,
+    at     INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS report_deletions (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     report_id   INTEGER NOT NULL,
@@ -160,6 +169,10 @@ _MIGRATIONS: list[tuple[str, str]] = [
 
 
 def _run_migrations(conn: sqlite3.Connection) -> None:
+    # The users-table rebuild goes FIRST: it recreates the table, so any column
+    # the ALTER loop below had already added would be dropped by it (this
+    # silently lost the two-step columns, and accepted_terms_at before them).
+    _migrate_users_table(conn)
     for table, ddl in _MIGRATIONS:
         col = ddl.split("ADD COLUMN")[1].strip().split()[0]
         existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
@@ -186,7 +199,10 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
     # ALTER TABLE loop just ran.
     conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_occurred ON reports(occurred_at)")
-    _migrate_users_table(conn)
+    # Sessions from before the cookie value was hashed hold raw tokens that can
+    # never match again (lookups hash the cookie): remove them. A real hash is
+    # always 64 hex characters.
+    conn.execute("DELETE FROM sessions WHERE length(token) != 64")
 
 
 def _migrate_users_table(conn: sqlite3.Connection) -> None:
@@ -224,13 +240,18 @@ def _migrate_users_table(conn: sqlite3.Connection) -> None:
                 password_hash TEXT    NOT NULL,
                 role          TEXT    NOT NULL DEFAULT 'NONE',
                 provider      TEXT    NOT NULL DEFAULT 'email',
-                created_at    INTEGER NOT NULL
+                created_at    INTEGER NOT NULL,
+                accepted_terms_at INTEGER,
+                totp_secret   TEXT,
+                totp_enabled  INTEGER NOT NULL DEFAULT 0,
+                totp_last_step INTEGER NOT NULL DEFAULT 0
             )
         """)
-        conn.execute("""
-            INSERT INTO users (id, email, password_hash, role, provider, created_at)
-            SELECT id, email, password_hash, role, provider, created_at FROM users_old_check
-        """)
+        # Copy every column both tables have, so nothing the old table held is lost.
+        old_cols = {r["name"] for r in conn.execute("PRAGMA table_info(users_old_check)").fetchall()}
+        new_cols = [r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
+        shared = ", ".join(c for c in new_cols if c in old_cols)
+        conn.execute(f"INSERT INTO users ({shared}) SELECT {shared} FROM users_old_check")
         conn.execute("DROP TABLE users_old_check")
         conn.execute("PRAGMA legacy_alter_table=OFF")
         conn.execute("PRAGMA foreign_keys=ON")
@@ -619,14 +640,32 @@ def delete_report(report_id: int, deleted_by: str = "unknown") -> bool:
         conn.execute(
             """INSERT INTO report_deletions (report_id, source, category, status, deleted_by, deleted_at, history)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (report_id, row["source"], row["category"], row["status"], deleted_by, int(time.time()), json.dumps(trail)),
+            (report_id, row["source"], _known_slugs(row["category"]), row["status"], deleted_by,
+             int(time.time()), json.dumps(trail)),
         )
         cur = conn.execute("DELETE FROM reports WHERE id = ?", (report_id,))
         return cur.rowcount > 0
 
 
+DELETION_RECORD_RETENTION_DAYS = 365
+
+
+def _known_slugs(category: Optional[str]) -> str:
+    """Only category names the map itself defines. `category` is free text typed
+    by anonymous reporters; it must not outlive the report it came from."""
+    import lawref  # local import: lawref has no db dependency
+    tokens = [t.strip().lower() for t in (category or "").replace("|", ",").replace("/", ",").split(",")]
+    return ",".join(t for t in tokens if t in lawref.CATEGORIES)
+
+
 def list_report_deletions(limit: int = 200) -> list[dict[str, Any]]:
     with _conn() as conn:
+        # Retention: deletion records (and the moderator e-mails in their
+        # history) are kept a year, then removed.
+        conn.execute(
+            "DELETE FROM report_deletions WHERE deleted_at < ?",
+            (int(time.time()) - DELETION_RECORD_RETENTION_DAYS * 86400,),
+        )
         rows = conn.execute(
             "SELECT * FROM report_deletions ORDER BY deleted_at DESC LIMIT ?", (max(1, min(limit, 1000)),)
         ).fetchall()
@@ -826,9 +865,37 @@ def enable_totp(user_id: int, step: int) -> None:
         conn.execute("UPDATE users SET totp_enabled = 1, totp_last_step = ? WHERE id = ?", (step, user_id))
 
 
-def set_totp_last_step(user_id: int, step: int) -> None:
+def claim_totp_step(user_id: int, step: int) -> bool:
+    """
+    Atomically take a one-time-code step: True only for the single caller that
+    moves totp_last_step forward. Two logins racing with the same code cannot
+    both win (check-then-set would let both through).
+    """
     with _conn() as conn:
-        conn.execute("UPDATE users SET totp_last_step = ? WHERE id = ?", (step, user_id))
+        cur = conn.execute(
+            "UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?", (step, user_id, step)
+        )
+        return cur.rowcount == 1
+
+
+def delete_other_sessions(user_id: int, keep_token: Optional[str]) -> None:
+    """End every session of this user except the one making the change."""
+    with _conn() as conn:
+        if keep_token:
+            conn.execute(
+                "DELETE FROM sessions WHERE user_id = ? AND token != ?", (user_id, _session_key(keep_token))
+            )
+        else:
+            conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+
+
+def log_admin_action(actor: str, action: str, target: str) -> None:
+    """Who did a sensitive thing to whom, kept apart from report content."""
+    with _conn() as conn:
+        conn.execute(
+            "INSERT INTO admin_actions (actor, action, target, at) VALUES (?, ?, ?, ?)",
+            (actor, action, target, int(time.time())),
+        )
 
 
 def disable_totp(user_id: int) -> None:
@@ -874,6 +941,11 @@ def update_user_role(user_id: int, role: str) -> bool:
         raise ValueError(f"invalid role '{role}'")
     with _conn() as conn:
         cur = conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+        # The session lifetime depends on the role (admin 12 h, others 7 days)
+        # and is fixed at sign-in: a promoted user must sign in again, or a
+        # week-long session would outlive the admin cap.
+        if cur.rowcount > 0:
+            conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
         return cur.rowcount > 0
 
 

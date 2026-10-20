@@ -156,6 +156,10 @@
       <h2 data-i18n="admin.tfaTitle">Two-step sign-in</h2>
       <p class="sub" data-i18n="admin.tfaIntro"></p>
       <p class="sub"><b id="tfaState"></b></p>
+      <div id="tfaPwBox">
+        <label for="tfaPassword" data-i18n="login.password">Password</label>
+        <input id="tfaPassword" type="password" autocomplete="current-password" style="max-width:16em" />
+      </div>
       <div id="tfaOffBox"><button id="tfaStart" data-i18n="admin.tfaStart">Set it up</button></div>
       <div id="tfaSetupBox" style="display:none">
         <p class="sub" data-i18n="admin.tfaSecretIntro"></p>
@@ -275,6 +279,8 @@ function tfaRefresh(){
   const on = !!(me && me.totp);
   document.getElementById('tfaState').textContent = t(on ? 'admin.tfaOn' : 'admin.tfaOff');
   document.getElementById('tfaOffBox').style.display = on ? 'none' : 'block';
+  document.getElementById('tfaPwBox').style.display = 'block';
+  document.getElementById('tfaPassword').value = '';
   document.getElementById('tfaSetupBox').style.display = 'none';
   document.getElementById('tfaCodeBox').style.display = on ? 'block' : 'none';
   document.getElementById('tfaConfirm').style.display = on ? 'none' : 'inline-block';
@@ -287,7 +293,7 @@ async function tfaPost(path, body){
 function tfaMsg(text){ const m = document.getElementById('tfaMsg'); m.textContent = text; m.style.display = text ? 'block' : 'none'; }
 document.getElementById('tfaStart').onclick = async () => {
   tfaMsg('');
-  const r = await tfaPost('/api/auth/totp/setup');
+  const r = await tfaPost('/api/auth/totp/setup', {password: document.getElementById('tfaPassword').value});
   if(!r.ok) return tfaMsg(r.data.detail || 'Error');
   document.getElementById('tfaSecret').textContent = r.data.secret;
   document.getElementById('tfaLink').href = r.data.uri;
@@ -301,7 +307,7 @@ document.getElementById('tfaConfirm').onclick = async () => {
   me.totp = true; document.getElementById('tfaCode').value = ''; tfaRefresh(); tfaMsg(t('admin.tfaDone'));
 };
 document.getElementById('tfaDisable').onclick = async () => {
-  const r = await tfaPost('/api/auth/totp/disable', {code: document.getElementById('tfaCode').value.trim()});
+  const r = await tfaPost('/api/auth/totp/disable', {code: document.getElementById('tfaCode').value.trim(), password: document.getElementById('tfaPassword').value});
   if(!r.ok) return tfaMsg(t('admin.tfaBad'));
   me.totp = false; document.getElementById('tfaCode').value = ''; tfaRefresh(); tfaMsg(t('admin.tfaDone'));
 };

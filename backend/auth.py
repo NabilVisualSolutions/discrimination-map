@@ -39,10 +39,11 @@ def bootstrap_admin() -> None:
     db.create_user(email, password, "ADMIN")
 
 
-def set_session_cookie(response: Response, token: str) -> None:
+def set_session_cookie(response: Response, token: str, role: str = "NONE") -> None:
     response.set_cookie(
         SESSION_COOKIE, token,
-        max_age=db.SESSION_TTL_SECONDS, httponly=True, samesite="lax",
+        max_age=db.ADMIN_SESSION_TTL_SECONDS if role == "ADMIN" else db.SESSION_TTL_SECONDS,
+        httponly=True, samesite="lax",
         secure=SECURE_COOKIE, path="/",
     )
 

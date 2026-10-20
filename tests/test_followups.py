@@ -39,6 +39,9 @@ def _fresh():
     yield
 
 
+PW = "correct-horse-battery"
+
+
 def make_user(role, tag):
     email = f"{role.lower()}-{tag}@followup.example.org"
     if not db.get_user_by_email(email):
@@ -97,7 +100,7 @@ def test_provisioning_uri_is_what_authenticator_apps_read():
 def enrol(email):
     c = TestClient(app_module.app)
     assert login(c, email).status_code == 200
-    secret = c.post("/api/auth/totp/setup").json()["secret"]
+    secret = c.post("/api/auth/totp/setup", json={"password": PW}).json()["secret"]
     assert c.post("/api/auth/totp/enable", json={"code": now_code(secret)}).status_code == 200
     return secret
 
@@ -138,31 +141,32 @@ def test_turning_it_off_needs_a_current_code():
     email = make_user("VERIFIER", "t5")
     c = TestClient(app_module.app)
     login(c, email)
-    secret = c.post("/api/auth/totp/setup").json()["secret"]
+    secret = c.post("/api/auth/totp/setup", json={"password": PW}).json()["secret"]
     c.post("/api/auth/totp/enable", json={"code": now_code(secret)})
-    assert c.post("/api/auth/totp/disable", json={"code": "000000"}).status_code == 400
-    assert c.post("/api/auth/totp/disable", json={"code": now_code(secret, 1)}).status_code == 200
+    assert c.post("/api/auth/totp/disable", json={"code": "000000", "password": PW}).status_code == 400
+    assert c.post("/api/auth/totp/disable", json={"code": now_code(secret, 1), "password": "wrong-password-1"}).status_code == 403
+    assert c.post("/api/auth/totp/disable", json={"code": now_code(secret, 1), "password": PW}).status_code == 200
     assert login(TestClient(app_module.app), email).status_code == 200  # back to password only
 
 
 def test_setup_is_for_reviewers_only_and_refuses_a_second_enrolment():
     anon = TestClient(app_module.app)
-    assert anon.post("/api/auth/totp/setup").status_code == 401
+    assert anon.post("/api/auth/totp/setup", json={"password": PW}).status_code == 401
     none = TestClient(app_module.app)
     login(none, make_user("NONE", "t6"))
-    assert none.post("/api/auth/totp/setup").status_code == 403
+    assert none.post("/api/auth/totp/setup", json={"password": PW}).status_code == 403
     email = make_user("ADMIN", "t6b")
     enrol(email)
     again = TestClient(app_module.app)
     login(again, email, now_code(db.get_totp(db.get_user_by_email(email)["id"])["totp_secret"], 1))
-    assert again.post("/api/auth/totp/setup").status_code == 409
+    assert again.post("/api/auth/totp/setup", json={"password": PW}).status_code == 409
 
 
 def test_a_half_finished_enrolment_does_not_lock_anyone_out():
     email = make_user("ADMIN", "t7")
     c = TestClient(app_module.app)
     login(c, email)
-    c.post("/api/auth/totp/setup")  # never confirmed
+    c.post("/api/auth/totp/setup", json={"password": PW})  # never confirmed
     assert login(TestClient(app_module.app), email).status_code == 200
 
 
@@ -274,3 +278,170 @@ def test_the_heartbeat_says_when_a_source_was_capped(monkeypatch):
     detail = sqlite3.connect(db.DB_PATH).execute(
         "SELECT detail FROM heartbeats WHERE source = 'hbsource' ORDER BY id DESC LIMIT 1").fetchone()[0]
     assert "stored=2" in detail and "CAPPED" in detail
+
+
+# ---------------- review round: stolen sessions, races, migration ----------------
+
+def test_a_stolen_session_cannot_enrol_its_own_authenticator():
+    email = make_user("ADMIN", "r1")
+    thief = TestClient(app_module.app)
+    login(thief, email)  # holds a session, does not know the password
+    assert thief.post("/api/auth/totp/setup", json={"password": "wrong-password-1"}).status_code == 403
+    assert db.get_totp(db.get_user_by_email(email)["id"])["totp_secret"] is None
+    assert thief.post("/api/auth/totp/setup", json={}).status_code == 422
+
+
+def test_turning_two_step_on_or_off_ends_the_other_sessions():
+    email = make_user("VERIFIER", "r2")
+    mine, other = TestClient(app_module.app), TestClient(app_module.app)
+    login(mine, email); login(other, email)
+    assert other.get("/api/auth/me").status_code == 200
+    secret = mine.post("/api/auth/totp/setup", json={"password": PW}).json()["secret"]
+    mine.post("/api/auth/totp/enable", json={"code": now_code(secret)})
+    assert mine.get("/api/auth/me").status_code == 200     # the session making the change stays
+    assert other.get("/api/auth/me").status_code == 401    # every other session is gone
+
+
+def test_an_admin_can_reset_a_reviewers_two_step_and_it_is_logged():
+    email = make_user("VERIFIER", "r3")
+    enrol(email)
+    admin = TestClient(app_module.app)
+    login(admin, make_user("ADMIN", "r3"))
+    uid = db.get_user_by_email(email)["id"]
+    assert admin.post(f"/api/admin/users/{uid}/totp/reset").status_code == 200
+    assert login(TestClient(app_module.app), email).status_code == 200  # password alone again
+    import sqlite3
+    row = sqlite3.connect(db.DB_PATH).execute(
+        "SELECT actor, action, target FROM admin_actions ORDER BY id DESC LIMIT 1").fetchone()
+    assert row == (make_user("ADMIN", "r3"), "totp_reset", email)
+    v = TestClient(app_module.app)
+    login(v, make_user("VERIFIER", "r3b"))
+    assert v.post(f"/api/admin/users/{uid}/totp/reset").status_code == 403
+
+
+def test_two_logins_racing_with_the_same_code_cannot_both_win():
+    uid = db.get_user_by_email(make_user("ADMIN", "r4"))["id"]
+    db.set_totp_pending(uid, totp.new_secret())
+    db.enable_totp(uid, 100)
+    assert db.claim_totp_step(uid, 101) is True
+    assert db.claim_totp_step(uid, 101) is False   # same step again
+    assert db.claim_totp_step(uid, 100) is False   # an older step
+    assert db.claim_totp_step(uid, 102) is True
+
+
+def test_guessing_codes_from_many_addresses_is_stopped_per_account():
+    email = make_user("ADMIN", "r5")
+    secret = enrol(email)
+    c = TestClient(app_module.app)
+    for _ in range(security.TOTP_MAX_FAILS):
+        assert login(c, email, "000000").status_code == 401        # a new address every time
+    r = login(c, email, now_code(secret, 1))                       # even the RIGHT code now waits
+    assert r.status_code == 429
+
+
+def test_the_code_lock_never_applies_before_the_password_is_right():
+    email = make_user("ADMIN", "r6")
+    enrol(email)
+    uid = db.get_user_by_email(email)["id"]
+    for _ in range(security.TOTP_MAX_FAILS):
+        security.totp_failed(uid)
+    wrong_pw = TestClient(app_module.app).post(
+        "/api/auth/login", json={"email": email, "password": "wrong-password-1"}, headers=visitor())
+    assert wrong_pw.status_code == 401 and wrong_pw.json()["detail"] == "Wrong email or password"
+
+
+def test_changing_a_role_ends_that_users_sessions():
+    uid = db.get_user_by_email(make_user("VERIFIER", "r7"))["id"]
+    token = db.create_session(uid)
+    assert db.get_session_user(token)
+    db.update_user_role(uid, "ADMIN")
+    assert db.get_session_user(token) is None
+    db.update_user_role(uid, "VERIFIER")
+
+
+def test_the_admin_cookie_lifetime_matches_the_admin_session():
+    c = TestClient(app_module.app)
+    r = login(c, make_user("ADMIN", "r8"))
+    assert f"Max-Age={db.ADMIN_SESSION_TTL_SECONDS}" in r.headers["set-cookie"]
+    r = login(TestClient(app_module.app), make_user("VERIFIER", "r8"))
+    assert f"Max-Age={db.SESSION_TTL_SECONDS}" in r.headers["set-cookie"]
+
+
+def test_the_old_users_table_rebuild_keeps_every_column(tmp_path):
+    """An old production database still has the CHECK(role...) users table; the
+    rebuild must not drop the consent record or the two-step columns."""
+    import sqlite3, subprocess
+    path = tmp_path / "old.db"
+    c = sqlite3.connect(path)
+    c.executescript("""
+    CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('ADMIN','VERIFIER')),
+      created_at INTEGER NOT NULL);
+    INSERT INTO users (email, password_hash, role, created_at) VALUES ('old@example.org','x$y','ADMIN',1);
+    """)
+    c.commit(); c.close()
+    code = (
+        "import sys, sqlite3; sys.path.insert(0,'backend'); import db; db.init_db();"
+        "c=sqlite3.connect(db.DB_PATH); cols=[r[1] for r in c.execute('PRAGMA table_info(users)')];"
+        "print(','.join(cols)); print(c.execute('SELECT email,role FROM users').fetchall())"
+    )
+    out = subprocess.run([sys.executable, "-c", code], cwd=os.path.join(os.path.dirname(__file__), ".."),
+                         env={**os.environ, "DXMAP_DB_PATH": str(path)}, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    cols_line, rows_line = out.stdout.strip().splitlines()[-2:]
+    for col in ("accepted_terms_at", "totp_secret", "totp_enabled", "totp_last_step", "provider"):
+        assert col in cols_line.split(",")
+    assert "old@example.org" in rows_line
+
+
+def test_pre_hashing_session_rows_are_removed_at_startup(tmp_path):
+    import sqlite3, subprocess
+    path = tmp_path / "s.db"
+    code = (
+        "import sys, sqlite3; sys.path.insert(0,'backend'); import db; db.init_db();"
+        "c=sqlite3.connect(db.DB_PATH); c.execute(\"INSERT INTO users (email,password_hash,role,created_at) VALUES ('u@e.org','x$y','NONE',1)\");"
+        "c.execute(\"INSERT INTO sessions (token,user_id,expires_at) VALUES ('rawtoken',1,9999999999)\"); c.commit(); c.close();"
+        "db.init_db(); c=sqlite3.connect(db.DB_PATH); print(c.execute('SELECT count(*) FROM sessions').fetchone()[0])"
+    )
+    out = subprocess.run([sys.executable, "-c", code], cwd=os.path.join(os.path.dirname(__file__), ".."),
+                         env={**os.environ, "DXMAP_DB_PATH": str(path)}, capture_output=True, text=True)
+    assert out.stdout.strip().splitlines()[-1] == "0", out.stderr
+
+
+def test_the_deletion_record_keeps_only_known_category_names():
+    rid = db.insert_report(source="user", external_id=f"c-{os.urandom(4).hex()}", title="t t t", body="b",
+                           category="banned_symbol,my home address is 12 Example Street", reason="r", evidence="",
+                           law=None, impact="", lat=52.5, lon=13.4, place="x", status="verified")
+    db.delete_report(rid, deleted_by="admin@example.org")
+    rec = next(d for d in db.list_report_deletions() if d["report_id"] == rid)
+    assert rec["category"] == "banned_symbol"
+    assert "Example Street" not in str(rec)
+
+
+def test_old_deletion_records_are_removed_after_a_year():
+    import sqlite3
+    c = sqlite3.connect(db.DB_PATH)
+    c.execute("INSERT INTO report_deletions (report_id, deleted_by, deleted_at, history) VALUES (777, 'a@b.c', ?, '[]')",
+              (int(time.time()) - 366 * 86400,))
+    c.commit(); c.close()
+    assert not any(d["report_id"] == 777 for d in db.list_report_deletions())
+
+
+def test_a_feed_that_fits_under_the_cap_is_not_reported_as_capped(monkeypatch):
+    monkeypatch.setattr(agent, "MAX_NEW_PER_SOURCE_PER_BEAT", 3)
+    items = [{"title": "Neonazis zeigen Hakenkreuz und rufen Sieg Heil in Dortmund", "body": "x",
+              "url": f"https://example.social/@x/fit{i}", "external_id": f"fit-{i}"} for i in range(3)]
+
+    async def adapter(_client):
+        return items
+
+    asyncio.run(agent.run_one_source("fitsource", adapter, None))
+    import sqlite3
+    detail = sqlite3.connect(db.DB_PATH).execute(
+        "SELECT detail FROM heartbeats WHERE source = 'fitsource' ORDER BY id DESC LIMIT 1").fetchone()[0]
+    assert "stored=3" in detail and "CAPPED" not in detail
+
+
+def test_the_vanilla_page_sends_the_edit_token_in_a_header():
+    html = open(os.path.join(os.path.dirname(__file__), "..", "frontend", "index-vanilla.html")).read()
+    assert "?edit_token=" not in html and "X-Edit-Token" in html

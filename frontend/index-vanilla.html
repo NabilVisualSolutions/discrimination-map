@@ -935,7 +935,7 @@ async function restoreOwnReports(){
   if(!ids.length) return;
   const fetched = await Promise.all(ids.map(async id=>{
     try{
-      const res = await fetch(`/api/reports/${id}?edit_token=${encodeURIComponent(tokens[id])}`);
+      const res = await fetch(`/api/reports/${id}`, {headers:{'X-Edit-Token': tokens[id]}});
       return res.ok ? await res.json() : null;
     }catch(e){ return null; }
   }));

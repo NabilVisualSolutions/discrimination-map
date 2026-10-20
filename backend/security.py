@@ -416,6 +416,48 @@ def reset_login_locks() -> None:
     _locks.clear()
     _global.clear()
     _trusted.clear()
+    _totp_fails.clear()
+
+
+# --------------------------------------------------------------------------- #
+# Guessing the second step                                                      #
+# --------------------------------------------------------------------------- #
+
+# Someone holding a stolen PASSWORD can guess the 6-digit code from many
+# addresses, which the (e-mail, address) lock does not stop. So the code step has
+# its own per-ACCOUNT counter: 10 wrong codes in 15 minutes lock code attempts
+# for that account for 15 minutes. Trade-off, deliberate: whoever has the
+# password can keep the real owner out of code entry for 15 minutes at a
+# time; that is far better than 333,000 free guesses, and they already hold
+# the password. Keyed on the account id, so it only ever applies after a right
+# password and tells nobody anything about which accounts exist.
+TOTP_MAX_FAILS = 10
+TOTP_WINDOW_S = 900
+TOTP_LOCK_S = 900
+_totp_fails: dict[int, dict] = {}
+
+
+def totp_locked(user_id: int, now: float | None = None) -> bool:
+    now = time.time() if now is None else now
+    e = _totp_fails.get(user_id)
+    return bool(e and e["until"] > now)
+
+
+def totp_failed(user_id: int, now: float | None = None) -> None:
+    now = time.time() if now is None else now
+    e = _totp_fails.get(user_id)
+    if e is None or now - e["start"] >= TOTP_WINDOW_S:
+        e = {"start": now, "n": 0, "until": 0.0}
+    e["n"] += 1
+    if e["n"] >= TOTP_MAX_FAILS:
+        e["until"] = now + TOTP_LOCK_S
+        e["n"] = 0
+        e["start"] = now
+    _totp_fails[user_id] = e
+
+
+def totp_ok(user_id: int) -> None:
+    _totp_fails.pop(user_id, None)
 
 
 # --------------------------------------------------------------------------- #

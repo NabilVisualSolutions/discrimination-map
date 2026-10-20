@@ -624,14 +624,19 @@ def login(body: LoginBody, response: Response, request: Request):
     if totp_state and totp_state["totp_enabled"]:
         if not body.code.strip():
             raise HTTPException(status_code=401, detail="TOTP_REQUIRED")
+        if security.totp_locked(user["id"]):
+            raise HTTPException(status_code=429, detail="Too many wrong codes — try again in a few minutes")
         step = totp.verify(totp_state["totp_secret"], body.code, totp_state["totp_last_step"])
-        if step is None:
+        # claim_totp_step is atomic: two logins racing with the same code
+        # cannot both win.
+        if step is None or not db.claim_totp_step(user["id"], step):
             security.login_failed(body.email, ip)
+            security.totp_failed(user["id"])
             raise HTTPException(status_code=401, detail="TOTP_INVALID")
-        db.set_totp_last_step(user["id"], step)
+        security.totp_ok(user["id"])
     security.login_ok(body.email, ip)
     token = db.create_session(user["id"])
-    auth.set_session_cookie(response, token)
+    auth.set_session_cookie(response, token, user["role"])
     return {"email": user["email"], "role": user["role"], "totp": bool(totp_state and totp_state["totp_enabled"])}
 
 
@@ -641,10 +646,31 @@ class TotpCode(BaseModel):
     code: str = Field(min_length=6, max_length=16)
 
 
+class TotpSetupBody(BaseModel):
+    password: str = Field(min_length=1, max_length=200)
+
+
+class TotpDisableBody(TotpCode):
+    password: str = Field(min_length=1, max_length=200)
+
+
+def _password_ok(user: dict, password: str) -> bool:
+    full = db.get_user_by_email(user["email"])
+    return bool(full) and db.verify_password(password, full["password_hash"])
+
+
 @app.post("/api/auth/totp/setup")
-def totp_setup(request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER"))):
-    """Start enrolment: a new secret (not required at sign-in until confirmed)."""
+def totp_setup(
+    body: TotpSetupBody, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+):
+    """
+    Start enrolment: a new secret (not required at sign-in until confirmed).
+    Needs the current PASSWORD: without it, a stolen session could enrol its own
+    authenticator and lock the real owner out for good.
+    """
     security.enforce(request, "totp-setup", [(10, 3600)], key=str(user["id"]))
+    if not _password_ok(user, body.password):
+        raise HTTPException(status_code=403, detail="Wrong password")
     state = db.get_totp(user["id"])
     if state and state["totp_enabled"]:
         raise HTTPException(status_code=409, detail="Two-step sign-in is already on; turn it off first")
@@ -654,8 +680,11 @@ def totp_setup(request: Request, user: dict = Depends(auth.require_role("ADMIN",
 
 
 @app.post("/api/auth/totp/enable")
-def totp_enable(body: TotpCode, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER"))):
-    """Confirm enrolment with a first code from the app."""
+def totp_enable(
+    body: TotpCode, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+    dxmap_session: str = Cookie(default=None),
+):
+    """Confirm enrolment with a first code from the app. Ends the user's other sessions."""
     security.enforce(request, "totp-confirm", [(10, 600)], key=str(user["id"]))
     state = db.get_totp(user["id"])
     if not state or not state["totp_secret"]:
@@ -664,20 +693,46 @@ def totp_enable(body: TotpCode, request: Request, user: dict = Depends(auth.requ
     if step is None:
         raise HTTPException(status_code=400, detail="That code is not right. Check the clock on your phone.")
     db.enable_totp(user["id"], step)
+    db.delete_other_sessions(user["id"], dxmap_session)
     return {"totp": True}
 
 
 @app.post("/api/auth/totp/disable")
-def totp_disable(body: TotpCode, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER"))):
-    """Turn it off: needs a current code, so a stolen session cannot remove it."""
+def totp_disable(
+    body: TotpDisableBody, request: Request, user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
+    dxmap_session: str = Cookie(default=None),
+):
+    """Turn it off: needs the password AND a current code, so a stolen session
+    cannot remove it. Ends the user's other sessions."""
     security.enforce(request, "totp-disable", [(10, 600)], key=str(user["id"]))
+    if not _password_ok(user, body.password):
+        raise HTTPException(status_code=403, detail="Wrong password")
     state = db.get_totp(user["id"])
     if not state or not state["totp_enabled"]:
         raise HTTPException(status_code=409, detail="Two-step sign-in is not on")
     if totp.verify(state["totp_secret"], body.code, state["totp_last_step"]) is None:
         raise HTTPException(status_code=400, detail="That code is not right")
     db.disable_totp(user["id"])
+    db.delete_other_sessions(user["id"], dxmap_session)
     return {"totp": False}
+
+
+@app.post("/api/admin/users/{user_id}/totp/reset")
+def admin_reset_totp(user_id: int, user: dict = Depends(auth.require_role("ADMIN"))):
+    """
+    Recovery for a reviewer who lost their phone: the ADMIN switches their
+    two-step sign-in off and ends their sessions. Logged (admin_actions). If the
+    ADMIN loses their own device, recover on the server:
+      docker compose exec map python -c "import sqlite3; c=sqlite3.connect('/app/data/dxmap.db');
+      c.execute('UPDATE users SET totp_enabled=0, totp_secret=NULL WHERE email=?', ('<email>',)); c.commit()"
+    """
+    target = db.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.disable_totp(user_id)
+    db.delete_other_sessions(user_id, None)
+    db.log_admin_action(user["email"], "totp_reset", target["email"])
+    return {"id": user_id, "totp": False}
 
 
 class SignupBody(BotFields):

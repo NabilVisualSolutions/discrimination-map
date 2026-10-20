@@ -424,14 +424,15 @@ async def run_one_source(name: str, adapter: Callable,
         fetch_ms = int((time.time() - t0) * 1000)
         pending: list[tuple[int, str]] = []
         stored = 0
+        capped = False
         for it in raw:
             if stored >= MAX_NEW_PER_SOURCE_PER_BEAT:
+                capped = True  # items remain in the feed that this beat skipped
                 break
             was_stored, pr = _store_item_ex(name, it)
             stored += was_stored
             if pr:
                 pending.append(pr)
-        capped = stored >= MAX_NEW_PER_SOURCE_PER_BEAT and len(raw) > 0
         db.record_heartbeat(source=name, ok=True, found=len(raw),
                             latency_ms=fetch_ms,
                             detail=f"fetched={len(raw)} stored={stored} pending_geocode={len(pending)}"
