@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react"
 
 // Bot protection for the public forms (report, sign-up). Two parts:
 //
-// 1. Honeypot: an input named `website` that sits off-screen, out of the tab
+// 1. Honeypot: an input named `hp_contact` (not a name browsers autofill; "website" is) that sits off-screen, out of the tab
 //    order and hidden from screen readers. People never fill it; form bots
 //    fill every field. The backend rejects a non-empty value
 //    (backend/security.py, HONEYPOT_FIELD).
@@ -20,8 +20,8 @@ export function Honeypot({ value, onChange }: { value: string; onChange: (v: str
   const id = useId()
   return (
     <div aria-hidden="true" style={{ position: "absolute", left: -10000, top: "auto", width: 1, height: 1, overflow: "hidden" }}>
-      <label htmlFor={id}>Website (leave empty)</label>
-      <input id={id} name="website" type="text" tabIndex={-1} autoComplete="off" value={value} onChange={(e) => onChange(e.target.value)} />
+      <label htmlFor={id}>Leave this field empty</label>
+      <input id={id} name="hp_contact" type="text" tabIndex={-1} autoComplete="off" value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   )
 }

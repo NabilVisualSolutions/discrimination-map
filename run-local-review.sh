@@ -13,9 +13,14 @@
 # Build the frontend first when web/ changed:  sh web/sync-to-frontend.sh
 set -e
 cd "$(dirname "$0")"
+# The copy holds password hashes, session and edit tokens: owner-only, in a
+# private directory, deleted when the server stops.
+umask 077
 SRC="${DXMAP_SRC_DB:-backend/dxmap.db}"
-COPY="${TMPDIR:-/tmp}/dxmap-local-review.db"
-if [ -f "$SRC" ]; then cp "$SRC" "$COPY"; else rm -f "$COPY"; fi
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT INT TERM
+COPY="$WORK/dxmap-local-review.db"
+if [ -f "$SRC" ]; then cp "$SRC" "$COPY"; fi
 export DXMAP_ENV=dev
 export DXMAP_AGENT=off
 export DXMAP_DB_PATH="$COPY"
@@ -23,4 +28,4 @@ export DXMAP_ADMIN_EMAIL="dev-admin@example.org"
 export DXMAP_ADMIN_PASSWORD="dev-admin-password-123"
 export DXMAP_FRAME_ANCESTORS_EXTRA="http://localhost:3100 http://localhost:3000"
 echo "map: http://127.0.0.1:8020  (database copy: $COPY, scraper off)"
-exec venv/bin/python -m uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8020
+venv/bin/python -m uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8020

@@ -96,7 +96,7 @@ def audit_security() -> list[str]:
     # own default ("*") — an *unset* var is exactly the case this needs to
     # catch, not just an explicit "*", so the defaults here must agree.
     if os.environ.get("DXMAP_ALLOW_ORIGINS", "*") == "*" and \
-            os.environ.get("DXMAP_ENV", "dev") == "prod":
+            os.environ.get("DXMAP_ENV", "prod") == "prod":
         findings.append("SECURITY: CORS allow-origins is '*' in prod")
 
     return findings

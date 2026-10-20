@@ -106,13 +106,13 @@ def test_limiter_window_expires():
 # ---------------- honeypot + Turnstile ----------------
 
 def test_honeypot_rejects_report():
-    r = _post("/api/reports", {**REPORT, "website": "http://spam.example"}, "203.0.113.50")
+    r = _post("/api/reports", {**REPORT, "hp_contact": "http://spam.example"}, "203.0.113.50")
     assert r.status_code == 400
     assert r.json()["detail"] == security.BOT_CHECK_FAILED
 
 
 def test_honeypot_rejects_application():
-    body = {"name": "Bot", "email": "bot@example.org", "interest": "volunteer", "website": "x"}
+    body = {"name": "Bot", "email": "bot@example.org", "interest": "volunteer", "hp_contact": "x"}
     assert _post("/api/apply", body, "203.0.113.51").status_code == 400
 
 

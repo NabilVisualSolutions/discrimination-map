@@ -41,7 +41,11 @@ def redact_secrets(text: str) -> str:
     # Regex captures the key (group 1) and the value (group 2)
     # It targets parameters that look like standard query params in a URL.
     pattern = r"(\b(?:key|api_key|apikey|token|secret|access_token)\b)=([^&\s\"']+)"
-    return re.sub(pattern, r"\1=REDACTED", text)
+    text = re.sub(pattern, r"\1=REDACTED", text)
+    # JSON-style "token": "..." and header-style values.
+    text = re.sub(r'(?i)("(?:key|api_key|apikey|token|secret|access_token|authorization)"\s*:\s*")[^"]+', r"\1REDACTED", text)
+    text = re.sub(r"(?i)\b(authorization|x-api-key)\s*:\s*(?:bearer\s+)?[^\s,;]+", r"\1: REDACTED", text)
+    return text
 
 
 HEARTBEAT_SECONDS = int(os.environ.get("DXMAP_HEARTBEAT_SECONDS", "180"))  # 3 min

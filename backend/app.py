@@ -93,19 +93,53 @@ async def refuse_cross_site_writes(request, call_next):
     return await call_next(request)
 
 
-@app.middleware("http")
-async def cap_request_body(request, call_next):
-    """No endpoint here takes more than a few KB of JSON; refuse the rest
-    before it is buffered (Content-Length first, then the actual bytes)."""
-    if request.method in ("POST", "PATCH", "PUT"):
-        declared = request.headers.get("content-length")
-        if declared and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
-            return JSONResponse({"detail": "Request too large"}, status_code=413)
-        if not declared:
-            body = await request.body()
-            if len(body) > MAX_BODY_BYTES:
-                return JSONResponse({"detail": "Request too large"}, status_code=413)
-    return await call_next(request)
+class BodyCap:
+    """
+    Pure ASGI middleware: refuse any request body over MAX_BODY_BYTES. A
+    declared Content-Length is checked up front; a chunked body is counted as
+    it streams and aborted the moment it passes the cap, so an oversized body
+    is never buffered whole.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] not in ("POST", "PATCH", "PUT"):
+            return await self.app(scope, receive, send)
+        for name, value in scope.get("headers", []):
+            if name == b"content-length" and value.isdigit() and int(value) > MAX_BODY_BYTES:
+                return await self._too_large(scope, receive, send)
+        seen = 0
+        refused = False
+
+        async def counting_receive():
+            nonlocal seen, refused
+            message = await receive()
+            if message["type"] == "http.request":
+                seen += len(message.get("body", b""))
+                if seen > MAX_BODY_BYTES:
+                    refused = True
+                    return {"type": "http.request", "body": b"", "more_body": False}
+            return message
+
+        async def guarded_send(message):
+            if refused and message["type"] == "http.response.start":
+                return  # the downstream response is replaced below
+            if refused and message["type"] == "http.response.body":
+                return
+            await send(message)
+
+        await self.app(scope, counting_receive, guarded_send)
+        if refused:
+            await self._too_large(scope, receive, send)
+
+    @staticmethod
+    async def _too_large(scope, receive, send):
+        await JSONResponse({"detail": "Request too large"}, status_code=413)(scope, receive, send)
+
+
+app.add_middleware(BodyCap)
 
 
 # Per-IP rate limits on the public write endpoints, minute and hour windows
@@ -166,12 +200,12 @@ async def security_headers(request, call_next):
 
 class BotFields(BaseModel):
     """Hidden honeypot + optional Turnstile token, on every public form."""
-    website: str = Field(default="", max_length=500)
+    hp_contact: str = Field(default="", max_length=500)
     turnstile_token: str = Field(default="", max_length=4096)
 
 
 def _bot_check(body: BotFields, request: Request) -> None:
-    security.honeypot(body.website)
+    security.honeypot(body.hp_contact)
     security.verify_turnstile(body.turnstile_token, request)
 
 
@@ -266,9 +300,10 @@ def get_reports(
     created_at <= as_of. Enables server-side timeline filtering so clients
     don't need to fetch the entire dataset.
     """
-    # The whole feed in one call is cheap to scrape: 60 a minute per visitor
-    # is far above what the map's own loading and timeline use.
-    security.enforce(request, "reports-feed", [(60, 60)])
+    # The whole feed in one call is cheap to scrape. 300 a minute per address
+    # is far above one visitor (the map loads it about once a minute) and
+    # still leaves room for a mobile carrier or an office sharing one address.
+    security.enforce(request, "reports-feed", [(300, 60)])
     limit = max(1, min(limit, 5000))  # headroom above the current ~3.8k public-eligible total
     is_reviewer = bool(user and user["role"] in ("VERIFIER", "ADMIN"))
     reports = db.list_reports(
@@ -562,19 +597,20 @@ def login(body: LoginBody, response: Response, request: Request):
     # Per-address lockout with backoff (security.py), checked before the
     # password and for addresses with no account too, so a locked unknown
     # address answers exactly like a locked real one.
-    if security.login_locked(body.email):
+    ip = _client_ip(request)
+    if security.login_locked(body.email, ip):
         raise HTTPException(status_code=429, detail="Too many attempts — try again later")
     user = db.get_user_by_email(body.email)
     if not user:
         # Same PBKDF2 cost as a real check: response time must not reveal
         # which e-mail addresses have accounts.
         db.verify_password(body.password, _dummy_hash())
-        security.login_failed(body.email)
+        security.login_failed(body.email, ip)
         raise HTTPException(status_code=401, detail="Wrong email or password")
     if not db.verify_password(body.password, user["password_hash"]):
-        security.login_failed(body.email)
+        security.login_failed(body.email, ip)
         raise HTTPException(status_code=401, detail="Wrong email or password")
-    security.login_ok(body.email)
+    security.login_ok(body.email, ip)
     token = db.create_session(user["id"])
     auth.set_session_cookie(response, token)
     return {"email": user["email"], "role": user["role"]}

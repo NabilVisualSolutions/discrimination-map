@@ -51,8 +51,8 @@ def make_user(role, tag):
     return email
 
 
-def login(client, email, password="correct-horse-battery"):
-    return client.post("/api/auth/login", json={"email": email, "password": password}, headers=visitor())
+def login(client, email, password="correct-horse-battery", headers=None):
+    return client.post("/api/auth/login", json={"email": email, "password": password}, headers=headers or visitor())
 
 
 def logged_in(role, tag):
@@ -141,7 +141,14 @@ def test_masked_moderator_ids_are_stable_and_opaque():
     assert security.mask_moderator("boss@example.org") == security.mask_moderator("boss@example.org")
     assert security.mask_moderator("boss@example.org") != security.mask_moderator("other@example.org")
     assert "@" not in security.mask_moderator("boss@example.org")
-    assert security.mask_moderator("pantheon:vol_" + "a" * 32) == "pantheon:vol_" + "a" * 32
+
+
+def test_even_nabilvs_pseudonyms_are_masked_for_reviewers():
+    # A pseudonym is stable across reports: shown raw, one reviewer could follow
+    # another volunteer's verdicts. Only ADMIN sees the raw value.
+    raw = "pantheon:vol_" + "a" * 32
+    masked = security.mask_moderator(raw)
+    assert "vol_" not in masked and masked.startswith("moderator-")
 
 
 def test_only_admins_can_list_volunteer_applications():
@@ -151,29 +158,59 @@ def test_only_admins_can_list_volunteer_applications():
 
 # ---- AUDIT-06: per-account lockout with backoff, no account enumeration -----
 
-def test_five_wrong_passwords_lock_the_account_even_for_the_right_one():
+def test_five_wrong_passwords_lock_that_address_even_for_the_right_one():
     email = make_user("ADMIN", "a6")
-    c = new_client()
+    c, v = new_client(), visitor()
     for _ in range(5):
-        assert login(c, email, "wrong-password-1").status_code == 401
-    assert login(c, email).status_code == 429
+        assert login(c, email, "wrong-password-1", v).status_code == 401
+    assert login(c, email, headers=v).status_code == 429
+
+
+def test_a_stranger_cannot_lock_the_owner_out_from_the_owners_address():
+    email = make_user("ADMIN", "a6owner")
+    c, attacker, owner = new_client(), visitor(), visitor()
+    for _ in range(8):
+        login(c, email, "wrong-password-1", attacker)
+    assert login(c, email, headers=attacker).status_code == 429  # the attacker's address is locked
+    assert login(c, email, headers=owner).status_code == 200     # the owner is not
 
 
 def test_unknown_addresses_lock_exactly_the_same_way():
-    c = new_client()
+    c, v = new_client(), visitor()
     for _ in range(5):
-        assert login(c, "ghost-a6@example.org", "wrong-password-1").status_code == 401
-    assert login(c, "ghost-a6@example.org").status_code == 429
+        assert login(c, "ghost-a6@example.org", "wrong-password-1", v).status_code == 401
+    assert login(c, "ghost-a6@example.org", headers=v).status_code == 429
 
 
 def test_a_good_login_clears_the_failures():
     email = make_user("VERIFIER", "a6b")
-    c = new_client()
+    c, v = new_client(), visitor()
     for _ in range(4):
-        login(c, email, "wrong-password-1")
-    assert login(c, email).status_code == 200
+        login(c, email, "wrong-password-1", v)
+    assert login(c, email, headers=v).status_code == 200
     for _ in range(4):
-        assert login(c, email, "wrong-password-1").status_code == 401
+        assert login(c, email, "wrong-password-1", v).status_code == 401
+
+
+def test_a_distributed_flood_locks_unknown_addresses_but_not_the_owners_usual_one():
+    email = make_user("ADMIN", "a6dist")
+    c, home = new_client(), visitor()
+    assert login(c, email, headers=home).status_code == 200  # owner signs in from home: remembered
+    for _ in range(security.GLOBAL_FAILS):
+        login(c, email, "wrong-password-1", visitor())
+    assert login(c, email, headers=visitor()).status_code == 429   # a new address is held back
+    assert login(c, email, headers=home).status_code == 200        # the owner's usual address is not
+
+
+def test_one_wrong_guess_after_a_served_lock_does_not_restore_the_longest_lock():
+    t = [1_000_000.0]
+    for _ in range(12):
+        security.login_failed("decay@example.org", "9.9.9.9", now=t[0])
+        t[0] += 1
+    longest = security._locks[("decay@example.org", "9.9.9.9")]["until"]
+    later = longest + 5  # lock served
+    security.login_failed("decay@example.org", "9.9.9.9", now=later)
+    assert security._locks[("decay@example.org", "9.9.9.9")]["until"] - later < security.LOCK_MAX_S
 
 
 def test_unknown_email_still_pays_for_a_password_hash(monkeypatch):
@@ -220,8 +257,8 @@ def test_cookies_are_secure_unless_dev_is_asked_for_explicitly():
 
 def test_public_feed_is_rate_limited_per_visitor():
     c, v = new_client(), visitor()
-    codes = [c.get("/api/reports?limit=10", headers=v).status_code for _ in range(61)]
-    assert codes[:60] == [200] * 60 and codes[60] == 429
+    codes = [c.get("/api/reports?limit=10", headers=v).status_code for _ in range(301)]
+    assert codes[:300] == [200] * 300 and codes[300] == 429
     assert c.get("/api/reports?limit=10", headers=visitor()).status_code == 200
 
 
@@ -298,3 +335,57 @@ def test_admin_cannot_demote_themselves_by_approving_their_own_application():
     r = admin.post(f"/api/admin/applications/{app_id}/approve", json={"role": "NONE"})
     assert r.status_code == 400
     assert db.get_user_by_email(admin_email)["role"] == "ADMIN"
+
+
+# ---- review round: IPv6, null origin, chunked bodies, env defaults ----------
+
+def test_one_ipv6_prefix_is_one_rate_limit_bucket():
+    class R:
+        headers = {"x-forwarded-for": CF_EDGE, "cf-connecting-ip": "2001:db8:1:2::1"}
+        client = type("C", (), {"host": "10.0.0.1"})()
+    a = security.client_ip(R())
+    R.headers = {"x-forwarded-for": CF_EDGE, "cf-connecting-ip": "2001:db8:1:2:ffff:eeee:dddd:1"}
+    assert security.client_ip(R()) == a            # same /64 -> same bucket
+    R.headers = {"x-forwarded-for": CF_EDGE, "cf-connecting-ip": "2001:db8:1:3::1"}
+    assert security.client_ip(R()) != a            # another /64 is another visitor
+
+
+def test_ipv4_stays_per_address():
+    class R:
+        headers = {"x-forwarded-for": CF_EDGE, "cf-connecting-ip": "203.0.113.5"}
+        client = type("C", (), {"host": "10.0.0.1"})()
+    assert security.client_ip(R()) == "203.0.113.5"
+
+
+def test_a_null_origin_write_is_refused():
+    r = logged_in("ADMIN", "a7null").post("/api/auth/logout", headers={"Origin": "null"})
+    assert r.status_code == 403
+
+
+def test_a_chunked_body_over_the_cap_is_refused_without_being_buffered_whole():
+    def chunks():
+        for _ in range(64):
+            yield b"x" * 1024  # 64 KB, no Content-Length
+    r = new_client().post("/api/reports", content=chunks(), headers={**visitor(), "Content-Type": "application/json"})
+    assert r.status_code == 413
+
+
+@pytest.mark.parametrize("code", [
+    "import sys; sys.path.insert(0, 'backend'); import security; print(security.frame_ancestors())",
+    "import sys; sys.path.insert(0, 'backend'); import selfcheck, os; print(os.environ.get('DXMAP_ENV', 'prod'))",
+])
+def test_unset_env_means_production_everywhere(code):
+    env = {k: v for k, v in os.environ.items() if k not in ("DXMAP_ENV", "DXMAP_FRAME_ANCESTORS_EXTRA")}
+    env["DXMAP_FRAME_ANCESTORS_EXTRA"] = "http://localhost:3100"
+    out = subprocess.run([sys.executable, "-c", code], cwd=os.path.join(os.path.dirname(__file__), ".."),
+                         env=env, capture_output=True, text=True).stdout
+    assert "localhost" not in out
+
+
+def test_cloudflares_test_secret_is_refused_in_production(monkeypatch):
+    monkeypatch.setenv("DXMAP_TURNSTILE_SECRET", "1x0000000000000000000000000000000AA")
+    monkeypatch.setenv("DXMAP_ENV", "prod")
+    monkeypatch.setattr(security, "_siteverify", lambda *a: {"success": True})
+    r = new_client().post("/api/reports", json={"title": "Graffiti", "reason": "Swastika", "category": "banned_symbol",
+                                                 "lat": 52.5, "lon": 13.4, "turnstile_token": "t"}, headers=visitor())
+    assert r.status_code == 403

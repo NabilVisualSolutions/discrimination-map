@@ -619,9 +619,23 @@ def test_sensitive_categories_use_wide_fuzz_even_verified():
         assert new_id is not None
         listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
         assert listed.get("fuzzed") is True
-        dist_deg = ((listed["lat"] - 52.52) ** 2 + (listed["lon"] - 13.40) ** 2) ** 0.5
-        # 5km radius in degrees ~ 0.045 degrees (well beyond default 500m ~ 0.0045 deg)
-        assert dist_deg * 111 > 1.0
+        dist_km = (((listed["lat"] - 52.52) * 111.32) ** 2 + ((listed["lon"] - 13.40) * 111.32 * 0.6129) ** 2) ** 0.5
+        # Inside the 5 km disc. (The offset is keyed with a random per-install
+        # secret now, so how far INSIDE the disc a given report lands is not
+        # fixed: see the distribution test below.)
+        assert dist_km <= 5.05
+
+
+def test_wide_blur_moves_most_pins_well_beyond_the_default_radius():
+    """Uniform over a 5 km disc: P(offset > 1 km) = 1 - (1/5)^2 = 96%."""
+    import math
+    far = 0
+    for rid in range(10_000, 10_300):
+        lat, lon = db.fuzz_coords(rid, 52.52, 13.40, radius_m=5000)
+        km = math.hypot((lat - 52.52) * 111.32, (lon - 13.40) * 111.32 * math.cos(math.radians(52.52)))
+        assert km <= 5.05
+        far += km > 1.0
+    assert far / 300 > 0.90
 
 
 def test_new_category_reports_work_end_to_end():

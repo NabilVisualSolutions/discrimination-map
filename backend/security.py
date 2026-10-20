@@ -83,8 +83,21 @@ def client_ip(request: Request) -> str:
     if from_cloudflare(hop):
         cf = _valid_ip(request.headers.get("cf-connecting-ip", ""))
         if cf:
-            return cf
-    return hop
+            return _bucket_ip(cf)
+    return _bucket_ip(hop)
+
+
+def _bucket_ip(ip: str) -> str:
+    """An IPv6 customer normally holds a whole /64 (2**64 addresses): keyed
+    per address, one client would own an unlimited number of rate-limit
+    buckets. IPv6 is therefore keyed on its /64; IPv4 stays per address."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if addr.version == 6:
+        return str(ipaddress.ip_network(f"{ip}/64", strict=False).network_address) + "/64"
+    return ip
 
 
 # --------------------------------------------------------------------------- #
@@ -113,11 +126,14 @@ class RateLimiter:
         return False
 
     def _sweep(self, now: float) -> None:
-        # Drop keys whose newest hit is over a day old, then the oldest keys.
-        for k in [k for k, q in self._hits.items() if not q or now - q[-1] > 86400]:
-            del self._hits[k]
-        while len(self._hits) > self.MAX_KEYS:
-            del self._hits[next(iter(self._hits))]
+        # Drop keys idle for a day (nothing can still be counting them). If a
+        # flood still leaves too many, drop keys idle for 10 minutes: only
+        # sub-10-minute windows lose their count, never a key hit just now.
+        for idle in (86400, 600):
+            if len(self._hits) <= self.MAX_KEYS:
+                break
+            for k in [k for k, q in self._hits.items() if not q or now - q[-1] > idle]:
+                del self._hits[k]
 
     def reset(self) -> None:
         self._hits.clear()
@@ -143,7 +159,7 @@ def enforce(request: Request, scope: str, rules: list[tuple[int, float]], key: s
 # Honeypot + Turnstile                                                          #
 # --------------------------------------------------------------------------- #
 
-HONEYPOT_FIELD = "website"
+HONEYPOT_FIELD = "hp_contact"  # not a name browsers autofill (a field called "website" is)
 BOT_CHECK_FAILED = "Verification failed. Reload the page and try again."
 
 
@@ -201,6 +217,8 @@ def verify_turnstile(token: str | None, request: Request) -> None:
     if result.get("success") is not True:
         raise HTTPException(status_code=403, detail=BOT_CHECK_FAILED)
     if _TEST_SECRET.match(secret):
+        if os.environ.get("DXMAP_ENV", "prod") == "prod":
+            raise HTTPException(status_code=403, detail=BOT_CHECK_FAILED)  # never in production
         return
     if result.get("action") != TURNSTILE_ACTION or not _allowed_hostname(result.get("hostname", "")):
         raise HTTPException(status_code=403, detail=BOT_CHECK_FAILED)
@@ -228,7 +246,7 @@ def frame_ancestors() -> str:
     """nabilvs.com embeds the map. DXMAP_FRAME_ANCESTORS_EXTRA adds origins
     (local preview: http://localhost:3100) and is only honoured outside prod."""
     base = ["'self'", "https://nabilvs.com", "https://www.nabilvs.com"]
-    if os.environ.get("DXMAP_ENV", "dev") != "prod":
+    if os.environ.get("DXMAP_ENV", "prod") != "prod":
         base += [o.strip() for o in os.environ.get("DXMAP_FRAME_ANCESTORS_EXTRA", "").split() if o.strip()]
     return " ".join(base)
 
@@ -266,71 +284,120 @@ _MASK_KEY = secrets.token_bytes(32)
 
 
 def mask_moderator(edited_by: str) -> str:
+    """Opaque, stable-per-process label for a moderator. Applied to EVERY value
+    shown to a non-admin, including nabilvs.com's pseudonyms: a pseudonym is
+    stable across reports, so unmasked it would let one reviewer follow
+    another's verdicts."""
     value = edited_by or ""
-    if value.startswith("pantheon:vol_"):
-        return value
     digest = hmac.new(_MASK_KEY, value.lower().encode(), hashlib.sha256).hexdigest()
     return "moderator-" + digest[:8]
 
 
+
 # --------------------------------------------------------------------------- #
-# Per-account login lockout                                                     #
+# Login lockout                                                                 #
 # --------------------------------------------------------------------------- #
 
-# Keyed on the e-mail the caller TYPED, whether or not an account exists, so a
-# locked unknown address answers exactly like a locked real one (no account
-# enumeration). 5 failures lock for 60 s, doubling per further failure up to
-# 1 h; a good login clears it; failures older than a day are forgotten. An
-# active lock is never evicted to make room (flooding junk addresses must not
-# clear a victim's lock). In memory, per process: valid for one container.
+# Keyed on (typed e-mail, client address), whether or not the account exists,
+# so a locked unknown address answers like a locked real one (no account
+# enumeration). 5 failures from one address lock THAT address for 60 s,
+# doubling per further failure up to 1 h. Keying on the pair, not the e-mail
+# alone, is what stops a stranger from keeping the ADMIN locked out: their
+# failures lock only their own address.
+#
+# Spread-out guessing (many addresses, one account) hits a second, per-
+# e-mail ceiling: 100 failures in an hour start a 15-minute lock for every
+# address EXCEPT ones that signed in successfully within 30 days (the owner's
+# usual locations), so the real owner still gets through.
+#
+# A good login clears the pair and remembers the address. Failures older
+# than a day are forgotten; when a lock expires the failure count is halved,
+# so one wrong guess after expiry cannot restore the maximum lock.
+# In memory, per process: valid for one container.
 LOCK_FREE_FAILURES = 5
 LOCK_BASE_S = 60
 LOCK_MAX_S = 3600
 LOCK_FORGET_S = 24 * 3600
 LOCK_MAX_ENTRIES = 20_000
-_locks: dict[str, dict] = {}
+GLOBAL_FAILS = 100
+GLOBAL_WINDOW_S = 3600
+GLOBAL_LOCK_S = 900
+TRUST_S = 30 * 24 * 3600
+TRUST_MAX = 5
+_locks: dict[tuple[str, str], dict] = {}
+_global: dict[str, dict] = {}
+_trusted: dict[str, dict[str, float]] = {}
 
 
-def _lock_key(email: str) -> str:
+def _norm(email: str) -> str:
     return (email or "").strip().lower()
 
 
 def _prune_locks(now: float) -> None:
     for k in [k for k, e in _locks.items() if now - e["last"] >= LOCK_FORGET_S]:
         del _locks[k]
-    for k in [k for k, e in _locks.items() if len(_locks) > LOCK_MAX_ENTRIES and e["until"] <= now]:
+    # Over the cap: drop the oldest entries that are NOT locked right now
+    # (flooding junk must not clear a victim's lock).
+    for k in [k for k, e in _locks.items() if e["until"] <= now]:
         if len(_locks) <= LOCK_MAX_ENTRIES:
             break
         del _locks[k]
 
 
-def login_locked(email: str, now: float | None = None) -> bool:
+def login_locked(email: str, ip: str = "", now: float | None = None) -> bool:
     now = time.time() if now is None else now
-    e = _locks.get(_lock_key(email))
-    return bool(e and e["until"] > now)
+    e = _norm(email)
+    pair = _locks.get((e, ip))
+    if pair and pair["until"] > now:
+        return True
+    g = _global.get(e)
+    if g and g["until"] > now:
+        seen = _trusted.get(e, {}).get(ip)
+        return not (seen and now - seen < TRUST_S)
+    return False
 
 
-def login_failed(email: str, now: float | None = None) -> None:
+def login_failed(email: str, ip: str = "", now: float | None = None) -> None:
     now = time.time() if now is None else now
     if len(_locks) > LOCK_MAX_ENTRIES:
         _prune_locks(now)
-    k = _lock_key(email)
-    e = _locks.get(k)
-    if e is None or now - e["last"] >= LOCK_FORGET_S:
-        e = {"fails": 0, "until": 0.0, "last": now}
-    e["fails"] += 1
-    e["last"] = now
-    if e["fails"] >= LOCK_FREE_FAILURES:
-        e["until"] = now + min(LOCK_BASE_S * 2 ** (e["fails"] - LOCK_FREE_FAILURES), LOCK_MAX_S)
-    _locks[k] = e
+    e = _norm(email)
+    key = (e, ip)
+    p = _locks.get(key)
+    if p is None or now - p["last"] >= LOCK_FORGET_S:
+        p = {"fails": 0, "until": 0.0, "last": now}
+    if p["until"] and now >= p["until"]:
+        p["fails"] = max(LOCK_FREE_FAILURES - 1, p["fails"] // 2)  # decay after a served lock
+        p["until"] = 0.0
+    p["fails"] += 1
+    p["last"] = now
+    if p["fails"] >= LOCK_FREE_FAILURES:
+        p["until"] = now + min(LOCK_BASE_S * 2 ** (p["fails"] - LOCK_FREE_FAILURES), LOCK_MAX_S)
+    _locks[key] = p
+
+    g = _global.get(e)
+    if g is None or now - g["start"] >= GLOBAL_WINDOW_S:
+        g = {"start": now, "n": 0, "until": 0.0}
+    g["n"] += 1
+    if g["n"] >= GLOBAL_FAILS:
+        g["until"] = now + GLOBAL_LOCK_S
+    _global[e] = g
 
 
-def login_ok(email: str) -> None:
-    _locks.pop(_lock_key(email), None)
+def login_ok(email: str, ip: str = "", now: float | None = None) -> None:
+    now = time.time() if now is None else now
+    e = _norm(email)
+    _locks.pop((e, ip), None)
+    seen = _trusted.setdefault(e, {})
+    seen[ip] = now
+    while len(seen) > TRUST_MAX:
+        del seen[min(seen, key=seen.get)]
 
 
 def reset_login_locks() -> None:
     _locks.clear()
+    _global.clear()
+    _trusted.clear()
 
 
 # --------------------------------------------------------------------------- #

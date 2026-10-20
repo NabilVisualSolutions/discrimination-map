@@ -799,7 +799,7 @@ function Involved({
     setBusy(true)
     try {
       if (mode === "signup")
-        await api.signup({ name, email, password, message, accept, website: hp, turnstile_token: botToken ?? "" })
+        await api.signup({ name, email, password, message, accept, hp_contact: hp, turnstile_token: botToken ?? "" })
       else await api.login(email, password)
       setPassword("")
       await onChanged()

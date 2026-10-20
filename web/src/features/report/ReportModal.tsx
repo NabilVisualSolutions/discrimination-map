@@ -10,7 +10,8 @@ import { Honeypot, Turnstile, turnstileEnabled } from "../../lib/botguard"
 // when the incident happened (past events allowed). Sensitive categories
 // get an explicit consent gate. Fully localised (en/de/fr/ar).
 
-const SENSITIVE = new Set(["sexual_violence", "harassment"])
+// Keep in step with SENSITIVE in backend/security.py.
+const SENSITIVE = new Set(["sexual_violence", "harassment", "homophobia_transphobia"])
 type Step = "form" | "done"
 type Picked = { lat: number; lon: number; label: string }
 
@@ -161,7 +162,7 @@ export function ReportModal({
           lat: picked.lat,
           lon: picked.lon,
           occurred_at: occurredTs,
-          website: hp,
+          hp_contact: hp,
           turnstile_token: botToken ?? "",
         }
         const r = await api.createReport(payload)
