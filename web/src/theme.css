@@ -1,26 +1,47 @@
-/* Signal Atlas — chromatic daylight, high-clarity, fluid */
+/* DX-MAP — dark intelligence-dashboard palette. Every colour in the UI
+   comes from the tokens below, so the whole look changes in this one place. */
 @import url('https://fonts.googleapis.com/css2?family=Fragment+Mono:ital@0;1&family=General+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Sora:wght@600;700;800&display=swap');
 
 :root{
-  --paper: #fffef8;
-  --paper-2: #fdf6e3;
-  --paper-3: #fef3c7;
-  --ink: #0a0f1f;
-  --ink-2: #1a2238;
-  --muted: #334155;
-  --faint: #64748b;
-  --line: #e6dcc2;
-  --line-2: #f1e8c8;
-  --hair: #d4c9a8;
-  --vermillion: #e11d2d;
-  --vermillion-2: #be123c;
-  --steel: #0284c7;
-  --mint: #059669;
-  --amber: #d97706;
-  --violet: #7c3aed;
-  --ocean: #e0f2fe;
+  color-scheme: dark;
+  /* canvas + surfaces */
+  --paper: #070b14;          /* page canvas */
+  --paper-2: #0e1424;        /* raised surface */
+  --paper-3: #172036;        /* hover / selected surface */
+  --surface: #0b101d;        /* inputs, cards */
+  --panel: rgba(7, 11, 20, 0.94); /* floating chrome over the map */
+  /* text (all >= 4.5:1 on --paper and --surface) */
+  --ink: #f0eadf;
+  --ink-2: #d7d1c6;
+  --muted: #b3b7c2;
+  --faint: #9aa0af;
+  /* hairlines */
+  --line: rgba(190, 205, 235, 0.13);
+  --line-2: rgba(190, 205, 235, 0.08);
+  --hair: rgba(190, 205, 235, 0.24);
+  /* signal colours */
+  --vermillion: #e11d2d;     /* fills that carry white text */
+  --vermillion-2: #b8132a;
+  --red-text: #ff7d89;       /* red used as text or line on dark */
+  --steel: #8fd8ea;
+  --cyan: #8fd8ea;
+  --gold: #e8b64c;
+  --mint: #34d399;
+  --amber: #f59e0b;
+  --violet: #a78bfa;
+  --ocean: #070b14;
+  /* glow + focus */
+  --glow: 0 0 10px rgba(143, 216, 234, 0.16);
+  --focus: #8fd8ea;
+  --map-land: #0e1526;
+  --map-water: #050810;
+  --map-border: #3b5379;
+  --map-label: #8fa3c4;
   --rail: 440px;
   --nav-h: 56px;
+  --rail-w: 52px;      /* side icon rails */
+  --ticker-h: 30px;    /* bottom ticker strip */
+  --tb-h: 52px;        /* top bar */
   --mono: "Fragment Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "General Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: "Sora", "General Sans", system-ui, sans-serif;
@@ -41,19 +62,12 @@ body{
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   background-image:
-    radial-gradient(ellipse at 18% 0%, rgba(2,132,199,.08), transparent 58%),
-    radial-gradient(ellipse at 88% 100%, rgba(225,29,45,.06), transparent 52%),
-    linear-gradient(transparent 96%, rgba(10,15,31,.04) 100%);
+    radial-gradient(ellipse at 18% 0%, rgba(63,220,245,.07), transparent 58%),
+    radial-gradient(ellipse at 88% 100%, rgba(217,35,54,.06), transparent 52%);
 }
 ::selection{background: var(--ink); color: var(--paper)}
-:focus-visible{outline:2px solid var(--vermillion); outline-offset:2px}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background: var(--hair); border-radius:8px}
 a{color: var(--steel)}
 [dir="rtl"] body{direction:rtl}
-.ledger-grid{
-  background-image:
-    linear-gradient(to right, rgba(214,201,168,.22) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(214,201,168,.22) 1px, transparent 1px);
-  background-size: 28px 28px;
-}
