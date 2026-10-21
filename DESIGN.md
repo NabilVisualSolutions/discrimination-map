@@ -1,68 +1,58 @@
 ---
 name: Discrimination Map
-description: Signal Atlas — chromatic worldwide forensic ledger, high-clarity, high-saturation, fluid to any device
+description: Night observatory — a dark, calm instrument for documenting incidents on a map
 colors:
-  paper: "#fffef8"
-  paper-2: "#fdf6e3"
-  ink: "#0a0f1f"
-  line: "#e6dcc2"
-  hair: "#d4c9a8"
+  paper: "#070b14"
+  paper-2: "#0e1424"
+  surface: "#0b101d"
+  ink: "#f0eadf"
+  muted: "#b3b7c2"
+  cyan: "#8fd8ea"
   vermillion: "#e11d2d"
-  steel: "#0284c7"
-  mint: "#059669"
-  amber: "#d97706"
-  violet: "#7c3aed"
+  gold: "#e8b64c"
 typography:
   display:
     fontFamily: "Sora, General Sans, system-ui, sans-serif"
-    fontSize: "clamp(1.6rem, 4vw, 2.4rem)"
-    fontWeight: 800
   body:
     fontFamily: "General Sans, system-ui, sans-serif"
-    fontSize: "clamp(13px, 1.6vw, 15px)"
   mono:
     fontFamily: "Fragment Mono, ui-monospace, monospace"
-    fontSize: "11px"
+    fontSize: "10-11px"
 ---
 
-# Design System: Discrimination Map — Signal Atlas
+# Design System: DX-MAP (Discrimination Map) — Night Observatory
 
 ## Overview
 
-**Creative North Star: "Signal Atlas — Chromatic Forensic Observatory"**
+**Creative North Star: "Night Observatory"**
 
-Surprise: not muted archive but daylight signal atlas — same forensic rigor, now high-clarity, high-saturation. Paper is brighter (#fffef8), ink is deeper (#0a0f1f 16:1), vermillion is pure signal red (#e11d2d), category hues are chromatic not desaturated. Every device reads as one fluid instrument: map and ledger flow into each other via container queries, not breakpoints alone. Clarity comes from 4.5:1 text, 3:1 large, tabular mono, and 8px hairlines that stay crisp at any zoom. Saturation is semantic — red for live/neu, steel for trust, mint for verified — never decoration.
-
-Key: fluid grid, saturated signals, daylight clarity, react-simple-maps globe/atlas inline, Discrimination Map name kept.
+The map is used on a phone, often outdoors at night or in a dim room, so the canvas is a tinted near-black blue (#070b14, never pure black) and the chrome recedes. All colour lives in the tokens at the top of `web/src/theme.css`; change the palette there and nowhere else. This replaces the earlier daylight "Signal Atlas" look on purpose. What stays: calm documentary voice, presumption of innocence ("documentation, not accusation"), no hype, safety by default.
 
 ## Colors
 
-High saturation, high clarity: paper #fffef8 warm daylight, ink #0a0f1f, vermillion #e11d2d (live), steel #0284c7 (links), mint #059669 (verified), amber #d97706 (fuzzed). Category colors via lawref.py but pushed 12% more chroma via filter saturate(1.12).
+Canvas #070b14, raised surfaces #0b101d / #0e1424, hairlines are 1px at low alpha. Text is warm off-white (#f0eadf, 16:1 on the canvas), secondary #b3b7c2 (9.8:1), tertiary #9aa0af (7.5:1). One restrained ice-cyan (#8fd8ea) carries data readouts, the clock, counts and keyboard focus. Vermilion #e11d2d is reserved for live/new/alert, the report action and the top notice (white on it is 4.8:1). Category colours keep the palette from `lawref.py`; they are rendered glowing on the map and lifted toward white wherever they are used as text. Gold appears only in the brand lockup.
 
 ## Typography
 
-Sora 800 display at clamp 1.6-2.4rem, General Sans 600 body at clamp 13-15px, Fragment Mono 11px tabular — fluid via clamp, measure 62-68ch, tracking -0.02em, balanced.
+Fragment Mono for readouts (clock, counts, ticker, tabs, labels), General Sans for reading text, Sora for display moments. No new fonts are loaded. Uppercase letter-spaced mono is limited to short labels; Arabic drops the letter-spacing.
 
 ## Layout
 
-Fluid to any device: CSS container queries + clamp. Map: fluid aspect 16/10 on mobile → 16/9 on tablet → 2/1 on ultra-wide, always inline. Ledger: container-query rail — 100% width <720px, 42% 720-1100px, 440px fixed >1100px, with fluid gap clamp(12px,2vw,20px). No breakpoint snapping, continuous flow.
+Rails, not panels. A narrow left rail of category toggles (icon plus count badge), a narrow right rail of actions (report, guide, awareness, table, law, locate), a top bar with the lockup, search, UTC clock and visible-incident count, a bottom-left render switch (GLOBE, 2D, MAP, SAT) above the timeline, and a full-width ticker of the latest incidents along the bottom. The sheet (incidents, table, law, symbols, get involved) sits beside the right rail on desktop and rises from the bottom on phones. On phones the left rail becomes a scrolling strip under the top bar. RTL mirrors every rail and the switch.
+
+## Render views
+
+GLOBE (MapLibre globe projection, dark), 2D (flat dark), MAP (the original light OpenFreeMap positron), SAT (NASA GIBS Blue Marble, public domain, with a dark scrim under the markers). The choice is remembered in localStorage; the default is GLOBE on desktop and 2D on touch and small screens. Switching swaps the style only, so data, filters, selection and the viewport stay put.
 
 ## Elevation & Depth
 
-Crisp 8px blur shadows at 0 8px 24px rgba(10,15,31,.10), 1px hairlines stay hairline at 200% zoom, no glass — clarity over blur.
+Flat. Depth comes from 1px hairlines and surface steps, not shadows or blur. No glassmorphism. Glow is allowed only on data (markers, network lines) and on the active control.
 
-## Shapes
+## Motion
 
-8-14px radii, pill stops 999px, crosshair markers 7px saturated, star 10px, halo 12px at 0.12 opacity — all 1.2x more saturated than WELTARCHIV.
+The ticker scrolls slowly and pauses on hover and focus; control transitions are 150-180ms. Everything stops under `prefers-reduced-motion` (the ticker becomes a scrollable strip).
 
-## Components
+## Accessibility
 
-Signal tabs with 2px vermillion underline when on, live ticker with 8px mint pulse + 4px glow, ledger rows with 4px saturate bar + country flag, detail sheet with 2-col grid that collapses fluidly.
+Text at least 4.5:1, visible 2px focus ring in ice-cyan, 44px touch targets on touch devices, aria-labels on every icon-only control, the top notice dismisses by touch, keyboard and Esc and stays dismissed for the session.
 
-## Do's and Don'ts
-
-- Do keep Discrimination Map name, world scope, and forensic ledger — now chromatic daylight, not muted paper
-- Do keep fluid: clamp, cqi, container queries — no fixed 380px rail snapping
-- Do keep saturation semantic: vermillion=live, steel=trust, mint=verified — not decoration
-- Don't desaturate categories — push chroma, keep clarity
-- Don't hide ledger behind modal on desktop — fluid rail stays visible

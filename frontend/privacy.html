@@ -112,6 +112,11 @@
     </div>
 
     <div class="card">
+      <h2 id="t-c9h">Map tiles</h2>
+      <p id="t-c9p">The map background comes from OpenFreeMap (tiles.openfreemap.org). If you choose the satellite view, the imagery comes from NASA GIBS (gibs.earthdata.nasa.gov); nothing is requested from NASA until you pick that view. These servers receive your IP address and the usual request data (browser type, the address of this site as referrer, the tiles requested), as any web server does. The map sets no cookies for this.</p>
+    </div>
+
+    <div class="card">
       <h2 id="t-c3h">Why we collect it, and on what legal basis</h2>
       <p id="t-c3p1">Documenting publicly-posted incidents and events is done under legitimate interest (GDPR Art. 6(1)(f)) — the public-interest value of making a pattern visible, weighed against minimal privacy impact since the source posts were already public. Reviewer accounts exist under the same basis, to run the moderation process at all.</p>
       <p id="t-c3p2" style="margin-top:10px"><strong>A note on sensitive content.</strong> Some entries reference alleged criminal conduct (e.g. symbols banned under German law). We treat these strictly as unverified leads, never as an assertion of guilt, and hold anonymous, unverifiable submissions out of the public map until a human reviews them.</p>
@@ -174,6 +179,8 @@ const PRIVACY = {
     c3p1:"Documenting publicly-posted incidents and events is done under legitimate interest (GDPR Art. 6(1)(f)) — the public-interest value of making a pattern visible, weighed against minimal privacy impact since the source posts were already public. Reviewer accounts exist under the same basis, to run the moderation process at all.",
     c3p2:"<strong>A note on sensitive content.</strong> Some entries reference alleged criminal conduct (e.g. symbols banned under German law). We treat these strictly as unverified leads, never as an assertion of guilt, and hold anonymous, unverifiable submissions out of the public map until a human reviews them.",
     c4h:"How long we keep it", c4p:"Reports aren't deleted on a timer — the project's value is in showing patterns over years, and older entries visually fade rather than disappear so the map stays honest about what's recent versus historical. You can ask for a specific report to be removed at any time (see below); dismissed reports (spam, false positives) are kept internally for moderation records but never shown publicly.",
+    c9h:"Map tiles",
+    c9p:"The map background comes from OpenFreeMap (tiles.openfreemap.org). If you choose the satellite view, the imagery comes from NASA GIBS (gibs.earthdata.nasa.gov); nothing is requested from NASA until you pick that view. These servers receive your IP address and the usual request data (browser type, the address of this site as referrer, the tiles requested), as any web server does. The map sets no cookies for this.",
     c5h:"Your rights",
     c5p1:"Under GDPR and comparable laws, you can ask to access, correct, or delete data about you, object to or restrict our processing, and lodge a complaint with your local data protection authority (in Germany: the state DPA where you live, or the BfDI).",
     c5p2:"If you submitted a report yourself, self-editing is built in (see above) while it's still pending review. For anything else — including a request to remove a report you're mentioned in — email <strong>dxmap@nabilvs.com</strong> and we'll respond directly.",
@@ -199,6 +206,8 @@ const PRIVACY = {
     c3p1:"Die Dokumentation öffentlich gepostete Vorfälle und Ereignisse erfolgt auf Grundlage berechtigten Interesses (Art. 6 Abs. 1 lit. f DSGVO) — der öffentliche Nutzen, ein Muster sichtbar zu machen, abgewogen gegen minimale Eingriffe in die Privatsphäre, da die Quellbeiträge bereits öffentlich waren. Prüfer-Konten bestehen auf derselben Grundlage, um den Moderationsprozess überhaupt zu ermöglichen.",
     c3p2:"<strong>Hinweis zu sensiblen Inhalten.</strong> Manche Einträge beziehen sich auf mutmaßlich strafbares Verhalten (z. B. nach deutschem Recht verbotene Symbole). Wir behandeln diese strikt als ungeprüfte Hinweise, nie als Schuldfeststellung, und halten anonyme, nicht verifizierbare Einreichungen von der öffentlichen Karte fern, bis ein Mensch sie geprüft hat.",
     c4h:"Wie lange wir es aufbewahren", c4p:"Meldungen werden nicht nach einer festen Frist gelöscht — der Wert des Projekts liegt darin, Muster über Jahre sichtbar zu machen; ältere Einträge verblassen optisch, statt zu verschwinden, damit die Karte ehrlich zwischen aktuell und historisch unterscheidet. Du kannst jederzeit die Entfernung einer bestimmten Meldung verlangen (siehe unten); abgelehnte Meldungen (Spam, Falschmeldungen) werden intern für die Moderation aufbewahrt, aber nie öffentlich angezeigt.",
+    c9h:"Kartenkacheln",
+    c9p:"Der Kartenhintergrund kommt von OpenFreeMap (tiles.openfreemap.org). Wählst du die Satellitenansicht, stammen die Bilder von NASA GIBS (gibs.earthdata.nasa.gov); bei der NASA wird nichts angefragt, bevor du diese Ansicht wählst. Diese Server erhalten deine IP-Adresse und die üblichen Anfragedaten (Browsertyp, die Adresse dieser Website als Referrer, die angeforderten Kacheln), wie jeder Webserver. Die Karte setzt dafür keine Cookies.",
     c5h:"Deine Rechte",
     c5p1:"Nach DSGVO und vergleichbaren Gesetzen kannst du Auskunft, Berichtigung oder Löschung deiner Daten verlangen, der Verarbeitung widersprechen oder sie einschränken lassen und dich bei deiner zuständigen Datenschutzaufsichtsbehörde beschweren (in Deutschland: die Landesbehörde deines Wohnorts, oder die BfDI).",
     c5p2:"Hast du selbst eine Meldung eingereicht, ist Selbstbearbeitung eingebaut (siehe oben), solange sie noch aussteht. Für alles andere — auch eine Anfrage zur Entfernung einer Meldung, in der du erwähnt wirst — schreib an <strong>dxmap@nabilvs.com</strong>, wir antworten direkt.",
@@ -224,6 +233,8 @@ const PRIVACY = {
     c3p1:"La documentation d'incidents et d'événements publiés publiquement repose sur l'intérêt légitime (RGPD art. 6(1)(f)) — la valeur d'intérêt public de rendre visible un schéma, mise en balance avec un impact minimal sur la vie privée puisque les publications sources étaient déjà publiques. Les comptes de modération existent sur la même base, pour faire fonctionner le processus de modération.",
     c3p2:"<strong>Remarque sur le contenu sensible.</strong> Certaines entrées font référence à des comportements potentiellement criminels (ex. symboles interdits par la loi allemande). Nous les traitons strictement comme des pistes non vérifiées, jamais comme une affirmation de culpabilité, et retenons les soumissions anonymes et non vérifiables hors de la carte publique jusqu'à leur examen par un humain.",
     c4h:"Combien de temps nous les conservons", c4p:"Les signalements ne sont pas supprimés selon une minuterie — la valeur du projet réside dans la mise en évidence de schémas sur plusieurs années ; les entrées plus anciennes s'estompent visuellement plutôt que de disparaître, afin que la carte reste honnête sur ce qui est récent ou historique. Vous pouvez demander le retrait d'un signalement précis à tout moment (voir ci-dessous) ; les signalements rejetés (spam, faux positifs) sont conservés en interne à des fins de modération mais jamais affichés publiquement.",
+    c9h:"Tuiles de carte",
+    c9p:"Le fond de carte provient d'OpenFreeMap (tiles.openfreemap.org). Si vous choisissez la vue satellite, l'imagerie provient de NASA GIBS (gibs.earthdata.nasa.gov) ; rien n'est demandé à la NASA tant que vous n'avez pas choisi cette vue. Ces serveurs reçoivent votre adresse IP et les données de requête habituelles (type de navigateur, adresse de ce site comme référent, tuiles demandées), comme tout serveur web. La carte ne dépose aucun cookie pour cela.",
     c5h:"Vos droits",
     c5p1:"Selon le RGPD et les lois comparables, vous pouvez demander l'accès, la rectification ou la suppression de vos données, vous opposer au traitement ou le restreindre, et déposer une plainte auprès de votre autorité de protection des données (en Allemagne : l'autorité de votre Land, ou la BfDI).",
     c5p2:"Si vous avez soumis un signalement vous-même, l'auto-modification est intégrée (voir ci-dessus) tant qu'il est en attente d'examen. Pour tout le reste — y compris une demande de retrait d'un signalement vous concernant — écrivez à <strong>dxmap@nabilvs.com</strong>, nous répondrons directement.",
@@ -249,6 +260,8 @@ const PRIVACY = {
     c3p1:"يتم توثيق الحوادث والفعاليات المنشورة علنًا استنادًا إلى المصلحة المشروعة (المادة 6(1)(و) من اللائحة العامة لحماية البيانات) — القيمة العامة لإظهار نمط ما، موازَنةً بأثر ضئيل على الخصوصية بما أن المنشورات المصدر كانت عامة أصلًا. حسابات المراجعين قائمة على نفس الأساس، لتشغيل عملية المراجعة أصلًا.",
     c3p2:"<strong>ملاحظة حول المحتوى الحساس.</strong> تشير بعض الإدخالات إلى سلوك إجرامي مزعوم (مثل رموز محظورة بموجب القانون الألماني). نتعامل معها بصرامة كأدلة غير مؤكدة، لا كإثبات للذنب أبدًا، ونُبقي البلاغات المجهولة غير القابلة للتحقق خارج الخريطة العامة حتى يراجعها إنسان.",
     c4h:"إلى متى نحتفظ بها", c4p:"لا تُحذف البلاغات وفق مؤقّت — قيمة المشروع تكمن في إظهار الأنماط عبر السنين، والإدخالات الأقدم تتلاشى بصريًا بدلًا من الاختفاء، حتى تبقى الخريطة صادقة بشأن ما هو حديث مقابل ما هو تاريخي. يمكنك طلب إزالة بلاغ محدد في أي وقت (انظر أدناه)؛ البلاغات المرفوضة (البريد المزعج، البلاغات الكاذبة) تُحفظ داخليًا لأغراض المراجعة لكن لا تُعرض علنًا أبدًا.",
+    c9h:"مربعات الخريطة",
+    c9p:"تأتي خلفية الخريطة من OpenFreeMap ‏(tiles.openfreemap.org). وإذا اخترت عرض الأقمار الصناعية فإن الصور تأتي من NASA GIBS ‏(gibs.earthdata.nasa.gov)، ولا يُطلب شيء من ناسا قبل أن تختار هذا العرض. تتلقى هذه الخوادم عنوان IP الخاص بك وبيانات الطلب المعتادة (نوع المتصفح وعنوان هذا الموقع كمُحيل والمربعات المطلوبة) كأي خادم ويب. ولا تضع الخريطة أي ملفات تعريف ارتباط لهذا الغرض.",
     c5h:"حقوقك",
     c5p1:"بموجب اللائحة العامة لحماية البيانات والقوانين المماثلة، يمكنك طلب الوصول إلى بياناتك أو تصحيحها أو حذفها، والاعتراض على معالجتها أو تقييدها، وتقديم شكوى لدى سلطة حماية البيانات المحلية لديك (في ألمانيا: سلطة الولاية التي تقيم فيها، أو BfDI).",
     c5p2:"إن كنت قد أرسلت بلاغًا بنفسك، فالتعديل الذاتي مدمج (انظر أعلاه) طالما البلاغ قيد الانتظار. لأي شيء آخر — بما في ذلك طلب إزالة بلاغ ذُكرت فيه — راسل <strong>dxmap@nabilvs.com</strong> وسنرد مباشرة.",
@@ -268,7 +281,7 @@ function applyPrivacy(){
     brandText:'brand', backLink:'back', 't-eyebrow':'eyebrow', 't-h1':'h1', 't-lede':'lede', 't-updated':'updated',
     't-notice':'notice',
     't-c1h':'c1h', 't-c2h':'c2h', 't-c3h':'c3h', 't-c4h':'c4h', 't-c5h':'c5h', 't-c6h':'c6h', 't-c7h':'c7h', 't-c8h':'c8h',
-    't-c4p':'c4p', 't-c6p':'c6p', 't-c7p':'c7p', 't-c8p':'c8p',
+    't-c4p':'c4p', 't-c6p':'c6p', 't-c7p':'c7p', 't-c8p':'c8p', 't-c9h':'c9h', 't-c9p':'c9p',
   };
   Object.entries(textMap).forEach(([id,key])=>{
     const el = document.getElementById(id);

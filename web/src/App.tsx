@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api, type Law, type Report, type ReportStatus } from "./lib/api"
 import { LOCALES, applyLocale, type Locale } from "./i18n"
 import { Honeypot, Turnstile, turnstileEnabled } from "./lib/botguard"
-import { MapView } from "./features/map/MapView"
+import { MapView, type MapViewMode } from "./features/map/MapView"
 import { AWARENESS } from "./lib/awareness"
 import { ReportModal } from "./features/report/ReportModal"
 import { ConsentBanner } from "./ConsentBanner"
 import { analyticsAvailable, clearConsent } from "./lib/analytics"
+import { iconFor, catKey, UI_ICONS } from "./lib/category-icons"
+import { LucideIcon } from "./lib/LucideIcon"
 import { latestEditable, minutesLeft, type MineEntry } from "./lib/mine"
 
 // Full-screen map. Everything floats over it: a top search/filter bar, a
@@ -23,6 +25,30 @@ const SNAP_H: Record<SheetSnap, string> = { peek: "84px", half: "56vh", full: "9
 const when = (r: Report) => r.occurred_at ?? r.created_at
 const DAY = 86400
 
+// Render view: remembered per browser. Default GLOBE on desktop, flat 2D on
+// touch and small screens (the globe is the heavier render).
+const VIEWS: MapViewMode[] = ["globe", "2d", "map", "sat"]
+function initialView(): MapViewMode {
+  try {
+    const v = localStorage.getItem("dx.view") as MapViewMode | null
+    if (v && VIEWS.includes(v)) return v
+  } catch {
+    /* storage blocked: fall through to the default */
+  }
+  const small = matchMedia("(pointer: coarse), (max-width: 899px)").matches
+  return small ? "2d" : "globe"
+}
+const noticeSeen = () => {
+  try {
+    return sessionStorage.getItem("dx.notice") === "1"
+  } catch {
+    return false
+  }
+}
+// Palette colours are mid-tones: fine for dots, bars and glow, too dim as text
+// on the dark canvas. Text in a category colour is lifted toward white.
+const lift = (c: string) => `color-mix(in srgb, ${c} 55%, #ffffff)`
+
 export function App() {
   const { t, i18n } = useTranslation()
   const [selected, setSelected] = useState<Report | null>(null)
@@ -34,10 +60,69 @@ export function App() {
   const [reportPreset, setReportPreset] = useState<{ lat: number; lon: number } | null>(null)
   const [focus, setFocus] = useState<{ lon: number; lat: number; zoom: number } | null>(null)
   const [geoHits, setGeoHits] = useState<{ lat: number; lon: number; label: string }[]>([])
-  const [showFilters, setShowFilters] = useState(false)
   const [view, setView] = useState<SheetView>("incidents")
-  const [snap, setSnap] = useState<SheetSnap>("peek")
-  const [noticeDismissed, setNoticeDismissed] = useState(false)
+  const [snap, setSnap] = useState<SheetSnap>(() => {
+    try {
+      const v = sessionStorage.getItem("dx.snap") as SheetSnap | null
+      if (v === "peek" || v === "half" || v === "full") return v
+    } catch {
+      /* default */
+    }
+    return "peek"
+  })
+  const [noticeDismissed, setNoticeDismissed] = useState(noticeSeen)
+  const [view3, setView3] = useState<MapViewMode>(initialView)
+  const [threeD, setThreeD] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("dx.3d")
+      if (v) return v === "1"
+    } catch {
+      /* fall through to the device default */
+    }
+    // buildings are heavier: on by default only for desktop with a mouse
+    return matchMedia("(min-width: 900px) and (pointer: fine)").matches
+  })
+  const toggle3d = () =>
+    setThreeD((v) => {
+      try {
+        localStorage.setItem("dx.3d", v ? "0" : "1")
+      } catch {
+        /* not persisted */
+      }
+      return !v
+    })
+  // Side panel: desktop collapses to nothing, phone drops to its peek strip.
+  // Both remembered for the session.
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem("dx.panel") === "closed"
+    } catch {
+      return false
+    }
+  })
+  const [isDesk, setIsDesk] = useState(() => matchMedia("(min-width: 900px)").matches)
+  useEffect(() => {
+    const mq = matchMedia("(min-width: 900px)")
+    const on = () => setIsDesk(mq.matches)
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  const dismissNotice = () => {
+    setNoticeDismissed(true)
+    try {
+      sessionStorage.setItem("dx.notice", "1")
+    } catch {
+      /* private mode: dismissed for this page view only */
+    }
+  }
+  const pickView = (v: MapViewMode) => {
+    setView3(v)
+    try {
+      localStorage.setItem("dx.view", v)
+    } catch {
+      /* not persisted */
+    }
+  }
   const [langOpen, setLangOpen] = useState(false)
   const [splash, setSplash] = useState(true)
   const [reportEdit, setReportEdit] = useState<{ id: number; token: string } | null>(null)
@@ -70,7 +155,7 @@ export function App() {
   )
   const effFrom = fromTs ?? earliest
 
-  const catOf = (r: Report) => r.category.split(/[,|/]/).map((s) => s.trim()).filter(Boolean)
+  const catOf = (r: Report) => r.category.split(/[,|/]/).map((s) => s.trim().toLowerCase()).filter(Boolean)
   const visibleCat = (r: Report) => catOf(r).some((c) => !hiddenCats.has(c))
 
   const filtered = useMemo(() => {
@@ -143,14 +228,63 @@ export function App() {
     setSelected(r)
     setView("detail")
     setSnap((s) => (s === "peek" ? "half" : s))
-    if (r.lat != null && r.lon != null) setFocus({ lat: r.lat, lon: r.lon, zoom: 11 })
+    setCollapsed(false)
+    // zoom is a floor (see MapView): selecting centres on the incident and never zooms out
+    if (r.lat != null && r.lon != null) setFocus({ lat: r.lat, lon: r.lon, zoom: 9 })
   }
   const openReportAt = (lat: number, lon: number) => {
     setReportEdit(null)
     setReportPreset({ lat, lon })
     setShowReport(true)
   }
+  const openTab = (v: SheetView) => {
+    setView(v)
+    setSelected(null)
+    setSnap((s) => (s === "peek" ? "half" : s))
+  }
   const cycleSnap = () => setSnap((s) => (s === "peek" ? "half" : s === "half" ? "full" : "peek"))
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("dx.snap", snap)
+      sessionStorage.setItem("dx.panel", collapsed ? "closed" : "open")
+    } catch {
+      /* private mode */
+    }
+  }, [snap, collapsed])
+  const panelOpen = isDesk ? !collapsed : snap !== "peek"
+  const panelTabRef = useRef<HTMLButtonElement>(null)
+  const togglePanel = () => {
+    if (isDesk) {
+      // focus must leave the sheet before it goes inert
+      if (!collapsed) panelTabRef.current?.focus()
+      setCollapsed((c) => !c)
+    }
+    else setSnap((s) => (s === "peek" ? "half" : "peek"))
+  }
+  const closeDetail = () => {
+    setSelected(null)
+    setView("incidents")
+  }
+
+  useEffect(() => {
+    if (view !== "detail") return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !showReport) closeDetail()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, showReport])
+
+  useEffect(() => {
+    if (noticeDismissed) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !showReport) dismissNotice()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noticeDismissed, showReport])
 
   // Slogan interstitial: first load + every language switch, 2.5s.
   useEffect(() => {
@@ -222,7 +356,7 @@ export function App() {
     : ["incidents", "table", "laws", "awareness", "involved"]
 
   return (
-    <div className="app">
+    <div className={`app${noticeDismissed ? "" : " has-notice"}`}>
       <ConsentBanner />
       <MapView
         reports={mapReports}
@@ -231,16 +365,28 @@ export function App() {
         onReportAt={openReportAt}
         hiddenCats={hiddenCats}
         focus={focus}
+        view={view3}
+        selectedId={view === "detail" ? selected?.id : null}
+        threeD={threeD}
       />
 
       {!noticeDismissed && (
-        <div className="notice">
-          {t("notice")}
-          <button onClick={() => setNoticeDismissed(true)} aria-label="close">✕</button>
+        <div className="notice" role="note">
+          <span>{t("notice")}</span>
+          <button type="button" onClick={dismissNotice} aria-label={t("notice.close")}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
         </div>
       )}
 
-      <div className="topbar">
+      <header className="topbar">
+        <div className="brand">
+          <BrandMark />
+          <div className="brand-txt">
+            <span className="brand-name">DX-MAP</span>
+            <span className="brand-tag">{t("slogan")}</span>
+          </div>
+        </div>
         <div className="search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
             <circle cx={11} cy={11} r={7} />
@@ -264,16 +410,20 @@ export function App() {
             </div>
           )}
         </div>
+        <StatusReadout label={t("status.incidents")} n={mapReports.length} />
         <button
-          className={`tb-btn${showFilters ? " on" : ""}`}
-          onClick={() => setShowFilters((v) => !v)}
-          aria-label={t("filter")}
+          className="tb-report"
+          aria-label={t("report.button")}
+          onClick={() => {
+            setReportEdit(null)
+            setReportPreset(null)
+            setShowReport(true)
+          }}
         >
-          ⚑ {allCatKeys.length - hiddenCats.size}/{allCatKeys.length}
+          <Ico d="M12 5v14M5 12h14" />
         </button>
-        <button className="tb-btn" onClick={locateMe} aria-label={t("locate")}>◎</button>
         <div className="lang">
-          <button className="tb-btn" onClick={() => setLangOpen((v) => !v)} aria-label="Language">{i18n.language.toUpperCase()}</button>
+          <button className="tb-btn" onClick={() => setLangOpen((v) => !v)} aria-label={t("lang.label")} aria-expanded={langOpen}>{i18n.language.toUpperCase()}</button>
           {langOpen && (
             <div className="lang-menu">
               {LOCALES.map((l) => (
@@ -291,38 +441,75 @@ export function App() {
             </div>
           )}
         </div>
-        <a className="tb-btn" href="/guide" target="_blank" rel="noreferrer">{t("guide")}</a>
-        <a className="tb-btn" href="/awareness" target="_blank" rel="noreferrer">{t("awarenessGuide")}</a>
-      </div>
+      </header>
 
-      {showFilters && (
-        <div className="filters">
-          <div className="frow">
-            <b>{t("filter.categories")}</b>
-            <span>
-              <button onClick={() => setHiddenCats(new Set())}>{t("showAll")}</button>
-              <button onClick={() => setHiddenCats(new Set(allCatKeys))}>{t("hideAll")}</button>
-            </span>
-          </div>
-          <div className="chips">
-            {catList.map((c) => {
-              const on = !hiddenCats.has(c.k)
-              return (
-                <button key={c.k} className={`chip${on ? " on" : ""}`} onClick={() => toggleCat(c.k)}>
-                  <span className="dot" style={{ background: c.color }} />
-                  {c.label}
-                  <span className="cnt">{c.count}</span>
-                </button>
-              )
-            })}
-          </div>
-          {lawFilter && (
-            <button className="chip on" onClick={() => setLawFilter(null)}>
-              {t("laws.filtered", { code: lawFilter })} ✕
+      {/* left rail: one toggle per category, count badge, glows in its colour */}
+      <nav className="rail rail-l" aria-label={t("filter.categories")}>
+        <button className="rbtn rbtn-sm" data-tip={t("showAll")} aria-label={t("showAll")} onClick={() => setHiddenCats(new Set())}>
+          <Ico d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z" />
+        </button>
+        <button className="rbtn rbtn-sm" data-tip={t("hideAll")} aria-label={t("hideAll")} onClick={() => setHiddenCats(new Set(allCatKeys))}>
+          <Ico d="M3 3l18 18M10.6 6.2A10 10 0 0112 6c6 0 10 6 10 6a17 17 0 01-3.2 3.9M6.6 6.7C3.8 8.5 2 12 2 12s4 7 10 7c1.7 0 3.2-.4 4.5-1" />
+        </button>
+        <span className="rail-sep" aria-hidden />
+        {catList.map((c) => {
+          const on = !hiddenCats.has(c.k)
+          return (
+            <button
+              key={c.k}
+              className={`rbtn rcat${on ? " on" : ""}`}
+              style={{ "--c": c.color } as CSSProperties}
+              data-tip={c.label}
+              title={c.label}
+              aria-label={`${c.label}, ${c.count}`}
+              aria-pressed={on}
+              onClick={() => toggleCat(c.k)}
+            >
+              <CatIcon k={c.k} />
+              <span className="rbadge">{c.count}</span>
             </button>
-          )}
-        </div>
+          )
+        })}
+      </nav>
+
+      {lawFilter && (
+        <button className="chip on active-filter" onClick={() => setLawFilter(null)}>
+          {t("laws.filtered", { code: lawFilter })}
+          <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
       )}
+
+      {/* right rail: the actions */}
+      <nav className="rail rail-r" aria-label={t("rail.tools")}>
+        <button
+          className="rbtn rbtn-report"
+          data-tip={t("report.button")}
+          aria-label={t("report.button")}
+          onClick={() => {
+            setReportEdit(null)
+            setReportPreset(null)
+            setShowReport(true)
+          }}
+        >
+          <Ico d="M12 5v14M5 12h14" />
+        </button>
+        <span className="rail-sep rail-sep-report" aria-hidden />
+        <a className="rbtn" data-tip={t("guide")} aria-label={t("guide")} href="/guide" target="_blank" rel="noreferrer">
+          <Ico d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13" />
+        </a>
+        <a className="rbtn" data-tip={t("awarenessGuide")} aria-label={t("awarenessGuide")} href="/awareness" target="_blank" rel="noreferrer">
+          <Ico d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM12 8v5M12 16v.01" />
+        </a>
+        <button className={`rbtn${view === "table" ? " on" : ""}`} data-tip={t("tab.table")} aria-label={t("tab.table")} onClick={() => openTab("table")}>
+          <Ico d="M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 10h18M9 10v11" />
+        </button>
+        <button className={`rbtn${view === "laws" ? " on" : ""}`} data-tip={t("tab.laws")} aria-label={t("tab.laws")} onClick={() => openTab("laws")}>
+          <Ico d="M12 3v18M6 21h12M5 7h14M5 7l-3 7a3.5 3.5 0 006 0zM19 7l-3 7a3.5 3.5 0 006 0z" />
+        </button>
+        <button className="rbtn" data-tip={t("locate")} aria-label={t("locate")} onClick={locateMe}>
+          <Ico d="M12 9a3 3 0 100 6 3 3 0 000-6zM12 3a9 9 0 100 18 9 9 0 000-18zM12 1v3M12 20v3M1 12h3M20 12h3" />
+        </button>
+      </nav>
 
       <div className="fab-stack">
         {mine && (
@@ -349,6 +536,21 @@ export function App() {
         </button>
       </div>
 
+      <div className="dock">
+        <div className="seg-row">
+        <div className="seg" role="group" aria-label={t("view.label")}>
+          {VIEWS.map((v) => (
+            <button key={v} type="button" className={view3 === v ? "on" : ""} aria-pressed={view3 === v} onClick={() => pickView(v)}>
+              {t(`view.${v}`)}
+            </button>
+          ))}
+        </div>
+        {(view3 === "globe" || view3 === "2d") && (
+          <button type="button" className={`seg-3d${threeD ? " on" : ""}`} aria-pressed={threeD} aria-label={t("view.3dLabel")} title={t("view.3dLabel")} onClick={toggle3d}>
+            {t("view.3d")}
+          </button>
+        )}
+        </div>
       {/* persistent timeline — filter the map + lists by when incidents happened */}
       <div className="timeline">
         <div className="tl-head">
@@ -374,11 +576,20 @@ export function App() {
           aria-label={t("timeline.label")}
         />
       </div>
+      </div>
 
-      <div className="sheet" style={{ height: SNAP_H[snap] }}>
-        <button className="grip" onClick={cycleSnap} aria-label={t("timeline.label")}>
-          <span />
-        </button>
+      <button ref={panelTabRef} className="panel-tab" onClick={togglePanel} aria-expanded={panelOpen} aria-label={panelOpen ? t("panel.collapse") : t("panel.expand")} title={panelOpen ? t("panel.collapse") : t("panel.expand")}>
+        <LucideIcon node={panelOpen ? UI_ICONS.PanelRightClose : UI_ICONS.PanelRightOpen} />
+      </button>
+      <div className={`sheet${isDesk && collapsed ? " collapsed" : ""}`} style={{ height: SNAP_H[snap] }} inert={isDesk && collapsed ? true : undefined}>
+        <div className="sheet-head">
+          <button className="grip" onClick={cycleSnap} aria-label={t("sheet.resize")}>
+            <span />
+          </button>
+          <button className="sheet-x" onClick={togglePanel} aria-label={panelOpen ? t("panel.collapse") : t("panel.expand")}>
+            <LucideIcon node={panelOpen ? UI_ICONS.ChevronDown : UI_ICONS.ChevronUp} />
+          </button>
+        </div>
         <div className="sheet-tabs">
           {TABS.map((v) => (
             <button
@@ -412,7 +623,7 @@ export function App() {
               categories={categories}
               canModerate={isReviewer}
               onModerate={moderate}
-              onBack={() => setView("incidents")}
+              onBack={closeDetail}
               onLocate={(r) => setFocus({ lat: r.lat!, lon: r.lon!, zoom: 12 })}
             />
           )}
@@ -429,8 +640,9 @@ export function App() {
                     <span className="bar" style={{ background: col }} />
                     <span className="row-main">
                       <span className="row-t">{r.title}</span>
+                      {hasText(r.body) && <span className="row-d">{r.body}</span>}
                       <span className="row-m">
-                        <b style={{ color: col }}>{categories[catOf(r)[0]]?.label ?? r.category}</b>
+                        <b style={{ color: lift(col) }}><CatIcon k={catKey(r.category)} small />{categories[catOf(r)[0]]?.label ?? r.category}</b>
                         {" · "}
                         {r.status}
                         {" · "}
@@ -466,7 +678,7 @@ export function App() {
                       <span className="row-main">
                         <span className="row-t">{r.title}</span>
                         <span className="row-m">
-                          <b style={{ color: col }}>{categories[catOf(r)[0]]?.label ?? r.category}</b>
+                          <b style={{ color: lift(col) }}>{categories[catOf(r)[0]]?.label ?? r.category}</b>
                           {" · "}
                           {r.status}
                           {" · "}
@@ -542,6 +754,14 @@ export function App() {
         </div>
       </div>
 
+      <Ticker
+        label={t("ticker.label")}
+        items={filtered.slice(0, 14)}
+        categories={categories}
+        onOpen={openDetail}
+        fmtDate={fmtDate}
+      />
+
       {showReport && (
         <ReportModal
           categories={categories}
@@ -566,6 +786,99 @@ export function App() {
           <p className="splash-slogan">{t("slogan")}</p>
         </div>
       )}
+    </div>
+  )
+}
+
+// Only truly empty / whitespace-only text counts as missing.
+const hasText = (s: string | null | undefined): s is string => !!s && s.trim().length > 0
+
+function CatIcon({ k, small }: { k: string; small?: boolean }) {
+  return <LucideIcon node={iconFor(k)} className={small ? "cat-ico sm" : "cat-ico"} />
+}
+
+function Ico({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
+  )
+}
+
+// Original mark: a gold archive ring with registration ticks and one live point.
+function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" aria-hidden>
+      <circle cx={16} cy={16} r={11} />
+      <path d="M16 2v5M16 25v5M2 16h5M25 16h5" />
+      <path d="M9.5 20.5c3-1 5-3.5 6.5-8.5 1.5 5 3.5 7.5 6.5 8.5" opacity={0.7} />
+      <circle cx={16} cy={12} r={2} fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+// UTC clock + visible-incident count. The clock ticks in its own component so
+// the one-second render never touches the rest of the app, and is hidden from
+// screen readers (a ticking value would be read out every second).
+function StatusReadout({ label, n }: { label: string; n: number }) {
+  const [tick, setTick] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setTick(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="status">
+      <span className="st-clock" aria-hidden>UTC {tick.toISOString().slice(11, 19)}</span>
+      <span className="st-n"><span className="st-l">{label}</span> <b>{n}</b></span>
+    </div>
+  )
+}
+
+// Latest incidents already in memory, scrolling along the bottom edge. Pauses
+// on hover and keyboard focus; under prefers-reduced-motion it does not move
+// at all and becomes a plain scrollable strip. The second copy is decoration.
+function Ticker({
+  label,
+  items,
+  categories,
+  onOpen,
+  fmtDate,
+}: {
+  label: string
+  items: Report[]
+  categories: Record<string, { label: string; color: string }>
+  onOpen: (r: Report) => void
+  fmtDate: (ts: number) => string
+}) {
+  if (items.length === 0) return null
+  const copy = (dup: boolean) =>
+    items.map((r) => {
+      const c0 = catKey(r.category)
+      const col = categories[c0]?.color ?? "#8a97ac"
+      return (
+        <button
+          key={(dup ? "d" : "a") + r.id}
+          className="tk-item"
+          tabIndex={dup ? -1 : 0}
+          aria-hidden={dup || undefined}
+          onClick={() => onOpen(r)}
+        >
+          <span className="tk-dot" style={{ background: col, boxShadow: `0 0 8px ${col}` }} />
+          <span className="tk-cat" style={{ color: lift(col) }}>{categories[c0]?.label ?? r.category}</span>
+          <span className="tk-t">{r.title}</span>
+          <span className="tk-d">{fmtDate(r.occurred_at ?? r.created_at)}</span>
+        </button>
+      )
+    })
+  return (
+    <div className="ticker" role="region" aria-label={label}>
+      <span className="tk-label">{label}</span>
+      <div className="tk-view">
+        <div className="tk-track" style={{ animationDuration: `${Math.max(30, items.length * 6)}s` }}>
+          {copy(false)}
+          {copy(true)}
+        </div>
+      </div>
     </div>
   )
 }
@@ -644,7 +957,7 @@ function IncidentTable({
           </thead>
           <tbody>
             {sorted.slice(0, 1000).map((r) => {
-              const c0 = r.category.split(/[,|/]/)[0]?.trim()
+              const c0 = catKey(r.category)
               return (
                 <tr key={r.id} onClick={() => onOpen(r)}>
                   <td>{r.id}</td>
@@ -683,7 +996,7 @@ function Detail({
 }) {
   const { t, i18n } = useTranslation()
   const [busy, setBusy] = useState<ReportStatus | null>(null)
-  const cats = r.category.split(/[,|/]/).map((s) => s.trim()).filter(Boolean)
+  const cats = r.category.split(/[,|/]/).map((s) => s.trim().toLowerCase()).filter(Boolean)
   const col = categories[cats[0]]?.color ?? "#8a97ac"
   const act = async (status: ReportStatus) => {
     setBusy(status)
@@ -695,43 +1008,54 @@ function Detail({
   }
   return (
     <div className="detail">
-      <button className="back" onClick={onBack}>{t("detail.back")}</button>
+      <div className="d-head">
+        <button className="back" onClick={onBack}>{t("detail.back")}</button>
+        <button className="d-close" onClick={onBack} aria-label={t("detail.close")} title={t("detail.close")}>
+          <LucideIcon node={UI_ICONS.X} />
+        </button>
+      </div>
       <div className="d-meta">
-        #{String(r.id).padStart(4, "0")} · {t("detail.happened")} {new Date((r.occurred_at ?? r.created_at) * 1000).toLocaleDateString(i18n.language)} · {r.place ?? "—"}
+        #{String(r.id).padStart(4, "0")} · {t("detail.happened")} {new Date((r.occurred_at ?? r.created_at) * 1000).toLocaleDateString(i18n.language)}
+        {r.place ? ` · ${r.place}` : ""}
       </div>
       <h3>{r.title}</h3>
       <div className="d-tags">
         {cats.map((c) => (
-          <span key={c} className="tag" style={{ background: `${categories[c]?.color ?? col}22`, color: categories[c]?.color ?? col }}>
+          <span key={c} className="tag" style={{ background: `${categories[c]?.color ?? col}33`, color: lift(categories[c]?.color ?? col) }}>
+            <CatIcon k={c} small />
             {categories[c]?.label ?? c}
           </span>
         ))}
         <span className="tag">{r.status}</span>
         <span className="tag">{r.fuzzed ? t("detail.approx") : t("detail.exact")}</span>
       </div>
-      {r.body && <p>{r.body}</p>}
-      {r.reason && (
+      {hasText(r.body) ? (
+        <p className="d-body">{r.body}</p>
+      ) : (
+        !hasText(r.reason) && <p className="muted sm">{t("detail.noDescription")}</p>
+      )}
+      {hasText(r.reason) && (
         <>
           <div className="d-h">{t("detail.reason")}</div>
-          <p className="muted">{r.reason}</p>
+          <p className="muted d-body">{r.reason}</p>
         </>
       )}
-      {r.impact && (
+      {hasText(r.impact) && (
         <>
           <div className="d-h">{t("detail.impact")}</div>
-          <p className="muted">{r.impact}</p>
+          <p className="muted d-body">{r.impact}</p>
         </>
       )}
-      {r.evidence && (
+      {hasText(r.evidence) && (
         <>
           <div className="d-h">{t("detail.evidence")}</div>
-          <p className="muted sm">{r.evidence}</p>
+          <p className="muted sm d-body">{r.evidence}</p>
         </>
       )}
-      {r.law && (
+      {hasText(r.law) && (
         <>
           <div className="d-h">{t("detail.law")}</div>
-          <p className="muted">{r.law}</p>
+          <p className="muted d-body">{r.law}</p>
         </>
       )}
       <div className="d-actions">
@@ -944,7 +1268,7 @@ function Involved({
           )}
           {mode === "signup" && <Honeypot value={hp} onChange={setHp} />}
           {mode === "signup" && <Turnstile key={widgetKey} onToken={setBotToken} />}
-          {err && <p className="muted sm" style={{ color: "#b23b3b" }}>{err}</p>}
+          {err && <p className="muted sm" style={{ color: "var(--red-text)" }}>{err}</p>}
           <button className="btn primary" type="submit" disabled={busy}>
             {busy ? "…" : mode === "signup" ? t("involved.signupBtn") : t("involved.signinBtn")}
           </button>

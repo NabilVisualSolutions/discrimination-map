@@ -209,3 +209,11 @@ def test_page_policy_is_enforced_with_hashes_for_inline_scripts():
     csp = security.content_security_policy()
     assert "script-src 'self'" in csp and "'unsafe-inline'" not in csp.split("style-src")[0]
     assert "'sha256-" in csp and "object-src 'none'" in csp
+
+
+def test_connect_src_allows_only_the_known_tile_hosts():
+    csp = security.content_security_policy()
+    connect = next(d for d in csp.split("; ") if d.startswith("connect-src"))
+    hosts = [h for h in connect.split()[1:] if h.startswith("https://")]
+    # OpenFreeMap vector tiles, NASA GIBS satellite tiles (SAT view only), Amplitude after consent.
+    assert hosts == ["https://tiles.openfreemap.org", "https://gibs.earthdata.nasa.gov", "https://*.amplitude.com"]

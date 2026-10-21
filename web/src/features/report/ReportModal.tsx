@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { api, ApiError, type CategoryMeta, type NewReport } from "../../lib/api"
 import { rememberReport } from "../../lib/mine"
@@ -76,6 +76,24 @@ export function ReportModal({
       n.has(k) ? n.delete(k) : n.add(k)
       return n
     })
+
+  // Closing a form with typed-in text asks first (in-app, not window.confirm).
+  const [touched, setTouched] = useState(false)
+  const [askDiscard, setAskDiscard] = useState(false)
+  const dirty = touched && step === "form" && !result
+  const requestClose = () => (dirty ? setAskDiscard(true) : onClose())
+  const closeRef = useRef({ requestClose, askDiscard })
+  closeRef.current = { requestClose, askDiscard }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      if (closeRef.current.askDiscard) setAskDiscard(false)
+      else closeRef.current.requestClose()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [])
 
   useEffect(() => {
     if (!isEdit) return
@@ -189,8 +207,18 @@ export function ReportModal({
   }
 
   return (
-    <div className="modal-scrim" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+    <div className="modal-scrim" onClick={requestClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} onInput={() => setTouched(true)} style={{ maxWidth: 560 }}>
+        {askDiscard && (
+          <div className="rm-consent rm-discard" role="alertdialog" aria-labelledby="rm-discard-t" aria-describedby="rm-discard-b">
+            <strong id="rm-discard-t">{t("form.discardTitle")}</strong>
+            <p id="rm-discard-b" className="rm-p">{t("form.discardBody")}</p>
+            <div className="btnrow">
+              <button type="button" className="btn" autoFocus onClick={() => setAskDiscard(false)}>{t("form.keep")}</button>
+              <button type="button" className="btn no" onClick={onClose}>{t("form.discard")}</button>
+            </div>
+          </div>
+        )}
         {step === "done" && result ? (
           <>
             <div className="rm-kicker rm-kicker-ok">
@@ -330,7 +358,7 @@ export function ReportModal({
             <Honeypot value={hp} onChange={setHp} />
             {!isEdit && <Turnstile key={widgetKey} onToken={setBotToken} />}
             <div className="btnrow" style={{ marginTop: 8 }}>
-              <button className="btn" onClick={onClose}>{t("rm.cancel")}</button>
+              <button className="btn" onClick={requestClose}>{t("rm.cancel")}</button>
               <button className="btn primary" onClick={submit} disabled={!canSubmit || busy}>
                 {busy ? t("rm.sending") : isEdit ? t("rm.submitEdit") : t("rm.submitNew")}
               </button>

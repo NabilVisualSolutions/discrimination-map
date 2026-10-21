@@ -295,7 +295,8 @@ def _page_policy() -> str:
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: blob: https:",
         "font-src 'self' data: https://fonts.gstatic.com",
-        "connect-src 'self' https://tiles.openfreemap.org https://*.amplitude.com",
+        # gibs.earthdata.nasa.gov: NASA GIBS satellite tiles, requested only when a visitor picks the SAT view.
+        "connect-src 'self' https://tiles.openfreemap.org https://gibs.earthdata.nasa.gov https://*.amplitude.com",
         "worker-src 'self' blob:",
         f"frame-src 'self'{turnstile}",
         "form-action 'self'",
