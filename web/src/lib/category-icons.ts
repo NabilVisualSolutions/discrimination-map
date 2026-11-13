@@ -1,7 +1,7 @@
 import {
   Ban, BookX, Bandage, CircleDot, FileSearch, Flag, Flame, Globe, Heart, HeartHandshake,
   Landmark, LifeBuoy, Megaphone, MessageSquareWarning, Moon, Newspaper, ShieldAlert,
-  ShieldBan, TriangleAlert, UserX, X, ChevronDown, ChevronUp, PanelRightClose, PanelRightOpen,
+  ShieldBan, ShieldCheck, ShieldQuestionMark, TriangleAlert, UserX, X, ChevronDown, ChevronUp, PanelRightClose, PanelRightOpen,
   type IconNode,
 } from "lucide"
 
@@ -9,7 +9,7 @@ import {
 // plain node data, so the same source draws the DOM icons (components/LucideIcon)
 // and the map marker bitmaps (iconSvg) with no React server renderer in the bundle.
 export type { IconNode }
-export const UI_ICONS = { X, ChevronDown, ChevronUp, PanelRightClose, PanelRightOpen }
+export const UI_ICONS = { ShieldCheck, ShieldQuestionMark, X, ChevronDown, ChevronUp, PanelRightClose, PanelRightOpen }
 
 // One icon per category in backend/lawref.py CATEGORIES. Colour is never the
 // only differentiator: the icon carries the category on the rail, in lists,

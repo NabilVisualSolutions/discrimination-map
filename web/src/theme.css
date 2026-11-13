@@ -1,6 +1,6 @@
 /* DX-MAP — dark intelligence-dashboard palette. Every colour in the UI
    comes from the tokens below, so the whole look changes in this one place. */
-@import url('https://fonts.googleapis.com/css2?family=Fragment+Mono:ital@0;1&family=General+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Sora:wght@600;700;800&display=swap');
+@import url('https://fonts.bunny.net/css2?family=Fragment+Mono:ital@0;1&family=General+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Sora:wght@600;700;800&display=swap');
 
 :root{
   color-scheme: dark;

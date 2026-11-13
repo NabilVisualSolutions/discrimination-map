@@ -292,15 +292,40 @@ def _page_policy() -> str:
     return "; ".join([
         "default-src 'self'",
         f"script-src 'self' {_inline_script_hashes()}{turnstile}".replace("  ", " "),
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
         "img-src 'self' data: blob: https:",
-        "font-src 'self' data: https://fonts.gstatic.com",
-        # gibs.earthdata.nasa.gov: NASA GIBS satellite tiles, requested only when a visitor picks the SAT view.
-        "connect-src 'self' https://tiles.openfreemap.org https://gibs.earthdata.nasa.gov https://*.amplitude.com",
+        "font-src 'self' data: https://fonts.bunny.net",
+        # Satellite tiles come from our own /tiles/sat proxy (same origin), so no NASA host is listed.
+        "connect-src 'self' https://tiles.openfreemap.org https://*.amplitude.com",
         "worker-src 'self' blob:",
-        f"frame-src 'self'{turnstile}",
+        f"frame-src 'self'{turnstile} {_preview_frame_hosts()}",
         "form-action 'self'",
     ])
+
+
+# Hosts the click-to-load "Source preview" may frame, and nothing else (no
+# wildcard https:). The Mastodon hosts (_PREVIEW_MASTODON_HOSTS below) are a
+# fixed tuple ON PURPOSE, not derived from the scraper's list: the scraper reads
+# many more servers and the CSP must not widen when that list grows. The tuple
+# must match MASTODON_HOSTS in web/src/lib/source-preview.ts by hand.
+_PREVIEW_FRAME_STATIC = (
+    "https://www.youtube-nocookie.com",
+    "https://embed.bsky.app",
+    "https://en.wikipedia.org",
+    "https://de.wikipedia.org",
+    "https://fr.wikipedia.org",
+    "https://ar.wikipedia.org",
+)
+
+
+# Mastodon servers the source preview can frame. A fixed list on purpose: the scraper reads many
+# more servers, and the CSP must not widen when that list grows. Keep in step with
+# MASTODON_HOSTS in web/src/lib/source-preview.ts (the frontend only offers these).
+_PREVIEW_MASTODON_HOSTS = ("mastodon.social", "norden.social", "nrw.social")
+
+
+def _preview_frame_hosts() -> str:
+    return " ".join(list(_PREVIEW_FRAME_STATIC) + [f"https://{h}" for h in _PREVIEW_MASTODON_HOSTS])
 
 
 SENSITIVE = {"sexual_violence", "harassment"}  # owner decision 2026-10-20: homophobia_transphobia is NOT blurred

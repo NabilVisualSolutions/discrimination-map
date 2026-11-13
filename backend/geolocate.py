@@ -8,12 +8,20 @@ Two-stage, cheapest first:
      descriptive User-Agent as they require.
 
 If neither resolves, we return None and the report is stored unlocated.
+
+The offline stage has two layers: the small hand-kept GAZETTEER below (German
+towns, US states, Bundeslaender, country centres) and a worldwide table of
+~68k place names built from GeoNames (backend/data/world_places.tsv, CC BY 4.0,
+see scripts/build_world_gazetteer.py). `from_offline()` combines them.
 """
 from __future__ import annotations
 
 import os
 import re
+import threading
 import time
+from collections import OrderedDict
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -214,8 +222,15 @@ GAZETTEER: dict[str, tuple[float, float, str]] = {
 _SORTED_NAMES = sorted(GAZETTEER.keys(), key=len, reverse=True)
 
 _NOMINATIM = "https://nominatim.openstreetmap.org/search"
-_UA = "DxMap/1.0 (far-right monitoring prototype; contact: admin@example.com)"
+# Nominatim usage policy: identifying User-Agent, max 1 request/second, cache.
+_UA = os.environ.get("DXMAP_GEO_UA", "dxmap-agent (+https://map.nabilvs.com)")
+_NOMINATIM_MIN_INTERVAL = 1.1
 _last_nominatim_call = 0.0
+_nominatim_lock = threading.Lock()
+# Answers (including "nothing found") are remembered for the life of the process
+# so the same place name is never asked for twice.
+_NOMINATIM_CACHE: "OrderedDict[str, Optional[tuple[float, float, str]]]" = OrderedDict()
+_NOMINATIM_CACHE_MAX = 5000
 
 # Global by default. Set DXMAP_GEO_COUNTRY="de" (or any ISO country code)
 # to restrict Nominatim geocoding to one country if you want to narrow focus.
@@ -251,37 +266,307 @@ def coarsen(lat: float, lon: float) -> tuple[float, float]:
     return round(lat, 2), round(lon, 2)
 
 
-def from_nominatim(text: str, timeout: float = 8.0) -> Optional[tuple[float, float, str]]:
+class NominatimBusy(Exception):
+    """Too many callers already waiting for the one-per-second slot."""
+
+
+_MAX_WAITERS = 8
+_waiting = 0
+_waiting_lock = threading.Lock()
+
+
+def nominatim_search(text: str, limit: int = 1, lang: Optional[str] = None,
+                     timeout: float = 8.0) -> Optional[list[dict]]:
     """
-    Geocode a free-text place via Nominatim. Respects the 1 req/s policy by
-    sleeping if we were called too recently. Returns None on any failure.
+    THE one place this process talks to Nominatim (the scraper's geocoder and
+    the /api/geocode relay both come through here). Usage policy: never more
+    than one request per second for the whole process (serialised under a lock
+    across threads), identifying User-Agent, a process-wide cache so a query is
+    asked once. At most _MAX_WAITERS callers may queue for the slot; more get
+    NominatimBusy at once instead of tying up worker threads.
+    Returns the raw result list, [] for "nothing found", None on a failure.
     """
-    global _last_nominatim_call
+    global _last_nominatim_call, _waiting
     if not text or len(text.strip()) < 3:
         return None
-    elapsed = time.time() - _last_nominatim_call
-    if elapsed < 1.1:
-        time.sleep(1.1 - elapsed)
+    key = f"{' '.join(text.lower().split())}|{limit}|{lang or ''}"
+    if key in _NOMINATIM_CACHE:
+        _NOMINATIM_CACHE.move_to_end(key)
+        return _NOMINATIM_CACHE[key]
+    with _waiting_lock:
+        if _waiting >= _MAX_WAITERS:
+            raise NominatimBusy()
+        _waiting += 1
     try:
-        params = {"q": text, "format": "json", "limit": 1}
-        if _GEO_COUNTRY:
-            params["countrycodes"] = _GEO_COUNTRY
-        resp = httpx.get(
-            _NOMINATIM,
-            params=params,
-            headers={"User-Agent": _UA},
-            timeout=timeout,
-        )
-        _last_nominatim_call = time.time()
-        resp.raise_for_status()
-        data = resp.json()
-        if data:
-            hit = data[0]
-            lat, lon = coarsen(float(hit["lat"]), float(hit["lon"]))
-            return lat, lon, hit.get("display_name", text)
-    except Exception:
-        # Network hiccup / rate limit / bad response -> caller stores unlocated.
+        with _nominatim_lock:
+            if key in _NOMINATIM_CACHE:          # the caller before us asked the same thing
+                return _NOMINATIM_CACHE[key]
+            elapsed = time.time() - _last_nominatim_call
+            if elapsed < _NOMINATIM_MIN_INTERVAL:
+                time.sleep(_NOMINATIM_MIN_INTERVAL - elapsed)
+            result: Optional[list[dict]] = None
+            try:
+                params: dict = {"q": text, "format": "json", "limit": limit}
+                if lang:
+                    params["accept-language"] = lang
+                if _GEO_COUNTRY:
+                    params["countrycodes"] = _GEO_COUNTRY
+                resp = httpx.get(_NOMINATIM, params=params, headers={"User-Agent": _UA}, timeout=timeout)
+                _last_nominatim_call = time.time()
+                resp.raise_for_status()
+                result = list(resp.json())
+            except Exception:
+                # Network hiccup / rate limit / bad response: do not cache, it may be transient.
+                _last_nominatim_call = time.time()
+                return None
+            _NOMINATIM_CACHE[key] = result
+            while len(_NOMINATIM_CACHE) > _NOMINATIM_CACHE_MAX:
+                _NOMINATIM_CACHE.popitem(last=False)
+            return result
+    finally:
+        with _waiting_lock:
+            _waiting -= 1
+
+
+def from_nominatim(text: str, timeout: float = 8.0) -> Optional[tuple[float, float, str]]:
+    """One coarsened (about 1 km) hit for a place name, or None."""
+    try:
+        data = nominatim_search(text, 1, None, timeout)
+    except NominatimBusy:
         return None
+    if data:
+        hit = data[0]
+        lat, lon = coarsen(float(hit["lat"]), float(hit["lon"]))
+        return lat, lon, hit.get("display_name", text)
+    return None
+
+
+# --------------------------------------------------------------------------- #
+# Worldwide offline layer                                                      #
+# --------------------------------------------------------------------------- #
+
+_WORLD_PATH = Path(__file__).with_name("data") / "world_places.tsv"
+# key -> candidates [(lat, lon, display, population, kind, country code)], biggest first
+_WORLD: Optional[dict[str, list[tuple[float, float, str, int, str, str]]]] = None
+_COUNTRY_NAMES: dict[str, set[str]] = {}          # country code -> lowercase names to look for in the text
+# Letters, plus the combining marks of Indic and Thai scripts (which \w does not
+# count as letters, so Hindi place names would otherwise be cut into pieces).
+_LETTER = r"(?:[^\W\d_]|[\u0300-\u036f\u0900-\u0dff\u0e00-\u0e7f])"
+_WORD_RE = re.compile(rf"{_LETTER}+(?:['\u2019\-]{_LETTER}+)*", re.UNICODE)
+_MAX_NGRAM = 4
+# A bare one-word city name is only trusted when the town is a large one, or
+# when a locating word ("in", "near", "bei", "à", "en" ...) stands right before
+# it. Otherwise ordinary words that are also towns ("Ende", "Man", "Mitte",
+# "reading", "mobile") would pin posts to them. This was measured on real posts.
+_MIN_POP_BARE = 1_000_000
+_MIN_POP_MULTIWORD = 50_000
+# Words that, right before a name, mean "at this place". Deliberately without
+# the one-letter and article-like ones ("a", "na", "no", "da", "w") that sit in
+# front of any capitalised word ("a Anna", "no Mustang").
+_LOCATING = frozenset((
+    "in near at outside from across around to into of bei im nach aus von vor "
+    "à au aux en dans près chez de du desde hacia cerca em nel nella "
+    "vicino bij uit naar från til в во из في من إلى"
+).split())
+# One-letter / article-like words that often, but not always, mean "at": they
+# relax the size limit to cities of 500k or more ("a Napoli", "w Warszawie").
+_WEAK_LOCATING = frozenset("a na no da w we".split())
+_MIN_POP_WEAK = 500_000
+# Also a common noun or a people's name: only a place after a locating word.
+_NEEDS_LOCATING = frozenset({"roma", "pest", "anna", "man", "mustang", "split", "nancy"})
+# Names that are far more often something else than the place.
+_AMBIGUOUS = frozenset({
+    "nice", "reading", "mobile", "orange", "jordan", "chad", "georgia", "turkey",
+    "victoria", "florence", "charlotte", "phoenix", "austin", "jackson", "lincoln",
+    "marion", "marie", "paris hilton", "bath", "derby", "wells", "march", "mark",
+    "august", "essen", "halle", "mein", "wald", "hof", "bad", "ebene", "gent",
+    "bar", "pau", "ham", "van", "sale", "bury", "hull", "reus", "mars", "lens",
+    "dover", "rock", "pasadena", "santa", "san", "villa", "city", "town", "sur",
+    "niger", "guinea", "dominica", "samoa", "china town", "sandy", "eden",
+})
+_COUNTRY_ALIASES = {"US": ["usa", "u.s."], "GB": ["uk", "britain", "england"], "AE": ["uae", "emirates"],
+                    "RU": ["russland"], "DE": ["deutschland", "allemagne", "alemania", "germania"],
+                    "FR": ["frankreich", "francia"], "ES": ["spanien", "españa", "espagne", "spagna"],
+                    "IT": ["italien", "italia", "italie"], "VE": [], "BR": ["brasil", "brasilien", "brésil"]}
+# Old-layer entries that are a country, US state or German Land, not a town.
+_COARSE_OLD: Optional[frozenset[str]] = None
+
+
+def _coarse_old() -> frozenset[str]:
+    global _COARSE_OLD
+    if _COARSE_OLD is None:
+        keys = list(GAZETTEER)
+        a, b = keys.index("california"), keys.index("scotland")
+        c = keys.index("saxony")
+        _COARSE_OLD = frozenset(keys[a:b + 1] + keys[c:])
+    return _COARSE_OLD
+
+
+def _load_world() -> dict[str, list[tuple[float, float, str, int, str, str]]]:
+    global _WORLD
+    if _WORLD is None:
+        table: dict[str, list[tuple[float, float, str, int, str, str]]] = {}
+        names: dict[str, set[str]] = {}
+        try:
+            with open(_WORLD_PATH, encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("#"):
+                        continue
+                    k, disp, lat, lon, pop, kind, cc = line.rstrip("\n").split("\t")
+                    table.setdefault(k, []).append((float(lat), float(lon), disp, int(pop), kind, cc))
+                    if kind == "n":
+                        names.setdefault(cc, set()).add(k)
+        except OSError:
+            table = {}
+        for cc, extra in _COUNTRY_ALIASES.items():
+            names.setdefault(cc, set()).update(extra)
+        _COUNTRY_NAMES.clear()
+        _COUNTRY_NAMES.update(names)
+        _WORLD = table
+    return _WORLD
+
+
+def _named_countries(low: str) -> set[str]:
+    """Country codes whose name appears in the (lowercased) text."""
+    return {cc for cc, ns in _COUNTRY_NAMES.items()
+            if any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", low) for n in ns)}
+
+
+def world_candidates(text: str) -> list[tuple[int, int, float, float, str, int, str]]:
+    """All place mentions found in `text` against the world table, as
+    (start, n_words, lat, lon, display, pop, kind)."""
+    if not text:
+        return []
+    world = _load_world()
+    low = text.lower()
+    # "İstanbul'da", "Leeds's": the part before the apostrophe is the name.
+    toks = [(m.start(), re.split("['\u2019]", m.group())[0]) for m in _WORD_RE.finditer(text)]
+    named: Optional[set[str]] = None
+    out = []
+    for i in range(len(toks)):
+        for n in range(min(_MAX_NGRAM, len(toks) - i), 0, -1):
+            words = [t for _, t in toks[i:i + n]]
+            key = " ".join(words).lower().replace("\u0307", "")   # Turkish dotted capital I
+            cands = world.get(key)
+            if cands is None or key in _AMBIGUOUS:
+                continue
+            prev = toks[i - 1][1].lower() if i else ""
+            located = prev in _LOCATING
+            weak = prev in _WEAK_LOCATING
+            if n == 1:
+                w = words[0]
+                cased = w.lower() != w.upper()       # False for Arabic, CJK, ...
+                if cased and not w[0].isupper():
+                    continue
+                if cands[0][4] == "n" and cased and not located:
+                    continue            # a country in passing ("Angola, Togo") is not where it happened
+                if cased and key in _NEEDS_LOCATING and not (located or weak):
+                    continue
+                if (cands[0][4] == "c" and cased and not located
+                        and cands[0][3] < (_MIN_POP_WEAK if weak else _MIN_POP_BARE)):
+                    continue
+            elif cands[0][4] == "c" and cands[0][3] < _MIN_POP_MULTIWORD and not located:
+                continue
+            if len(cands) > 1 and cands[0][4] == "c":
+                # Same name in several countries (Valencia ES / VE): the text
+                # must say which, or one candidate must dwarf the others.
+                if named is None:
+                    named = _named_countries(low)
+                hinted = [c for c in cands if c[5] in named]
+                if hinted:
+                    pick = hinted[0]
+                elif cands[0][3] >= 4 * cands[1][3]:
+                    pick = cands[0]
+                else:
+                    continue
+            else:
+                pick = cands[0]
+            lat, lon, disp, pop, kind, _cc = pick
+            out.append((toks[i][0], n, lat, lon, disp, pop, kind))
+            break  # longest match at this position wins
+    return out
+
+
+def _best_world(text: str):
+    cands = world_candidates(text)
+    if not cands:
+        return None
+    # a city beats a country, then the longer name, then the earlier mention
+    return min(cands, key=lambda c: (c[6] == "n", -c[1], c[0]))
+
+
+def from_world(text: str) -> Optional[tuple[float, float, str]]:
+    """Best place in `text` from the worldwide table only."""
+    best = _best_world(text)
+    return (best[2], best[3], best[4]) if best else None
+
+
+def from_offline(text: str) -> Optional[tuple[float, float, str]]:
+    """Offline geolocation: the hand-kept gazetteer first, but a town found in
+    the worldwide table replaces a mere country/state/Land centre from it."""
+    old = from_gazetteer(text)
+    if old is not None and not _is_coarse(old):
+        return old
+    best = _best_world(text)
+    if best is not None and (old is None or best[6] == "c"):
+        return best[2], best[3], best[4]
+    return old
+
+
+def _is_coarse(hit: tuple[float, float, str]) -> bool:
+    for key in _coarse_old():
+        if GAZETTEER[key][2] == hit[2]:
+            return True
+    return False
+
+
+_STRONG_TRIGGER = (r"in der|in|near|at|bei|im|nach|aus|dans|près de|cerca de|vicino a|perto de")
+_WEAK_TRIGGER = r"à|en|em|na|no|de|в|во|في"      # also glue a person's name to a verb: "agresión de Juan Pérez"
+_CAP = r"[A-ZÀ-ÖØ-Þ][\w\u00C0-\u024F'\-]+"
+_PLACE_AFTER = re.compile(
+    rf"(?<!\w)(?P<trig>{_STRONG_TRIGGER}|{_WEAK_TRIGGER})\s+(?P<ph>{_CAP}(?:\s+{_CAP}){{0,2}})")
+_STRONG_SET = frozenset(_STRONG_TRIGGER.split("|"))
+
+# A word that says "this is a kind of place" (city, street, district ...) in the
+# languages we read. Without one, an unknown capitalised name is not sent out:
+# it could be a private person ("agresión de Juan Pérez").
+_PLACE_TYPE = frozenset("""
+city town village district borough county street road avenue square park station
+stadt dorf bezirk kreis gemeinde landkreis ortsteil straße strasse platz gasse allee bahnhof
+ville commune quartier rue avenue place gare
+ciudad pueblo municipio barrio calle avenida plaza estación
+cidade bairro rua vila praça estação
+città comune frazione via piazza stazione
+stad dorp straat wijk gemeente
+mahalle köy ilçe şehir
+""".split())
+_PLACE_PREFIX = frozenset({"bad", "sankt", "st.", "saint", "sainte"})
+
+
+def _placelike(phrase: str) -> bool:
+    low = phrase.lower()
+    if low in GAZETTEER or low in _load_world():
+        return True
+    words = low.split()
+    return bool(words and (words[0] in _PLACE_PREFIX or any(w in _PLACE_TYPE for w in words)))
+
+
+def place_phrase(text: str) -> Optional[str]:
+    """A phrase that is safe to send to the online geocoder, or None.
+
+    It must follow a locating word ("attack in ...") AND look like a place:
+    it is in our gazetteer/world table, or carries a place-type word (city,
+    Stadt, rue, calle ...) or a Bad/Sankt/Saint prefix. Weak triggers
+    (de, en, em, à ...) only count for a single word, never for a multi-word
+    name, which is how a private person's name would otherwise leave this
+    server. Asking Nominatim for the first eight words of a post gave random
+    places; asking for any capitalised name would leak people."""
+    for m in _PLACE_AFTER.finditer(text or ""):
+        phrase = m.group("ph")
+        if m.group("trig") not in _STRONG_SET and " " in phrase:
+            continue
+        if _placelike(phrase):
+            return phrase
     return None
 
 
@@ -290,13 +575,13 @@ def locate(text: str, allow_network: bool = True) -> Optional[tuple[float, float
     Best-effort geolocation. Gazetteer first (free, instant); Nominatim only
     if allowed and the gazetteer misses.
     """
-    hit = from_gazetteer(text)
+    hit = from_offline(text)
     if hit:
         return hit
     if allow_network:
-        # Only send a short, place-like snippet to the geocoder.
-        snippet = " ".join(text.split()[:8])
-        return from_nominatim(snippet)
+        # Only send a place-like phrase to the geocoder, never the post.
+        phrase = place_phrase(text)
+        return from_nominatim(phrase) if phrase else None
     return None
 
 

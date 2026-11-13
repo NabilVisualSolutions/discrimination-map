@@ -21,6 +21,7 @@ mapped reports the moment it boots.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import re
 import time
@@ -31,6 +32,7 @@ import httpx
 import db
 import geolocate
 import lawref
+import rssfeeds
 
 def redact_secrets(text: str) -> str:
     """
@@ -49,17 +51,21 @@ def redact_secrets(text: str) -> str:
 
 
 HEARTBEAT_SECONDS = int(os.environ.get("DXMAP_HEARTBEAT_SECONDS", "180"))  # 3 min
-USER_AGENT = "DxMap/1.0 (far-right-monitoring prototype; worldwide)"
+USER_AGENT = os.environ.get("DXMAP_USER_AGENT", "dxmap-agent (+https://map.nabilvs.com)")
 
 # Worldwide, multilingual. Event/incident-shaped far-right + racist-attack
 # terms so the scraper pulls attacks wherever they are reported, not only
-# Germany. Override with DXMAP_TERMS (comma-separated) to retune.
+# Germany. German is one region among many here. Override with DXMAP_TERMS
+# (comma-separated) to retune. Every non-English term also needs a matching
+# word in lawref's per-language lists, or classify() will (rightly) drop it.
 SEARCH_TERMS = [t.strip() for t in os.environ.get(
     "DXMAP_TERMS",
     # English / international
     "far-right attack,far right attack,neo-Nazi attack,white supremacist attack,"
     "racist attack,racially motivated attack,xenophobic attack,hate crime attack,"
     "mosque attack,synagogue attack,antisemitic attack,islamophobic attack,"
+    "anti-Muslim attack,anti-Asian attack,racist graffiti,swastika graffiti,"
+    "mosque vandalised,synagogue vandalised,racially abused,"
     "migrant shelter arson,refugee shelter attack,asylum centre arson,"
     "right-wing extremist violence,right-wing terror,neo-Nazi march,"
     # German
@@ -68,16 +74,52 @@ SEARCH_TERMS = [t.strip() for t in os.environ.get(
     "Reichsbürger,rassistischer Angriff,Anschlag Moschee,"
     # French
     "attaque raciste,violence d'extrême droite,attaque néonazie,ratonnade,"
-    "attaque antisémite,attaque islamophobe,"
-    # Spanish / Italian
-    "ataque racista,ataque de extrema derecha,attacco razzista,violenza neofascista"
+    "attaque antisémite,attaque islamophobe,croix gammée tags,"
+    # Spanish / Portuguese / Italian
+    "ataque racista,ataque de extrema derecha,agresión racista,ataque xenófobo,"
+    "ataque antisemita,injúria racial,ataque neonazista,"
+    "attacco razzista,violenza neofascista,aggressione razzista,"
+    # Dutch / Turkish / Russian / Arabic / Polish / Hindi
+    "racistische aanval,extreemrechts geweld,ırkçı saldırı,nefret suçu,"
+    "расистское нападение,нападение неонацистов,اعتداء عنصري,جريمة كراهية,"
+    "atak rasistowski,नस्लीय हमला"
 ).split(",") if t.strip()]
 
-# German Mastodon instances + far-right-monitoring hashtags (public, no auth).
-MASTODON_INSTANCES = [i.strip() for i in os.environ.get(
-    "DXMAP_MASTODON_INSTANCES", "mastodon.social,norden.social,nrw.social").split(",") if i.strip()]
-MASTODON_TAGS = [t.strip() for t in os.environ.get(
-    "DXMAP_MASTODON_TAGS", "Rechtsextremismus,Naziaufmarsch,Nazis,KeinenMeterDenNazis").split(",") if t.strip()]
+# Mastodon: (instance -> hashtags). Every instance below answered the public
+# tag-timeline API without a login when tested on 2026-10-21 (docs/FEEDS.md has
+# the log); instances that demand a login (mstdn.social, sueden.social,
+# troet.cafe, chaos.social, todon.eu, mastodon.green, mastodon.uy,
+# anarchism.space) or timed out (mastodon.cloud) were left out. Language-specific
+# tags sit on instances where that language is spoken. DXMAP_MASTODON_INSTANCES
+# and/or DXMAP_MASTODON_TAGS (comma-separated) override this with the old
+# every-instance-times-every-tag behaviour.
+_INTL_TAGS = ("racism,antisemitism,islamophobia,hatecrime,xenophobia,neonazi,farright,"
+              "whitesupremacy,rassismus,rechtsextremismus,racisme,extremedroite,racismo,razzismo")
+MASTODON_PLAN: dict[str, list[str]] = {
+    "mastodon.social": _INTL_TAGS.split(","),
+    "mastodon.online": ["racism", "hatecrime"],
+    "mas.to": ["racism", "hatecrime"],
+    "mastodon.world": ["racism"],
+    "mastodon.ie": ["racism"],
+    "kolektiva.social": ["racism"],
+    "norden.social": ["Rechtsextremismus", "Naziaufmarsch", "Nazis", "KeinenMeterDenNazis"],
+    "nrw.social": ["Rechtsextremismus", "Naziaufmarsch", "Nazis", "KeinenMeterDenNazis"],
+    "social.tchncs.de": ["rassismus", "rechtsextremismus", "nazis"],
+    "mamot.fr": ["racisme", "extremedroite", "antisemitisme", "islamophobie"],
+    "piaille.fr": ["racisme", "extremedroite"],
+    "masto.es": ["racismo", "extremaderecha", "xenofobia"],
+    "mastodon.com.br": ["racismo", "extremadireita"],
+    "mastodon.nl": ["racisme", "extreemrechts"],
+    "mastodon.uno": ["razzismo", "neofascismo"],
+}
+_MASTO_INST_ENV = os.environ.get("DXMAP_MASTODON_INSTANCES", "").strip()
+_MASTO_TAG_ENV = os.environ.get("DXMAP_MASTODON_TAGS", "").strip()
+MASTODON_INSTANCES = [i.strip() for i in (_MASTO_INST_ENV or ",".join(MASTODON_PLAN)).split(",") if i.strip()]
+MASTODON_TAGS = [t.strip() for t in (_MASTO_TAG_ENV or "Rechtsextremismus,Naziaufmarsch,Nazis,KeinenMeterDenNazis").split(",") if t.strip()]
+if not (_MASTO_INST_ENV or _MASTO_TAG_ENV):
+    MASTODON_JOBS = [(i, t) for i, tags in MASTODON_PLAN.items() for t in tags]
+else:
+    MASTODON_JOBS = [(i, t) for i in MASTODON_INSTANCES for t in MASTODON_TAGS]
 
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "").strip()
 REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID", "").strip()
@@ -139,7 +181,7 @@ async def _masto_tag(client: httpx.AsyncClient, inst: str, tag: str) -> list[dic
     try:
         resp = await client.get(
             f"https://{inst}/api/v1/timelines/tag/{tag}",
-            params={"limit": 8}, headers={"User-Agent": USER_AGENT})
+            params={"limit": 12}, headers={"User-Agent": USER_AGENT})
         resp.raise_for_status()
     except Exception:
         return []  # one instance/tag down shouldn't sink the source
@@ -156,9 +198,14 @@ async def _masto_tag(client: httpx.AsyncClient, inst: str, tag: str) -> list[dic
 
 async def source_mastodon(client: httpx.AsyncClient) -> list[dict[str, Any]]:
     """Pull public hashtag timelines across instances, in parallel. No key."""
-    jobs = [_masto_tag(client, inst, tag)
-            for inst in MASTODON_INSTANCES for tag in MASTODON_TAGS]
-    batches = await asyncio.gather(*jobs)
+    # At most two requests in flight per instance: be a polite guest.
+    gates: dict[str, asyncio.Semaphore] = {}
+
+    async def one(inst: str, tag: str) -> list[dict[str, Any]]:
+        async with gates.setdefault(inst, asyncio.Semaphore(2)):
+            return await _masto_tag(client, inst, tag)
+
+    batches = await asyncio.gather(*[one(i, t) for i, t in MASTODON_JOBS])
     return [item for batch in batches for item in batch]
 
 
@@ -302,25 +349,64 @@ async def source_wikipedia(client: httpx.AsyncClient) -> list[dict[str, Any]]:
 # GDELT DOC 2.1 — global news index, no key. Rolling recent window per beat;
 # the DB accumulates coverage over time. Coordinates come from the downstream
 # geocode pass on the headline.
+#
+# GDELT allows one request every 5 seconds per address and answers 429 beyond
+# that. The old loop fired ten queries back to back, so most of them were
+# refused and silently swallowed. Now: queries are spaced GDELT_SPACING_S apart
+# and each beat runs only GDELT_PER_BEAT of them, rotating through the whole
+# list, so the full set is covered every few beats without hammering the API.
+#
+# The default set is worldwide: English phrases without any country filter,
+# plus the same idea in the source languages (`sourcelang:`), German being one
+# region among the rest. Override with DXMAP_GDELT_QUERIES (";"-separated).
 GDELT_QUERIES = [q.strip() for q in os.environ.get(
     "DXMAP_GDELT_QUERIES",
+    # English, no country restriction
     '"racist attack";"far-right attack";"neo-Nazi attack";"white supremacist attack";'
     '"racially motivated attack";"refugee shelter arson";"person of colour attacked";'
-    '"asylum seeker attacked";"mosque attack";"antisemitic attack"'
+    '"asylum seeker attacked";"mosque attack";"antisemitic attack";"synagogue vandalised";'
+    '"anti-Muslim attack";"hate crime" sourcelang:english;'
+    # other languages, one region each
+    '"rassistischer Angriff" sourcelang:german;"Brandanschlag" "Geflüchtete" sourcelang:german;'
+    '"attaque raciste" sourcelang:french;"attaque antisémite" sourcelang:french;'
+    '"ataque racista" sourcelang:spanish;"agresión racista" sourcelang:spanish;'
+    '"ataque racista" sourcelang:portuguese;"injúria racial" sourcelang:portuguese;'
+    '"attacco razzista" sourcelang:italian;"racistische aanval" sourcelang:dutch;'
+    '"ırkçı saldırı" sourcelang:turkish;"расистское нападение" sourcelang:russian;'
+    '"اعتداء عنصري" sourcelang:arabic;"नस्लीय हमला" sourcelang:hindi'
 ).split(";") if q.strip()]
+GDELT_PER_BEAT = int(os.environ.get("DXMAP_GDELT_PER_BEAT", "3"))
+GDELT_SPACING_S = float(os.environ.get("DXMAP_GDELT_SPACING_S", "6"))
+_gdelt_cursor = 0
+
+
+def _stable_id(prefix: str, url: str) -> str:
+    """Same URL, same id, in every process (builtin hash() is salted per run,
+    which made the old GDELT ids change on each restart)."""
+    return f"{prefix}_{hashlib.sha1(url.encode()).hexdigest()[:16]}"
 
 
 async def source_gdelt_news(client: httpx.AsyncClient) -> list[dict[str, Any]]:
-    """Recent world news matching racist/far-right attack queries, Germany-scoped."""
+    """Recent world news matching racist/far-right attack queries, worldwide."""
+    global _gdelt_cursor
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for query in GDELT_QUERIES:
+    n = len(GDELT_QUERIES)
+    if not n:
+        return out
+    batch = [GDELT_QUERIES[(_gdelt_cursor + i) % n] for i in range(min(GDELT_PER_BEAT, n))]
+    _gdelt_cursor = (_gdelt_cursor + len(batch)) % n
+    for idx, query in enumerate(batch):
+        if idx:
+            await asyncio.sleep(GDELT_SPACING_S)
         try:
             r = await client.get(
                 "https://api.gdeltproject.org/api/v2/doc/doc",
                 params={"query": query, "mode": "ArtList", "maxrecords": 50,
                         "timespan": "3d", "format": "json", "sort": "DateDesc"},
                 headers={"User-Agent": USER_AGENT})
+            if r.status_code == 429:
+                break          # we are over the limit: stop, the next beat resumes
             r.raise_for_status()
             for a in r.json().get("articles", []):
                 url = a.get("url", "")
@@ -328,7 +414,7 @@ async def source_gdelt_news(client: httpx.AsyncClient) -> list[dict[str, Any]]:
                     continue
                 seen.add(url)
                 out.append({
-                    "external_id": f"gdelt_{abs(hash(url)) % (10**12)}",
+                    "external_id": _stable_id("gdelt", url),
                     "title": (a.get("title") or "")[:300],
                     "body": f"{a.get('domain', '')} · {a.get('seendate', '')}"[:1000],
                     "url": url,
@@ -339,6 +425,38 @@ async def source_gdelt_news(client: httpx.AsyncClient) -> list[dict[str, Any]]:
     return out
 
 
+# --------------------------------------------------------------------------- #
+# RSS / Atom incident feeds                                                    #
+# --------------------------------------------------------------------------- #
+
+RSS_ENABLED = os.environ.get("DXMAP_RSS", "1") != "0"
+
+
+async def source_rss(client: httpx.AsyncClient) -> list[dict[str, Any]]:
+    """Open RSS/Atom feeds from backend/feeds.json, filtered to reports of
+    specific incidents and de-duplicated against what is already stored.
+    See rssfeeds.py for what is (and is not) kept."""
+    feeds = rssfeeds.load_feeds()
+    dedupe = rssfeeds.Deduper(db.known_for_dedupe())
+    sem = asyncio.Semaphore(4)
+
+    async def one(feed: dict[str, Any]) -> list[dict[str, Any]]:
+        async with sem:
+            parsed = await rssfeeds.fetch_feed(client, feed)
+        return rssfeeds.feed_items(feed, parsed) if parsed else []
+
+    out: list[dict[str, Any]] = []
+    for batch in await asyncio.gather(*[one(f) for f in feeds]):
+        for it in batch:
+            title_key = it.pop("_dedupe_title")
+            hit = geolocate.from_offline(f"{it['title']} {it['body']}")
+            if dedupe.seen(it["url"], title_key, it.get("occurred_at"), hit[2] if hit else None):
+                continue
+            dedupe.add(it["url"], title_key, it.get("occurred_at"), hit[2] if hit else None)
+            out.append(it)
+    return out
+
+
 def build_sources() -> list[tuple[str, bool, Optional[Callable]]]:
     """Registry: (name, enabled, adapter). Disabled ones are skipped."""
     return [
@@ -346,6 +464,7 @@ def build_sources() -> list[tuple[str, bool, Optional[Callable]]]:
         ("mastodon", True, source_mastodon),
         ("wikipedia", WIKIPEDIA_ENABLED, source_wikipedia),
         ("news", GDELT_ENABLED, source_gdelt_news),
+        ("rss", RSS_ENABLED, source_rss),
         ("reddit", bool(REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET), source_reddit),
         ("youtube", bool(YOUTUBE_API_KEY), source_youtube),
         ("twitter", False, None),    # paid API — see PLAN.md
@@ -383,16 +502,25 @@ def _store_item_ex(source: str, item: dict[str, Any]) -> tuple[bool, Optional[tu
     """
     text = f"{item.get('title', '')} {item.get('body', '')}"
     verdict = lawref.classify(text)
+    pre = item.get("prefilter")
+    if not verdict["relevant"] and pre:
+        # The adapter already vetted this as a specific hate/extremism
+        # incident (RSS filter), in a language or wording lawref does not know.
+        verdict = {"relevant": True, "category": pre["category"], "law_code": None,
+                   "reason": pre["reason"], "indicators": []}
     if not verdict["relevant"]:
         return False, None  # keep the map focused: skip unrelated posts
 
     # Gazetteer is Germany-biased (its city list is heaviest there) but not
     # Germany-restricted — a global taxonomy shouldn't silently drop a real
     # geocoded hit just because it falls outside Germany.
-    hit = geolocate.from_gazetteer(text)
+    hit = geolocate.from_offline(text)
     lat = lon = place = None
     if hit:
-        lat, lon, place = hit
+        # Same ~1 km rounding as the online geocoder: the gazetteer holds
+        # exact town centres and some entries are street-level.
+        lat, lon = geolocate.coarsen(hit[0], hit[1])
+        place = hit[2]
 
     evidence = item.get("url") or (item.get("title", "")[:280])
     new_id = db.insert_report(
@@ -405,7 +533,8 @@ def _store_item_ex(source: str, item: dict[str, Any]) -> tuple[bool, Optional[tu
         impact=None,                     # scraped: unknown until reviewed
         # status: left to insert_report's default — 'unverified' since a
         # scraped item always carries a real source `url` as evidence.
-        lat=lat, lon=lon, place=place)
+        lat=lat, lon=lon, place=place,
+        occurred_at=item.get("occurred_at"), source_name=item.get("source_name"))
     if new_id is not None and hit is None:
         return True, (new_id, text)      # newly stored, awaiting geocode
     return new_id is not None, None
@@ -454,7 +583,8 @@ def _geocode_pending(pending: list[tuple[int, str]], budget: int) -> int:
     for report_id, text in pending:
         if resolved >= budget:
             break
-        hit = geolocate.from_nominatim(" ".join(text.split()[:8]))
+        phrase = geolocate.place_phrase(text)
+        hit = geolocate.from_nominatim(phrase) if phrase else None
         if hit:
             db.set_location(report_id, *hit)
             resolved += 1

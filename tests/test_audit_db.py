@@ -131,3 +131,11 @@ def test_agent_redacts_secrets_in_error_text():
     assert "AIzaSECRET123" not in out and "key=REDACTED" in out and "q=a" in out
     out = agent.redact_secrets("https://x.example/y?api_key=abc&token=def&secret=ghi&ok=1")
     assert "abc" not in out and "def" not in out and "ghi" not in out and "ok=1" in out
+
+
+def test_fuzz_offsets_for_different_radii_are_not_collinear():
+    # Same angle + fraction at two radii would let p1 - (p2 - p1)/9 recover the real point.
+    p1 = db.fuzz_coords(5, 52.52, 13.40, 500)
+    p2 = db.fuzz_coords(5, 52.52, 13.40, 5000)
+    guess = (p1[0] - (p2[0] - p1[0]) / 9, p1[1] - (p2[1] - p1[1]) / 9)
+    assert _metres(52.52, 13.40, *guess) > 50

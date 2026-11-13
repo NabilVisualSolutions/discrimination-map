@@ -844,3 +844,73 @@ input.field, textarea.field {
 }
 /* short phones: drop the timeline histogram so the dock never reaches the tool rail */
 @media (max-width: 899px) and (max-height: 800px) { .tl-hist { display: none; } }
+
+/* ---------- locate status ---------- */
+.loc-note { position: absolute; z-index: 27; inset-inline-end: calc(var(--rail-w) + 8px); top: calc(var(--base) + 12px); max-width: min(320px, calc(100% - 140px)); display: flex; align-items: center; gap: 4px; padding: 6px 4px 6px 12px; border: 1px solid var(--hair); border-radius: 8px; background: var(--paper-2); color: var(--ink); font: 500 12px/1.4 var(--sans); }
+.loc-note button { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.loc-note button svg { width: 18px; height: 18px; }
+@media (max-width: 899px) { .loc-note { inset-inline: 8px 70px; top: calc(var(--base) + 64px); max-width: none; } }
+@media (min-width: 900px) { .loc-note { inset-inline-end: calc(var(--sheet-w, 400px) + var(--rail-w) + 56px); } }
+
+/* ---------- human review state ---------- */
+.rv { display: inline-flex; align-items: center; color: var(--muted); }
+.rv-human { color: #5fe0a4; font-weight: 700; }
+.rv-not { color: var(--faint); }
+.rv .cat-ico.sm { margin-inline-end: 4px; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 2px 2px 6px; font: 500 11px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--muted); }
+.lg-pin { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -2px; margin-inline-end: 6px; }
+.lg-solid { background: var(--cyan); border: 2px solid #050810; box-shadow: 0 0 0 1px var(--cyan); }
+.lg-ring { border: 2px dashed var(--cyan); background: rgba(7, 11, 20, 0.8); }
+.rbtn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+
+/* ---------- FX: tilt-shift blur + smooth vignette over the map ----------
+   Sits above the map canvas (z 5) and below every control (rails 24, top bar
+   25, sheet 22, ticker 23, dock 21). pointer-events:none keeps pins clickable.
+   The centre ~40% of the height stays sharp; blur ramps up toward the top and
+   bottom edges through two stacked, eased masks per side. */
+.fx { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+.fx-b { position: absolute; inset-inline: 0; }
+.fx-t1, .fx-t2 { top: 0; }
+.fx-b1, .fx-b2 { bottom: 0; }
+.fx-t1, .fx-b1 { height: 30%; backdrop-filter: blur(3px); }
+.fx-t2, .fx-b2 { height: 15%; backdrop-filter: blur(5px); }
+.fx-t1 { mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.86) 20%, rgba(0,0,0,.6) 42%, rgba(0,0,0,.3) 64%, rgba(0,0,0,.1) 84%, transparent 100%); }
+.fx-b1 { mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.86) 20%, rgba(0,0,0,.6) 42%, rgba(0,0,0,.3) 64%, rgba(0,0,0,.1) 84%, transparent 100%); }
+.fx-t2 { mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.8) 30%, rgba(0,0,0,.4) 62%, transparent 100%); }
+.fx-b2 { mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.8) 30%, rgba(0,0,0,.4) 62%, transparent 100%); }
+.fx-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(7,11,20,0) 48%, rgba(7,11,20,.03) 56%, rgba(7,11,20,.08) 64%, rgba(7,11,20,.16) 72%, rgba(7,11,20,.28) 82%, rgba(7,11,20,.42) 92%, rgba(7,11,20,.55) 100%); }
+/* map controls and attribution stay above the effect */
+.app .maplibregl-ctrl-bottom-right, .app .maplibregl-ctrl-bottom-left, .app .maplibregl-ctrl-top-right, .app .maplibregl-ctrl-top-left { z-index: 6; }
+
+/* ---------- source preview + VHS overlay ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sp { margin: 14px 0 4px; }
+.sp-h { margin: 0 2px 6px; font: 700 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.sp-gate { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 10px; background: var(--surface); }
+.sp-gate .btn { width: 100%; }
+.sp-frame { position: relative; height: 360px; border: 1px solid var(--hair); border-radius: 8px; overflow: hidden; background: #000; }
+.sp-frame iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; overflow: auto; }
+.sp-bar { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.sp-bar .btn { flex: none; }
+.vhs { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vhs i { position: absolute; inset: 0; display: block; }
+.vhs-lines { background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.22) 2px 3px); }
+.vhs-grain { opacity: .12; mix-blend-mode: overlay; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); animation: vhsGrain 1.2s steps(3) infinite; }
+.vhs-split { background: linear-gradient(90deg, rgba(255,40,80,.30), rgba(255,40,80,0) 2.5%, rgba(40,220,255,0) 97.5%, rgba(40,220,255,.30)); mix-blend-mode: screen; }
+.vhs-track { top: -20%; bottom: auto; height: 14%; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.10) 45%, rgba(255,255,255,.04) 70%, rgba(255,255,255,0)); animation: vhsTrack 7s linear infinite; }
+.vhs { animation: vhsFlicker 2.4s ease-in-out infinite; }
+.vhs-tag { position: absolute; inset-block-start: 8px; inset-inline-start: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px; border-radius: 3px; background: rgba(0,0,0,.55); color: #fff; font: 700 11px var(--mono); letter-spacing: 0.14em; }
+.vhs-rec { width: 7px; height: 7px; border-radius: 50%; background: var(--vermillion); animation: vhsRec 1.6s steps(1) infinite; }
+@keyframes vhsGrain { 0% { background-position: 0 0; } 33% { background-position: -40px 30px; } 66% { background-position: 25px -35px; } }
+@keyframes vhsTrack { to { transform: translateY(820%); } }
+@keyframes vhsFlicker { 0%, 100% { opacity: 1; } 50% { opacity: .9; } }
+@keyframes vhsRec { 50% { opacity: .15; } }
+@media (prefers-reduced-motion: reduce) { .vhs, .vhs-grain, .vhs-track, .vhs-rec { animation: none; } .vhs-track { display: none; } }
+.sheet-body { scroll-padding-top: 60px; }
+/* the sheet clips its own content (a peeking sheet must not draw over the ticker) */
+.sheet { overflow: hidden; }
+.sheet-body { min-height: 0; }
+@media (min-width: 900px) {
+  /* RTL: the sheet is on the left, so zoom controls + attribution sit just right of it, clear of the dock */
+  [dir="rtl"] .app .maplibregl-ctrl-bottom-right { right: auto; left: calc(var(--sheet-w, 400px) + var(--rail-w) + 12px); margin: 0 0 calc(var(--ticker-h) + 12px) 0; }
+}

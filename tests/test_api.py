@@ -4,6 +4,7 @@ Tests for Discrimination Map — far-right incident monitor (Germany).
 Run from the project root:  python -m pytest -q tests
 The self-check loop runs exactly this suite on each tick.
 """
+import math
 import os
 import sys
 import tempfile
@@ -281,18 +282,66 @@ def test_scraped_report_with_url_is_unverified_and_only_reviewers_see_it():
     assert (listed["lat"], listed["lon"]) == (52.5200, 13.4000)
 
 
-def test_sexual_violence_report_uses_wider_fuzz_radius():
-    new_id = db.insert_report(
-        source="mastodon", external_id="test_scraped_2", title="Sensitive scraped test",
-        body="sensitive", url="https://example.social/@x/2",
-        category="sexual_violence", reason="sensitive scraped reason",
-        lat=52.5200, lon=13.4000, place="Berlin", status="verified",
-    )
-    listed = [r for r in client.get("/api/reports?all=true").json()["reports"] if r["id"] == new_id][0]
-    assert listed["status"] == "verified"
-    assert listed.get("fuzzed") is True
-    dist_deg = ((listed["lat"] - 52.52) ** 2 + (listed["lon"] - 13.40) ** 2) ** 0.5
-    assert dist_deg * 111 > 1.0  # well beyond the default 500m radius (in km)
+def test_sexual_violence_report_uses_wider_fuzz_radius(monkeypatch):
+    # The offset is a keyed hash of the report id, so it is random per
+    # database. Pin the key to make this run reproducible, and check several
+    # reports instead of one: every pin must have moved, none may leave the
+    # sensitive radius, and the wider radius must actually show up (some pin
+    # beyond the 500 m default). The production fuzz is untouched.
+    monkeypatch.setattr(db, "_FUZZ_SECRET", bytes(range(32)))
+    ids = [
+        db.insert_report(
+            source="mastodon", external_id=f"test_scraped_fuzz_{i}", title="Sensitive scraped test",
+            body="sensitive", url=f"https://example.social/@x/fuzz{i}",
+            category="sexual_violence", reason="sensitive scraped reason",
+            lat=52.5200, lon=13.4000, place="Berlin", status="verified",
+        )
+        for i in range(12)
+    ]
+    feed = {r["id"]: r for r in client.get("/api/reports?all=true").json()["reports"]}
+    dists_km = []
+    for rid in ids:
+        listed = feed[rid]
+        assert listed["status"] == "verified"
+        assert listed.get("fuzzed") is True
+        dlat_km = (listed["lat"] - 52.52) * 111.32
+        dlon_km = (listed["lon"] - 13.40) * 111.32 * math.cos(math.radians(52.52))
+        dists_km.append((dlat_km ** 2 + dlon_km ** 2) ** 0.5)
+    assert all(d > 0 for d in dists_km)  # the pin moved
+    assert all(d <= app_module.SENSITIVE_FUZZ_RADIUS_M / 1000 + 0.01 for d in dists_km)  # stayed inside the radius
+    assert max(dists_km) > app_module.DEFAULT_FUZZ_RADIUS_M / 1000  # wider than the default 500 m
+
+
+def test_every_public_pin_is_blurred_except_pure_solidarity_events(monkeypatch):
+    # A verified, non-sensitive row used to go out with its exact point. That
+    # includes a person's own filing, where the filer chose the point.
+    monkeypatch.setattr(db, "_FUZZ_SECRET", bytes(range(32)))
+
+    def add(tag, category):
+        return db.insert_report(
+            source="mastodon", external_id=f"test_blur_all_{tag}", title="Blur all test",
+            body="x", url=f"https://example.social/@x/{tag}", category=category,
+            reason="blur all reason", lat=52.5200, lon=13.4000, place="Berlin", status="verified",
+        )
+
+    violence = add("violence", "violence")
+    solidarity = add("solidarity", "solidarity_event")
+    mixed = add("mixed", "solidarity_event,other")
+    sensitive_mixed = add("sensitive", "solidarity_event,harassment")
+
+    feed = {r["id"]: r for r in client.get("/api/reports?all=true").json()["reports"]}
+    for rid in (violence, mixed, sensitive_mixed):
+        assert feed[rid].get("fuzzed") is True
+        assert (feed[rid]["lat"], feed[rid]["lon"]) != (52.5200, 13.4000)
+    assert (feed[solidarity]["lat"], feed[solidarity]["lon"]) == (52.5200, 13.4000)
+    assert not feed[solidarity].get("fuzzed")
+
+    # Moderators still see the real place, so they can review it.
+    reviewer = TestClient(app_module.app)
+    reviewer.post("/api/auth/login", json={
+        "email": "admin@dxmap-tests.example-org.dev", "password": "adminpass123"})
+    seen = {r["id"]: r for r in reviewer.get("/api/reports?all=true").json()["reports"]}
+    assert (seen[violence]["lat"], seen[violence]["lon"]) == (52.5200, 13.4000)
 
 
 # ---------------- propose-a-symbol (Awareness tab) ----------------

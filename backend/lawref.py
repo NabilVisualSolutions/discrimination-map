@@ -226,11 +226,69 @@ _COMPILED = [(re.compile(rx, re.IGNORECASE), cat, code, reason)
 # Broad far-right relevance gate (German + English), so we don't classify
 # unrelated posts. Kept deliberately about the movement, not about slurs.
 _RELEVANCE = re.compile(
-    r"\b(neonazi|neo-?nazi|nazi|rechtsextrem|rechtsextremismus|rechtsradikal|"
+    r"\b(neonazis?|neo-?nazis?|nazis?|rechtsextrem|rechtsextremismus|rechtsradikal|"
     r"faschis|fascist|far-?right|npd|der iii\.? weg|die rechte|hammerskin|"
     r"combat 18|blood ?& ?honour|identitär|identitaer|reichsbürger|reichsbuerger|"
     r"hooligan|afd-?nähe|völkisch|voelkisch|white supremac|rechte gewalt|hate crime)\b",
     re.IGNORECASE)
+
+
+# --------------------------------------------------------------------------- #
+# Other languages (fr, es, pt, it, nl, tr, ru, ar, pl, hi)                      #
+# --------------------------------------------------------------------------- #
+# The German/English patterns above are loose on purpose ("attack" alone trips
+# them). Copying that looseness into ten more languages would flood the review
+# queue, so here an incident WORD only counts when the text ALSO carries a
+# hate/extremism context word from the same family. Category pins for these
+# languages are therefore only assigned when both are present; a context word
+# alone (an opinion post about racismo) is not relevant.
+
+_RELEVANCE_I18N = re.compile(
+    "|".join([
+        # en (the older English gate above is narrow: no "racist", "racial", "xenophobic" ...)
+        r"\bracis[mt]\w*|\bracial(?:ly)?\b|\bxenophob\w*|\banti-?semit\w*|\bislamophob\w*|\banti-?(?:muslim|black|asian|roma|lgbt\w*)\b|\bhomophob\w*|\btransphob\w*|\bswastikas?\b|\bwhite supremac\w*",
+        # fr
+        r"extr[eê]me[- ]droite|\bracis(?:te|me)s?\b|ratonnade|antis[eé]mit|islamophob|n[eé]onazi|x[eé]nophob|supr[eé]macis|crime haineux|croix gamm[eé]e",
+        # es / pt
+        r"extrema[- ]derecha|extrema[- ]direita|\bracistas?\b|\bracismo\b|antisemit|antissemit|islamofob|neonazi|xen[oó]fob|supremacis|delito de odio|crime de [oó]dio|esv[aá]stica|su[aá]stica|inj[uú]ria racial|svastic",
+        # it
+        r"estrema destra|\brazzist|neofasc|neonazist|crimine d'odio|reato d'odio|svastic",
+        # nl
+        r"extreem-?rechts|racistisch|\bracisme\b|haatmisdrijf|neonazi",
+        # tr
+        r"[ıi]rk[cç][ıi]|nefret su[cç]|a[sş][ıi]r[ıi] sa[gğ]|yabanc[ıi] d[uü][sş]man|islamofobi|gamal[ıi] ha[cç]",
+        # ru
+        r"расист|ксенофоб|неонацист|антисемит|исламофоб|ультраправ|свастик|скинхед|преступлени[ея] на почве ненависти",
+        # ar
+        r"عنصري|عنصرية|معاداة السامية|معاد للسامية|إسلاموفوبيا|اليمين المتطرف|جريمة كراهية|جرائم الكراهية|النازيين الجدد|صليب معقوف",
+        # pl
+        r"rasistow|neonazi|skrajn\w+ prawic|ksenofob|antysemit|przestępstw\w+ z nienawiści|swastyk",
+        # hi
+        r"नस्लीय|नस्लवाद|घृणा अपराध|नफरत",
+    ]),
+    re.IGNORECASE)
+
+_INDICATORS_I18N: list[tuple[str, str, str, str]] = [
+    (r"incendie criminel|incendio (?:provocado|doloso)|incêndio criminoso|incendi(?:o|ato) doloso|brandstichting|brandaanslag|podpalenie|kundak|подожг|поджог|حريق متعمد|إحراق|आगजनी",
+     "arson", "StGB-223-306", "arson / firebombing reported"),
+    (r"\babus(?:ed|e)\b|\bvandal\w*|\bset (?:on )?fire\b|\bslogans?\b|\bgraffiti\b|\bbeaten\b|\bviolence\b|\bassault\w*|\battack\w*|\bharass\w*|\bdesecrat\w*|"
+     r"pintadas?|grafiti|vandaliz|destrozos|detenid[oa]s?|inj[uú]ria|pichação|pichações|geweld|scritte|imbrattat|"
+     r"attaque|agress|attaqu|ataque|agresi[oó]n|agress[aã]o|aggression|aggressione|attacco|aanval|mishandeling|saldır|dövül|нападени|избит|убийств|اعتداء|هجوم|ضرب|طعن|atak|pobit|हमला|मारपीट",
+     "violence", "StGB-223-306", "physical attack reported"),
+    (r"menace de mort|amenaza de muerte|ameaça de morte|minaccia di morte|doodsbedreiging|ölüm tehdidi|угроз|تهديد بالقتل|groźb",
+     "threat", "StGB-241", "threat against persons"),
+    (r"croix gamm[eé]e|esv[aá]stica|svastica|zwarte hand|gamal[ıi] ha[cç]|свастик|صليب معقوف|swastyk|salut nazi|saludo nazi|saudação nazista|saluto romano|saluto fascista",
+     "banned_symbol", "StGB-86a", "banned symbol / salute displayed"),
+    (r"n[eé]gationnisme|negacionismo del holocausto|negación del holocausto|negação do holocausto|holocaust-?ontkenning|отрицани[ея] холокост|إنكار المحرقة|إنكار الهولوكوست",
+     "holocaust_denial", "StGB-130-3", "Holocaust denial / trivialization"),
+    (r"incitation [aà] la haine|incitaci[oó]n al odio|incitamento all'odio|aanzetten tot haat|discurso de [oó]dio|discours de haine|hate speech|nefret söylemi|разжигани[ея] ненависти|خطاب الكراهية|التحريض",
+     "incitement", "StGB-130", "incitement to hatred"),
+    (r"manifestation d'extr[eê]me[- ]droite|marche n[eé]onazie|manifestaci[oó]n neonazi|marcha neonazista|corteo neofascista|manifestazione neofascista|extreem-?rechtse demonstratie|марш неонацист|مسيرة",
+     "assembly", None, "far-right assembly / march (monitoring)"),
+]
+
+_COMPILED_I18N = [(re.compile(rx, re.IGNORECASE), cat, code, reason)
+                  for rx, cat, code, reason in _INDICATORS_I18N]
 
 
 def classify(text: str) -> dict[str, Any]:
@@ -250,6 +308,10 @@ def classify(text: str) -> dict[str, Any]:
         if rx.search(text):
             matched.append((cat, code, reason))
 
+    if not matched and _RELEVANCE_I18N.search(text):
+        for rx, cat, code, reason in _COMPILED_I18N:
+            if rx.search(text):
+                matched.append((cat, code, reason))
     relevant = bool(matched) or bool(_RELEVANCE.search(text))
     if matched:
         # First match wins (list is ordered most-severe first).

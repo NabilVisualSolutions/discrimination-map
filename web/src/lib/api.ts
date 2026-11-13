@@ -38,6 +38,8 @@ export interface Report {
   created_at: number
   occurred_at?: number
   fuzzed?: boolean
+  /** A person reviewed it. Missing (older API) means false: status "verified" alone is NOT human review. */
+  human_verified?: boolean
 }
 
 export interface CategoryMeta {

@@ -24,7 +24,7 @@ A worldwide documentation tool that pairs each pin with checkable evidence and a
 
 ## Operating Context
 
-Workflows: anonymous file → `pending` → moderator `verified|dismissed`; agent-scraped leads publish as `unverified` (real source URL). `db.list_reports()` hides `dismissed`+`pending`; public feed still needs `far_right_mention` (catch-all) distinction, not just `verified`. Surfaces: worldwide map (EqualEarth/Mercator/Globe + Graticule, ZoomableGroup, crosshair pins scaled by zoom) + full inline ledger rail, Incidents/Laws/Awareness/Volunteer tabs, geocode flyTo worldwide + quick-city pills, live 24h ticker + top-country chips, collapsible organ-stop filters, ruler timeline (`created_at` cutoff), detail sheet with WELT-ORT + nearby 3. Env: FastAPI + Uvicorn on :8020 (`/api/reports?all=true` → 873 akten), SQLite WAL, `world-atlas@2` 110m via `react-simple-maps`, Leaflet CDN for `frontend`, Cloudflare-proxied with `?v=20260831w` cache-bust for `/static/*`. i18n: 4 locales (en/de/fr/ar) in `frontend/i18n.js` / `web` i18n.
+Workflows: anonymous file → `pending` → moderator `verified|dismissed`; agent-scraped leads publish as `unverified` (real source URL). `db.list_reports()` hides `dismissed`+`pending`; public feed still needs `far_right_mention` (catch-all) distinction, not just `verified`. Surfaces: worldwide map (EqualEarth/Mercator/Globe + Graticule, ZoomableGroup, crosshair pins scaled by zoom) + full inline ledger rail, Incidents/Laws/Awareness/Volunteer tabs, geocode flyTo worldwide + quick-city pills, live 24h ticker + top-country chips, collapsible organ-stop filters, ruler timeline (`created_at` cutoff), detail sheet with WELT-ORT + nearby 3. Env: FastAPI + Uvicorn on :8020 (`/api/reports?all=true` → 873 akten), SQLite WAL, `world-atlas@2` 110m via `react-simple-maps`, Leaflet CDN for `frontend`, Cloudflare-proxied with a cache-bust query on `/static/*` for `/static/*`. i18n: 4 locales (en/de/fr/ar) in `frontend/i18n.js` / `web` i18n.
 
 ## Capabilities and Constraints
 
@@ -36,7 +36,7 @@ Workflows: anonymous file → `pending` → moderator `verified|dismissed`; agen
 
 ## Brand Commitments
 
-Name: Discrimination Map (dxmap). Voice: calm, documentary, presumption-of-innocence, no hype. Palette: light public-tool theme `--bg:#f4f7fb` etc. (see `frontend/index.html:13-25`), not hacker/dark. Map style: positron light (CARTO/MapLibre), solidarity stars vs dots, muted category colors. No invented testimonials/pricing — real evidence links only.
+Name: Discrimination Map (dxmap). Voice: calm, documentary, presumption-of-innocence, no hype. Palette: the dark "Night Observatory" system in `DESIGN.md` (tokens in `web/src/theme.css`): tinted near-black blue canvas `#070b14` (never pure black), warm off-white text `#f0eadf`, one restrained ice-cyan `#8fd8ea` for data readouts and focus, vermilion `#e11d2d` reserved for live/new/alert and the report action, gold only in the brand lockup. This replaces the earlier light "Signal Atlas" theme on purpose: the map is used on a phone, often at night. Map style: dark by default (GLOBE and 2D on OpenFreeMap dark, tinted navy), with MAP (light positron) and SAT (NASA GIBS Blue Marble) as alternative render views; category colours glow on the map and are lifted toward white as text. No invented testimonials/pricing — real evidence links only.
 
 ## Evidence on Hand
 

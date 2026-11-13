@@ -98,9 +98,11 @@ def test_every_sensitive_spelling_is_blurred(category):
     assert coords_for(new_client(), rid) != (52.52, 13.405)
 
 
-def test_non_sensitive_verified_report_keeps_its_exact_location():
+def test_non_sensitive_verified_report_is_blurred_for_the_public():
+    # Changed 2026-11: the guide promises the public never sees an exact
+    # location, and a verified row can be a person's own filing.
     rid = verified_report("banned_symbol")
-    assert coords_for(new_client(), rid) == (52.52, 13.405)
+    assert coords_for(new_client(), rid) != (52.52, 13.405)
 
 
 def test_report_with_an_unknown_category_is_rejected():
@@ -419,3 +421,13 @@ def test_expired_email_counters_are_pruned():
     later = t + security.GLOBAL_WINDOW_S + 5
     security.login_failed("trigger@example.org", "192.0.2.2", now=later)
     assert len(security._global) < security.LOCK_MAX_ENTRIES
+
+
+def test_report_edit_rejects_unknown_or_oddly_separated_categories():
+    from app import ReportEdit
+    from pydantic import ValidationError
+    for bad in ("harassment;x", "harassment racism", "not_a_category"):
+        with pytest.raises(ValidationError):
+            ReportEdit(category=bad)
+    assert ReportEdit(category=" Harassment | racism ").category == "harassment,racism"
+    assert ReportEdit().category is None

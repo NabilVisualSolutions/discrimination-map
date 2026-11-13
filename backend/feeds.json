@@ -1,0 +1,371 @@
+{
+ "_comment": "Edit freely; no code change needed. mode: 'news' (default) or 'chronicle' (a source listing only incidents: waives the hate-context word). enabled:false to pause a feed. DXMAP_RSS_FEEDS points at another file, DXMAP_RSS_URLS at a plain URL list. Terms of each feed: docs/FEEDS.md.",
+ "feeds": [
+  {
+   "id": "amadeu-antonio",
+   "url": "https://www.amadeu-antonio-stiftung.de/feed/",
+   "publisher": "Amadeu Antonio Stiftung",
+   "region": "DE",
+   "lang": "de",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "belltower",
+   "url": "https://www.belltower.news/feed/",
+   "publisher": "Belltower.News",
+   "region": "DE",
+   "lang": "de",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "vbrg",
+   "url": "https://verband-brg.de/feed/",
+   "publisher": "VBRG e.V.",
+   "region": "DE",
+   "lang": "de",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "endstation-rechts",
+   "url": "https://www.endstation-rechts.de/rss.xml",
+   "publisher": "Endstation Rechts.",
+   "region": "DE",
+   "lang": "de",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "berlin-rechtsaussen",
+   "url": "https://rechtsaussen.berlin/feed/",
+   "publisher": "Berlin rechtsaußen",
+   "region": "DE",
+   "lang": "de",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "tagesschau-inland",
+   "url": "https://www.tagesschau.de/inland/index~rss2.xml",
+   "publisher": "tagesschau.de (ARD)",
+   "region": "DE",
+   "lang": "de",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "tell-mama",
+   "url": "https://tellmamauk.org/feed/",
+   "publisher": "Tell MAMA",
+   "region": "UK",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "stop-hate-uk",
+   "url": "https://www.stophateuk.org/feed/",
+   "publisher": "Stop Hate UK",
+   "region": "UK",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "searchlight",
+   "url": "https://searchlightmagazine.com/feed/",
+   "publisher": "Searchlight Magazine",
+   "region": "UK",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "guardian-race",
+   "url": "https://www.theguardian.com/world/race/rss",
+   "publisher": "The Guardian",
+   "region": "UK",
+   "lang": "en",
+   "mode": "news",
+   "enabled": false,
+   "disabled_reason": "Feed text says all rights reserved or points to restrictive terms. Disabled until a lawyer has decided (owner decision 2026-10-21)."
+  },
+  {
+   "id": "guardian-far-right",
+   "url": "https://www.theguardian.com/world/far-right/rss",
+   "publisher": "The Guardian",
+   "region": "UK",
+   "lang": "en",
+   "mode": "news",
+   "enabled": false,
+   "disabled_reason": "Feed text says all rights reserved or points to restrictive terms. Disabled until a lawyer has decided (owner decision 2026-10-21)."
+  },
+  {
+   "id": "bbc-uk",
+   "url": "https://feeds.bbci.co.uk/news/uk/rss.xml",
+   "publisher": "BBC News",
+   "region": "UK",
+   "lang": "en",
+   "mode": "news",
+   "enabled": false,
+   "disabled_reason": "Feed text says all rights reserved or points to restrictive terms. Disabled until a lawyer has decided (owner decision 2026-10-21)."
+  },
+  {
+   "id": "adl",
+   "url": "https://www.adl.org/rss.xml",
+   "publisher": "ADL",
+   "region": "US",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "cair",
+   "url": "https://www.cair.com/feed/",
+   "publisher": "CAIR",
+   "region": "US",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "guardian-us",
+   "url": "https://www.theguardian.com/us-news/rss",
+   "publisher": "The Guardian",
+   "region": "US",
+   "lang": "en",
+   "mode": "news",
+   "enabled": false,
+   "disabled_reason": "Feed text says all rights reserved or points to restrictive terms. Disabled until a lawyer has decided (owner decision 2026-10-21)."
+  },
+  {
+   "id": "fra",
+   "url": "https://fra.europa.eu/en/rss.xml",
+   "publisher": "EU Agency for Fundamental Rights (FRA)",
+   "region": "EU",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "enar",
+   "url": "https://www.enar-eu.org/feed/",
+   "publisher": "European Network Against Racism (ENAR)",
+   "region": "EU",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "ilga-europe",
+   "url": "https://www.ilga-europe.org/feed/",
+   "publisher": "ILGA-Europe",
+   "region": "EU",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "dw-english",
+   "url": "https://rss.dw.com/xml/rss-en-all",
+   "publisher": "Deutsche Welle",
+   "region": "INT",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "licra",
+   "url": "https://www.licra.org/feed",
+   "publisher": "LICRA",
+   "region": "FR",
+   "lang": "fr",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "rfi-france",
+   "url": "https://www.rfi.fr/fr/france/rss",
+   "publisher": "RFI",
+   "region": "FR",
+   "lang": "fr",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "liberation",
+   "url": "https://www.liberation.fr/arc/outboundfeeds/rss-all/collection/accueil-une/?outputType=xml",
+   "publisher": "Libération",
+   "region": "FR",
+   "lang": "fr",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "eldiario",
+   "url": "https://www.eldiario.es/rss/",
+   "publisher": "elDiario.es",
+   "region": "ES",
+   "lang": "es",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "ansa-cronaca",
+   "url": "https://www.ansa.it/sito/notizie/cronaca/cronaca_rss.xml",
+   "publisher": "ANSA",
+   "region": "IT",
+   "lang": "it",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "repubblica",
+   "url": "https://www.repubblica.it/rss/cronaca/rss2.0.xml",
+   "publisher": "la Repubblica",
+   "region": "IT",
+   "lang": "it",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "nos-binnenland",
+   "url": "https://feeds.nos.nl/nosnieuwsbinnenland",
+   "publisher": "NOS",
+   "region": "NL",
+   "lang": "nl",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "svt",
+   "url": "https://www.svt.se/rss.xml",
+   "publisher": "SVT Nyheter",
+   "region": "SE",
+   "lang": "sv",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "nrk",
+   "url": "https://www.nrk.no/toppsaker.rss",
+   "publisher": "NRK",
+   "region": "NO",
+   "lang": "no",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "allafrica",
+   "url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf",
+   "publisher": "allAfrica",
+   "region": "AF",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "daily-maverick",
+   "url": "https://www.dailymaverick.co.za/dmrss/",
+   "publisher": "Daily Maverick",
+   "region": "ZA",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "nation-kenya",
+   "url": "https://www.nation.africa/kenya/rss.xml",
+   "publisher": "Nation (Kenya)",
+   "region": "KE",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "the-hindu",
+   "url": "https://www.thehindu.com/news/national/feeder/default.rss",
+   "publisher": "The Hindu",
+   "region": "IN",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "dawn",
+   "url": "https://www.dawn.com/feeds/home",
+   "publisher": "Dawn",
+   "region": "PK",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "bianet",
+   "url": "https://bianet.org/rss/english",
+   "publisher": "bianet",
+   "region": "TR",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "bbc-mundo",
+   "url": "https://feeds.bbci.co.uk/mundo/rss.xml",
+   "publisher": "BBC Mundo",
+   "region": "INT",
+   "lang": "es",
+   "mode": "news",
+   "enabled": false,
+   "disabled_reason": "Feed text says all rights reserved or points to restrictive terms. Disabled until a lawyer has decided (owner decision 2026-10-21)."
+  },
+  {
+   "id": "folha-cotidiano",
+   "url": "https://feeds.folha.uol.com.br/cotidiano/rss091.xml",
+   "publisher": "Folha de S.Paulo",
+   "region": "BR",
+   "lang": "pt",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "al-jazeera",
+   "url": "https://www.aljazeera.com/xml/rss/all.xml",
+   "publisher": "Al Jazeera",
+   "region": "INT",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "mee",
+   "url": "https://www.middleeasteye.net/rss",
+   "publisher": "Middle East Eye",
+   "region": "ME",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "jta",
+   "url": "https://www.jta.org/feed",
+   "publisher": "Jewish Telegraphic Agency",
+   "region": "INT",
+   "lang": "en",
+   "mode": "news",
+   "enabled": true
+  },
+  {
+   "id": "abc-au",
+   "url": "https://www.abc.net.au/news/feed/45910/rss.xml",
+   "publisher": "ABC News (Australia)",
+   "region": "AU",
+   "lang": "en",
+   "mode": "news",
+   "enabled": false,
+   "disabled_reason": "Feed text says all rights reserved or points to restrictive terms. Disabled until a lawyer has decided (owner decision 2026-10-21)."
+  }
+ ]
+}

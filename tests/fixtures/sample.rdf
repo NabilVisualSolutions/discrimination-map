@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+ <channel rdf:about="https://r.example.org/"><title>R</title></channel>
+ <item rdf:about="https://r.example.org/1">
+  <title>Agression raciste à Lyon : un homme frappé, la police enquête</title>
+  <link>https://r.example.org/1</link>
+  <dc:date>2026-10-20T12:00:00+02:00</dc:date>
+  <description>Un homme a été frappé samedi soir.</description>
+ </item>
+</rdf:RDF>

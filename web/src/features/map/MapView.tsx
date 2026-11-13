@@ -3,6 +3,7 @@ import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import type { Report, CategoryMeta } from "../../lib/api"
 import { CATEGORY_ICONS, iconFor, iconSvg } from "../../lib/category-icons"
+import { isHuman } from "../../lib/review"
 
 // Worldwide tile map. Every pin renders at every zoom (no clustering).
 // Same-category incidents are stitched into a proximity web: each point is
@@ -25,7 +26,7 @@ const SAT_STYLE: maplibregl.StyleSpecification = {
     gibs: {
       type: "raster",
       tiles: [
-        "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
+        `${window.location.origin}/tiles/sat/{z}/{x}/{y}.jpg`,
       ],
       tileSize: 256,
       maxzoom: 8,
@@ -78,8 +79,8 @@ const lumOf = (hex: string) => {
   const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
   return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
 }
-function renderMarker(key: string, color: string): Promise<void> {
-  const ink = lumOf(color) > 0.35 ? "#0a0f1f" : "#ffffff"
+function renderMarker(key: string, color: string, hollow = false): Promise<void> {
+  const ink = hollow ? color : lumOf(color) > 0.35 ? "#0a0f1f" : "#ffffff"
   const svg = iconSvg(iconFor(key), ink, 22, 2.3)
   const img = new Image()
   return new Promise((resolve) => {
@@ -89,13 +90,24 @@ function renderMarker(key: string, color: string): Promise<void> {
       const g = c.getContext("2d")!
       g.beginPath()
       g.arc(ICON_PX / 2, ICON_PX / 2, ICON_PX / 2 - 3, 0, Math.PI * 2)
-      g.fillStyle = color
-      g.fill()
-      g.lineWidth = 3
-      g.strokeStyle = "#050810"
-      g.stroke()
+      if (hollow) {
+        // not human reviewed: dark centre, dashed coloured ring, coloured icon
+        g.fillStyle = "rgba(7,11,20,0.82)"
+        g.fill()
+        g.lineWidth = 3
+        g.setLineDash([5, 4])
+        g.strokeStyle = color
+        g.stroke()
+        g.setLineDash([])
+      } else {
+        g.fillStyle = color
+        g.fill()
+        g.lineWidth = 3
+        g.strokeStyle = "#050810"
+        g.stroke()
+      }
       g.drawImage(img, (ICON_PX - 22) / 2, (ICON_PX - 22) / 2, 22, 22)
-      iconCache.set(key, g.getImageData(0, 0, ICON_PX, ICON_PX))
+      iconCache.set(hollow ? key + "-nh" : key, g.getImageData(0, 0, ICON_PX, ICON_PX))
       resolve()
     }
     img.onerror = () => resolve()
@@ -104,7 +116,7 @@ function renderMarker(key: string, color: string): Promise<void> {
 }
 async function buildMarkerIcons(categories: Record<string, CategoryMeta>) {
   const keys = new Set([...Object.keys(CATEGORY_ICONS), ...Object.keys(categories).map((k) => k.toLowerCase())])
-  await Promise.all([...keys].filter((k) => !iconCache.has(k) || categories[k]).map((k) => renderMarker(k, categories[k]?.color ?? "#8891A8")))
+  await Promise.all([...keys].filter((k) => !iconCache.has(k) || categories[k]).flatMap((k) => [renderMarker(k, categories[k]?.color ?? "#8891A8"), renderMarker(k, categories[k]?.color ?? "#8891A8", true)]))
 }
 function addMarkerImages(m: maplibregl.Map) {
   // updateImage when it already exists, so a changed category colour refreshes
@@ -274,6 +286,7 @@ export function MapView({
           id: r.id,
           color: colors[0] ?? "#8891A8",
           cat: (cats[0] ?? "").toLowerCase(),
+          hv: isHuman(r) ? 1 : 0,
           star: r.category.trim().toLowerCase() === "solidarity_event" ? 1 : 0,
           multi: colors.length > 1 ? 1 : 0,
           op: ageOpacity(r.created_at),
@@ -367,7 +380,7 @@ export function MapView({
         filter: ["!=", ["get", "multi"], 1],
         paint: {
           "circle-color": ["case", ["==", ["get", "star"], 1], "#FFD23F", ["get", "color"]],
-          "circle-opacity": ["get", "op"],
+          "circle-opacity": ["*", ["get", "op"], ["case", ["==", ["get", "hv"], 1], 1, 0.4]],
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 3, 6, 5, 12, 8],
           "circle-stroke-width": 1,
           "circle-stroke-color": look.ring,
@@ -379,7 +392,7 @@ export function MapView({
         type: "symbol",
         source: "reports",
         filter: ["all", ["!=", ["get", "star"], 1], ["!=", ["get", "multi"], 1]],
-        layout: { "icon-image": ["concat", "cat-", ["get", "cat"]], "icon-size": iconSize, "icon-allow-overlap": true, "icon-ignore-placement": true },
+        layout: { "icon-image": ["concat", "cat-", ["get", "cat"], ["case", ["==", ["get", "hv"], 1], "", "-nh"]], "icon-size": iconSize, "icon-allow-overlap": true, "icon-ignore-placement": true },
         paint: { "icon-opacity": ["get", "op"] },
       })
       m.addLayer({
@@ -390,6 +403,8 @@ export function MapView({
         paint: {
           "circle-color": "#8891A8",
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 4.5, 12, 11],
+          "circle-opacity": ["case", ["==", ["get", "hv"], 1], 1, 0.45], // not human reviewed: dimmer
+          "circle-stroke-opacity": ["case", ["==", ["get", "hv"], 1], 1, 0.45],
           "circle-stroke-width": 1.8,
           "circle-stroke-color": look.ring,
         },
@@ -399,7 +414,7 @@ export function MapView({
         type: "symbol",
         source: "reports",
         filter: ["==", ["get", "star"], 1],
-        layout: { "icon-image": "cat-solidarity_event", "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.6, 12, 1], "icon-allow-overlap": true, "icon-ignore-placement": true },
+        layout: { "icon-image": ["concat", "cat-solidarity_event", ["case", ["==", ["get", "hv"], 1], "", "-nh"]], "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.6, 12, 1], "icon-allow-overlap": true, "icon-ignore-placement": true },
       })
       // ring around the open incident
       m.addLayer({

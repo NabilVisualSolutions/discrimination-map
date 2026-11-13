@@ -11,6 +11,9 @@ import { ConsentBanner } from "./ConsentBanner"
 import { analyticsAvailable, clearConsent } from "./lib/analytics"
 import { iconFor, catKey, UI_ICONS } from "./lib/category-icons"
 import { LucideIcon } from "./lib/LucideIcon"
+import { isHuman } from "./lib/review"
+import { previewFor, safeHttp } from "./lib/source-preview"
+import { SourcePreview } from "./features/source/SourcePreview"
 import { latestEditable, minutesLeft, type MineEntry } from "./lib/mine"
 
 // Full-screen map. Everything floats over it: a top search/filter bar, a
@@ -53,6 +56,22 @@ export function App() {
   const { t, i18n } = useTranslation()
   const [selected, setSelected] = useState<Report | null>(null)
   const [hiddenCats, setHiddenCats] = useState<Set<string>>(() => new Set())
+  const [humanOnly, setHumanOnly] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem("dx.humanOnly") === "1"
+    } catch {
+      return false
+    }
+  })
+  const toggleHumanOnly = () =>
+    setHumanOnly((v) => {
+      try {
+        sessionStorage.setItem("dx.humanOnly", v ? "0" : "1")
+      } catch {
+        /* not persisted */
+      }
+      return !v
+    })
   const [lawFilter, setLawFilter] = useState<string | null>(null)
   const [q, setQ] = useState("")
   const [fromTs, setFromTs] = useState<number | null>(null)
@@ -82,6 +101,28 @@ export function App() {
     // buildings are heavier: on by default only for desktop with a mouse
     return matchMedia("(min-width: 900px) and (pointer: fine)").matches
   })
+  // FX: tilt-shift blur + vignette over the map. Default on for desktop with a
+  // mouse, off on touch/small; never on under reduced motion/transparency.
+  const fxForcedOff = useMemo(() => matchMedia("(prefers-reduced-motion: reduce), (prefers-reduced-transparency: reduce)").matches, [])
+  const [fx, setFx] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("dx.fx")
+      if (v) return v === "1"
+    } catch {
+      /* device default */
+    }
+    return matchMedia("(min-width: 900px) and (pointer: fine)").matches
+  })
+  const toggleFx = () =>
+    setFx((v) => {
+      try {
+        localStorage.setItem("dx.fx", v ? "0" : "1")
+      } catch {
+        /* not persisted */
+      }
+      return !v
+    })
+  const fxOn = fx && !fxForcedOff
   const toggle3d = () =>
     setThreeD((v) => {
       try {
@@ -127,7 +168,7 @@ export function App() {
   const [splash, setSplash] = useState(true)
   const [reportEdit, setReportEdit] = useState<{ id: number; token: string } | null>(null)
   const [mine, setMine] = useState<MineEntry | null>(() => latestEditable())
-  const didGeo = useRef(false)
+  const [locState, setLocState] = useState<"idle" | "busy" | "denied" | "failed">("idle")
 
   const cats = useQuery({ queryKey: ["categories"], queryFn: api.categories, staleTime: 3_600_000 })
   const reportsQ = useQuery({ queryKey: ["reports"], queryFn: () => api.reports({ limit: 5000, all: true }), staleTime: 60_000 })
@@ -161,7 +202,7 @@ export function App() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return reports
-      .filter((x) => visibleCat(x) && when(x) >= effFrom)
+      .filter((x) => visibleCat(x) && when(x) >= effFrom && (!humanOnly || isHuman(x)))
       .filter((x) => !lawFilter || x.law === lawFilter)
       .filter(
         (x) =>
@@ -173,17 +214,17 @@ export function App() {
       )
       .sort((a, b) => when(b) - when(a))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reports, hiddenCats, effFrom, q, lawFilter])
+  }, [reports, hiddenCats, effFrom, q, lawFilter, humanOnly])
 
   // Reports the map itself draws (time + category + law, no text search — the
   // list narrows further but the map stays legible while you type).
   const mapReports = useMemo(
     () =>
       reports
-        .filter((x) => visibleCat(x) && when(x) >= effFrom)
+        .filter((x) => visibleCat(x) && when(x) >= effFrom && (!humanOnly || isHuman(x)))
         .filter((x) => !lawFilter || x.law === lawFilter),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reports, hiddenCats, effFrom, lawFilter]
+    [reports, hiddenCats, effFrom, lawFilter, humanOnly]
   )
 
   const aw = (AWARENESS as Record<string, typeof AWARENESS.en>)[i18n.language] || AWARENESS.en
@@ -210,11 +251,21 @@ export function App() {
     await Promise.all([reportsQ.refetch(), isReviewer ? queueQ.refetch() : Promise.resolve()])
     setSelected((s) => (s && s.id === r.id ? { ...s, status } : s))
   }
+  // Location is asked for ONLY here, when the visitor presses the locate
+  // button. Nothing on load or in an effect touches navigator.geolocation.
   const locateMe = () => {
-    navigator.geolocation?.getCurrentPosition(
-      (p) => setFocus({ lon: p.coords.longitude, lat: p.coords.latitude, zoom: 9 }),
-      () => {},
-      { enableHighAccuracy: true }
+    if (!navigator.geolocation) {
+      setLocState("failed")
+      return
+    }
+    setLocState("busy")
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setLocState("idle")
+        setFocus({ lon: p.coords.longitude, lat: p.coords.latitude, zoom: 9 }) // zoom is a floor: never zooms out
+      },
+      (e) => setLocState(e.code === 1 ? "denied" : "failed"),
+      { enableHighAccuracy: true, timeout: 15000 }
     )
   }
   const toggleCat = (c: string) =>
@@ -293,18 +344,6 @@ export function App() {
     return () => clearTimeout(id)
   }, [i18n.language])
 
-  // One-shot: centre on the visitor's real position while the page opens.
-  // Silent if they decline — the worldwide view stays.
-  useEffect(() => {
-    if (didGeo.current || !navigator.geolocation) return
-    didGeo.current = true
-    navigator.geolocation.getCurrentPosition(
-      (p) => setFocus({ lon: p.coords.longitude, lat: p.coords.latitude, zoom: 6 }),
-      () => {},
-      { timeout: 8000, maximumAge: 600000 }
-    )
-  }, [])
-
   // Deep link from the "edit link" handed back at submission time. The link
   // keeps the token in the URL FRAGMENT (#report=..&token=..): a fragment is
   // never sent to the server, so it stays out of Cloudflare, Caddy and uvicorn
@@ -369,6 +408,15 @@ export function App() {
         selectedId={view === "detail" ? selected?.id : null}
         threeD={threeD}
       />
+      {fxOn && (
+        <div className="fx" aria-hidden>
+          <i className="fx-b fx-t1" />
+          <i className="fx-b fx-t2" />
+          <i className="fx-b fx-b1" />
+          <i className="fx-b fx-b2" />
+          <i className="fx-vig" />
+        </div>
+      )}
 
       {!noticeDismissed && (
         <div className="notice" role="note">
@@ -451,6 +499,9 @@ export function App() {
         <button className="rbtn rbtn-sm" data-tip={t("hideAll")} aria-label={t("hideAll")} onClick={() => setHiddenCats(new Set(allCatKeys))}>
           <Ico d="M3 3l18 18M10.6 6.2A10 10 0 0112 6c6 0 10 6 10 6a17 17 0 01-3.2 3.9M6.6 6.7C3.8 8.5 2 12 2 12s4 7 10 7c1.7 0 3.2-.4 4.5-1" />
         </button>
+        <button className={`rbtn rbtn-sm${humanOnly ? " on" : ""}`} data-tip={t("filter.humanOnly")} title={t("filter.humanOnly")} aria-label={t("filter.humanOnly")} aria-pressed={humanOnly} onClick={toggleHumanOnly}>
+          <LucideIcon node={UI_ICONS.ShieldCheck} />
+        </button>
         <span className="rail-sep" aria-hidden />
         {catList.map((c) => {
           const on = !hiddenCats.has(c.k)
@@ -511,6 +562,17 @@ export function App() {
         </button>
       </nav>
 
+      {locState !== "idle" && (
+        <div className="loc-note" role="status">
+          <span>{t(locState === "busy" ? "locate.busy" : locState === "denied" ? "locate.denied" : "locate.failed")}</span>
+          {locState !== "busy" && (
+            <button type="button" onClick={() => setLocState("idle")} aria-label={t("notice.close")}>
+              <LucideIcon node={UI_ICONS.X} />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="fab-stack">
         {mine && (
           <button
@@ -545,6 +607,9 @@ export function App() {
             </button>
           ))}
         </div>
+        <button type="button" className={`seg-3d${fxOn ? " on" : ""}`} aria-pressed={fxOn} disabled={fxForcedOff} aria-label={t("view.fxLabel")} title={t("view.fxLabel")} onClick={toggleFx}>
+          {t("view.fx")}
+        </button>
         {(view3 === "globe" || view3 === "2d") && (
           <button type="button" className={`seg-3d${threeD ? " on" : ""}`} aria-pressed={threeD} aria-label={t("view.3dLabel")} title={t("view.3dLabel")} onClick={toggle3d}>
             {t("view.3d")}
@@ -630,6 +695,10 @@ export function App() {
 
           {view === "incidents" && (
             <>
+              <p className="legend">
+                <span className="lg-pin lg-solid" aria-hidden /> {t("status.verified")}
+                <span className="lg-pin lg-ring" aria-hidden /> {t("status.notHuman")}
+              </p>
               {reportsQ.isLoading && <p className="muted">{t("loadingMap")}</p>}
               {!reportsQ.isLoading && filtered.length === 0 && <p className="muted">{t("noResults")}</p>}
               {filtered.slice(0, 300).map((r) => {
@@ -644,7 +713,7 @@ export function App() {
                       <span className="row-m">
                         <b style={{ color: lift(col) }}><CatIcon k={catKey(r.category)} small />{categories[catOf(r)[0]]?.label ?? r.category}</b>
                         {" · "}
-                        {r.status}
+                        <ReviewBadge r={r} />
                         {" · "}
                         {r.place || "—"}
                         {" · "}
@@ -680,7 +749,7 @@ export function App() {
                         <span className="row-m">
                           <b style={{ color: lift(col) }}>{categories[catOf(r)[0]]?.label ?? r.category}</b>
                           {" · "}
-                          {r.status}
+                          <ReviewBadge r={r} />
                           {" · "}
                           {r.place || "—"}
                           {" · "}
@@ -792,6 +861,22 @@ export function App() {
 
 // Only truly empty / whitespace-only text counts as missing.
 const hasText = (s: string | null | undefined): s is string => !!s && s.trim().length > 0
+
+// Review state, always with a text label (never colour alone). "Verified" by
+// status is only shown as human verified when a person actually reviewed it.
+function ReviewBadge({ r }: { r: Report }) {
+  const { t } = useTranslation()
+  if (r.status === "verified") {
+    const human = isHuman(r)
+    return (
+      <span className={`rv ${human ? "rv-human" : "rv-not"}`}>
+        <LucideIcon node={human ? UI_ICONS.ShieldCheck : UI_ICONS.ShieldQuestionMark} className="cat-ico sm" />
+        {t(human ? "status.verified" : "status.notHuman")}
+      </span>
+    )
+  }
+  return <span className="rv">{r.status === "unverified" ? t("status.unverified") : r.status}</span>
+}
 
 function CatIcon({ k, small }: { k: string; small?: boolean }) {
   return <LucideIcon node={iconFor(k)} className={small ? "cat-ico sm" : "cat-ico"} />
@@ -910,7 +995,7 @@ function IncidentTable({
   )
 
   const exportCsv = () => {
-    const head = ["id", "date", "category", "status", "place", "source", "title", "url"]
+    const head = ["id", "date", "category", "status", "human_verified", "place", "source", "title", "url"]
     const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`
     const lines = [
       head.join(","),
@@ -920,6 +1005,7 @@ function IncidentTable({
           new Date((r.occurred_at ?? r.created_at) * 1000).toISOString().slice(0, 10),
           r.category,
           r.status,
+          isHuman(r) ? "yes" : "no",
           r.place ?? "",
           r.source,
           r.title,
@@ -966,7 +1052,7 @@ function IncidentTable({
                     <span className="dot" style={{ background: categories[c0]?.color ?? "#8a97ac" }} />
                     {r.category}
                   </td>
-                  <td>{r.status}</td>
+                  <td><ReviewBadge r={r} /></td>
                   <td>{r.place || "—"}</td>
                   <td className="td-title">{r.title}</td>
                 </tr>
@@ -1026,7 +1112,7 @@ function Detail({
             {categories[c]?.label ?? c}
           </span>
         ))}
-        <span className="tag">{r.status}</span>
+        <span className="tag"><ReviewBadge r={r} /></span>
         <span className="tag">{r.fuzzed ? t("detail.approx") : t("detail.exact")}</span>
       </div>
       {hasText(r.body) ? (
@@ -1058,10 +1144,14 @@ function Detail({
           <p className="muted d-body">{r.law}</p>
         </>
       )}
+      {(() => {
+        const pv = previewFor(r.url)
+        return pv ? <SourcePreview key={r.id} preview={pv} label={r.title} /> : null
+      })()}
       <div className="d-actions">
         {r.lat != null && <button className="btn" onClick={() => onLocate(r)}>{t("detail.showOnMap")}</button>}
-        {r.url && (
-          <a className="btn primary" href={r.url} target="_blank" rel="noreferrer">
+        {safeHttp(r.url) && (
+          <a className="btn primary" href={safeHttp(r.url)!.href} target="_blank" rel="noopener noreferrer">
             {t("detail.openSource")}
           </a>
         )}

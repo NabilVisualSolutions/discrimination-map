@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+ <channel>
+  <title>Example News</title>
+  <ttl>60</ttl>
+  <item>
+   <title>Mosque set on fire in Leeds, police investigate</title>
+   <link>https://news.example.org/a/mosque-fire?utm_source=rss&amp;utm_medium=feed</link>
+   <pubDate>Tue, 20 Oct 2026 09:30:00 GMT</pubDate>
+   <description><![CDATA[<p>A mosque in <b>Leeds</b> was set on fire overnight and police are treating it as a hate crime. Witnesses reported two men running from the building shortly after 2am, and the fire service said the blaze was started deliberately in the entrance hall of the prayer building.</p><img src="x.jpg">]]></description>
+   <guid>g1</guid>
+  </item>
+  <item>
+   <title>Opinion: Why racism still shapes how we police our cities</title>
+   <link>https://news.example.org/opinion/racism-policing</link>
+   <pubDate>Tue, 20 Oct 2026 08:00:00 GMT</pubDate>
+   <description>An essay on racism and attacks.</description>
+  </item>
+  <item>
+   <title>Government must act against racist attacks, says charity</title>
+   <link>https://news.example.org/a/charity-calls</link>
+   <pubDate>Mon, 19 Oct 2026 08:00:00 GMT</pubDate>
+   <description>The charity calls on ministers to act.</description>
+  </item>
+  <item>
+   <title>Brandanschlag auf Flüchtlingsunterkunft in Zwickau: Polizei ermittelt</title>
+   <link>https://news.example.org/de/zwickau</link>
+   <pubDate>Mon, 19 Oct 2026 07:00:00 +0200</pubDate>
+   <description>In der Nacht wurde in Zwickau ein Brandsatz auf eine Unterkunft geworfen.</description>
+  </item>
+  <item>
+   <title>Racist graffiti found at school in Lagos, pupils shocked</title>
+   <link>https://news.example.org/a/old-graffiti</link>
+   <pubDate>Mon, 01 Jun 2026 07:00:00 GMT</pubDate>
+   <description>Old item outside the age window.</description>
+  </item>
+ </channel>
+</rss>

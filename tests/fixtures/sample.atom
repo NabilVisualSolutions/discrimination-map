@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+ <title>Civil society chronicle</title>
+ <entry>
+  <title>Synagoge in Halle mit Hakenkreuzen beschmiert</title>
+  <link rel="alternate" href="https://chronik.example.org/eintrag/42"/>
+  <link rel="self" href="https://chronik.example.org/eintrag/42.atom"/>
+  <updated>2026-10-20T10:00:00Z</updated>
+  <summary type="html">&lt;p&gt;Unbekannte haben in der Nacht Hakenkreuze an die Fassade gesprueht.&lt;/p&gt;</summary>
+ </entry>
+ <entry>
+  <title>Jahresbericht 2025: Zahlen rechter Gewalt veröffentlicht</title>
+  <link rel="alternate" href="https://chronik.example.org/eintrag/43"/>
+  <updated>2026-10-19T10:00:00Z</updated>
+  <summary>Statistik und Bilanz.</summary>
+ </entry>
+</feed>

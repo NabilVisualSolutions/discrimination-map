@@ -179,7 +179,40 @@ _MIGRATIONS: list[tuple[str, str]] = [
     ("users", "ALTER TABLE users ADD COLUMN totp_secret TEXT"),
     ("users", "ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0"),
     ("users", "ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0"),
+    # "Human verified" must be literally true. `status='verified'` also holds
+    # rows a one-time script bulk-verified, so the label cannot hang off it.
+    # human_verified is set ONLY by the moderator paths (set_status with
+    # by_human=True) and cleared when a report leaves 'verified'. No column
+    # stores WHICH person: that stays in report_history, as before.
+    ("reports", "ALTER TABLE reports ADD COLUMN human_verified INTEGER NOT NULL DEFAULT 0"),
+    ("reports", "ALTER TABLE reports ADD COLUMN human_verified_at INTEGER"),
+    # Publisher name for items that come from a named outlet (RSS/Atom feeds):
+    # shown as attribution next to the headline and the link to the original.
+    ("reports", "ALTER TABLE reports ADD COLUMN source_name TEXT"),
 ]
+
+# How a report_history row counts as a human decision. edited_by is 'self'
+# (anonymous edit-token holder), 'unknown' (the set_status default, i.e. a
+# script or test), a moderator's e-mail (admin console), or 'pantheon:<id>'
+# (volunteer review relayed by nabilvs.com). Only the last two are human:
+# an '@' in the value, or the 'pantheon:' prefix. 'self' and 'unknown' never are.
+_HUMAN_EDITOR_SQL = "(h.edited_by LIKE 'pantheon:%' OR h.edited_by LIKE '%@%')"
+
+_BACKFILL_HUMAN_VERIFIED = f"""
+UPDATE reports SET
+    human_verified = 1,
+    human_verified_at = (
+        SELECT h.edited_at FROM report_history h
+        WHERE h.report_id = reports.id AND h.field = 'status'
+        ORDER BY h.edited_at DESC, h.id DESC LIMIT 1)
+WHERE status = 'verified' AND human_verified = 0 AND EXISTS (
+    SELECT 1 FROM report_history h
+    WHERE h.id = (
+        SELECT h2.id FROM report_history h2
+        WHERE h2.report_id = reports.id AND h2.field = 'status'
+        ORDER BY h2.edited_at DESC, h2.id DESC LIMIT 1)
+      AND h.new_value = 'verified' AND {_HUMAN_EDITOR_SQL})
+"""
 
 
 def _run_migrations(conn: sqlite3.Connection) -> None:
@@ -198,6 +231,15 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         "UPDATE users SET email_verified_at = created_at"
         " WHERE email_verified_at IS NULL AND created_at < 1792529911"
     )
+    # Backfill human_verified from report_history on EVERY start. The ALTER
+    # above autocommits on its own, so a crash between it and this UPDATE would
+    # leave the column without its backfill; running it each time heals that.
+    # It is idempotent and cannot invent a flag: it only touches rows that are
+    # still 'verified', still 0, and whose LATEST status change is a human move
+    # to 'verified' (see _HUMAN_EDITOR_SQL). Rows verified without any history
+    # (the 2026-09-01 bulk script) never match. A flag cleared by leaving
+    # 'verified' is not resurrected, because the latest history row then says so.
+    conn.execute(_BACKFILL_HUMAN_VERIFIED)
     # Backfill status from the legacy `verified` flag for rows written before
     # `status` existed (verified=1 -> 'verified', everything else stays as
     # the column default, 'unverified').
@@ -348,6 +390,7 @@ def insert_report(
     place: Optional[str] = None,
     created_at: Optional[int] = None,
     occurred_at: Optional[int] = None,
+    source_name: Optional[str] = None,
 ) -> Optional[int]:
     """
     Insert a report. Returns the new row id, or None if it was a duplicate
@@ -390,17 +433,35 @@ def insert_report(
                 INSERT INTO reports
                     (source, external_id, title, body, url, category,
                      reason, evidence, law, impact, verified, status,
-                     lat, lon, place, located, created_at, occurred_at, edit_token)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     lat, lon, place, located, created_at, occurred_at, edit_token,
+                     source_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (source, external_id, title, body, normalized_url, category,
                  reason, evidence, law, impact, 1 if status == "verified" else 0, status,
-                 lat, lon, place, located, ts, occ, secrets.token_urlsafe(16)),
+                 lat, lon, place, located, ts, occ, secrets.token_urlsafe(16),
+                 source_name),
             )
             return cur.lastrowid
     except sqlite3.IntegrityError:
         # UNIQUE(source, external_id) collision -> already have it.
         return None
+
+
+def known_urls_and_titles() -> tuple[list[str], list[str]]:
+    """Every stored URL and title, for de-duplicating a feed against the map."""
+    with _conn() as conn:
+        rows = conn.execute("SELECT url, title FROM reports").fetchall()
+    return [r["url"] for r in rows if r["url"]], [r["title"] for r in rows if r["title"]]
+
+
+def known_for_dedupe() -> list[dict[str, Any]]:
+    """Every stored report's url, title, time, place and status, for feed de-duplication."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT url, title, status, place, COALESCE(occurred_at, created_at) AS ts FROM reports"
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def set_location(report_id: int, lat: float, lon: float, place: str) -> None:
@@ -446,7 +507,7 @@ def list_reports(
         rows = conn.execute(q, params).fetchall()
     out = []
     for r in rows:
-        row = _strip_token(dict(r))
+        row = public_report(_strip_token(dict(r)))
         # external_id of a user report was `user_<ms>`: a value that matches
         # one request in the server's access logs. It has no use in the UI.
         row.pop("external_id", None)
@@ -495,43 +556,74 @@ def list_reports_admin(
             f"SELECT * FROM reports{where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (*params, limit, offset),
         ).fetchall()
-    return {"reports": [_strip_token(dict(r)) for r in rows], "total": total}
+    return {"reports": [public_report(_strip_token(dict(r))) for r in rows], "total": total}
 
 
-def set_verified(report_id: int, verified: bool) -> bool:
-    """Legacy boolean toggle — kept for the existing PATCH contract, now a
-    thin wrapper over `set_status`."""
-    return set_status(report_id, "verified" if verified else "unverified")
+def set_verified(report_id: int, verified: bool, by_human: bool = False) -> bool:
+    """Legacy boolean toggle, a thin wrapper over `set_status`. Never grants
+    "Human verified" unless the caller explicitly says a human did it."""
+    return set_status(report_id, "verified" if verified else "unverified", by_human=by_human)
 
 
 _VALID_STATUSES = {"pending", "unverified", "verified", "dismissed", "irrelevant"}
 
 
-def set_status(report_id: int, status: str, edited_by: str = "unknown") -> bool:
+def set_status(report_id: int, status: str, edited_by: str = "unknown", by_human: bool = False) -> bool:
     """
     A moderator (ADMIN or VERIFIER) sets a report's review status.
     `verified` mirrors status == 'verified' for callers still reading the
     legacy boolean column. Returns False if no such row. Logs a
     `report_history` row (field='status') when the status actually changes.
+
+    `human_verified` (what the public map calls "Human verified") is set only
+    when status == 'verified' AND `by_human=True`, which only the admin and
+    Pantheon review endpoints pass. Moving off 'verified' always clears it.
     """
     if status not in _VALID_STATUSES:
         raise ValueError(f"invalid status '{status}'")
     with _conn() as conn:
-        old_row = conn.execute("SELECT status FROM reports WHERE id = ?", (report_id,)).fetchone()
+        old_row = conn.execute(
+            "SELECT status, human_verified FROM reports WHERE id = ?", (report_id,)
+        ).fetchone()
         if old_row is None:
             return False
-        cur = conn.execute(
-            "UPDATE reports SET status = ?, verified = ? WHERE id = ?",
-            (status, 1 if status == "verified" else 0, report_id),
-        )
-        if old_row["status"] != status:
+        now = int(time.time())
+        grant = by_human and status == "verified"
+        if grant:
+            cur = conn.execute(
+                "UPDATE reports SET status = ?, verified = 1, human_verified = 1,"
+                " human_verified_at = CASE WHEN human_verified = 1 THEN human_verified_at ELSE ? END"
+                " WHERE id = ?",
+                (status, now, report_id),
+            )
+        elif status == "verified":
+            # A non-human write keeps whatever human flag is already there.
+            cur = conn.execute(
+                "UPDATE reports SET status = ?, verified = 1 WHERE id = ?", (status, report_id)
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE reports SET status = ?, verified = 0, human_verified = 0,"
+                " human_verified_at = NULL WHERE id = ?",
+                (status, report_id),
+            )
+        # A human confirming an already-'verified' (bulk-verified) report is a
+        # real review: record it so the history agrees with the flag.
+        newly_human = grant and not old_row["human_verified"]
+        if old_row["status"] != status or newly_human:
             conn.execute(
                 "INSERT INTO report_history"
                 " (report_id, edited_by, field, old_value, new_value, edited_at)"
                 " VALUES (?, ?, 'status', ?, ?, ?)",
-                (report_id, edited_by, old_row["status"], status, int(time.time())),
+                (report_id, edited_by, old_row["status"], status, now),
             )
         return cur.rowcount > 0
+
+
+def public_report(row: dict[str, Any]) -> dict[str, Any]:
+    """Coerce the integer human_verified column to the bool the API exposes."""
+    row["human_verified"] = bool(row.get("human_verified"))
+    return row
 
 
 def get_report(report_id: int) -> Optional[dict[str, Any]]:
@@ -629,7 +721,7 @@ def fuzz_coords(report_id: int, lat: float, lon: float, radius_m: int = 500) -> 
     single unconfirmed post can't pinpoint a real address. Verified reports
     are shown at their real location.
     """
-    h = hmac.new(get_fuzz_secret(), f"fuzz-{report_id}".encode(), hashlib.sha256).digest()
+    h = hmac.new(get_fuzz_secret(), f"fuzz-{report_id}-{radius_m}".encode(), hashlib.sha256).digest()
     angle = (int.from_bytes(h[:4], "big") / 0xFFFFFFFF) * 2 * math.pi
     frac = int.from_bytes(h[4:8], "big") / 0xFFFFFFFF
     dist = radius_m * math.sqrt(frac)  # sqrt for uniform density over the disc

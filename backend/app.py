@@ -30,6 +30,7 @@ import lawref
 import mailer
 import security
 import selfcheck
+import tiles
 import totp
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Discrimination Map", version="1.0", lifespan=lifespan)
+app.include_router(tiles.router)  # same-origin satellite tiles (no visitor data to NASA)
 
 if ALLOW_ORIGINS:
     app.add_middleware(
@@ -213,6 +215,18 @@ def _bot_check(body: BotFields, request: Request) -> None:
     security.verify_turnstile(body.turnstile_token, request)
 
 
+def _normalise_categories(v: str | None) -> str:
+    """Comma-joined known category slugs. Shared by every writer of
+    `category`, so security.is_sensitive never sees a separator it can't split."""
+    tokens = [t.strip().lower() for t in re.split(r"[,|/]", v or "")]
+    tokens = [t for t in tokens if t]
+    if not tokens: tokens = ["user_report"]
+    for t in tokens:
+        if t != "user_report" and t not in lawref.CATEGORIES:
+            raise ValueError(f"unknown category {t!r}")
+    return ",".join(tokens)
+
+
 class UserReport(BotFields):
     """
     A report filed by a person via the button. The documentation fields make
@@ -254,13 +268,7 @@ class UserReport(BotFields):
     @field_validator("category")
     @classmethod
     def _known_categories(cls, v: str) -> str:
-        tokens = [t.strip().lower() for t in re.split(r"[,|/]", v or "")]
-        tokens = [t for t in tokens if t]
-        if not tokens: tokens = ["user_report"]
-        for t in tokens:
-            if t != "user_report" and t not in lawref.CATEGORIES:
-                raise ValueError(f"unknown category {t!r}")
-        return ",".join(tokens)
+        return _normalise_categories(v)
 
     @field_validator("law")
     @classmethod
@@ -281,6 +289,13 @@ class UserReport(BotFields):
 SENSITIVE_CATEGORIES = {"sexual_violence", "harassment"}
 SENSITIVE_FUZZ_RADIUS_M = 5000
 DEFAULT_FUZZ_RADIUS_M = 500
+
+
+def _is_solidarity_only(category: str) -> bool:
+    tokens = [t.strip().lower() for t in re.split(r"[,|/]", category or "") if t.strip()]
+    return bool(tokens) and all(t == "solidarity_event" for t in tokens)
+
+
 ANON_EDIT_WINDOW_SECONDS = int(os.environ.get("DXMAP_ANON_EDIT_WINDOW", str(60 * 60)))
 
 
@@ -294,11 +309,11 @@ def get_reports(
 ):
     """
     Return recent reports. By default only mapped (located) ones.
-    Unverified reports get their coordinates fuzzed for anyone not logged
-    in as ADMIN/VERIFIER, so a single unconfirmed post can't pinpoint a real
-    address. Sensitive categories (sexual violence, harassment) are always
-    fuzzed at a wider radius for the public regardless of verification
-    status — logged-in moderators still see the real location to review it.
+    Every located report gets its coordinates blurred (500 m) for anyone not
+    logged in as ADMIN/VERIFIER, verified or not, so no public pin can point
+    at a real address. Sensitive categories (sexual violence, harassment)
+    are blurred wider (5 km). Only a pure solidarity event keeps its real
+    place. Logged-in moderators see the real location to review it.
 
     Optional `as_of` (unix timestamp): only return reports with
     created_at <= as_of. Enables server-side timeline filtering so clients
@@ -318,7 +333,11 @@ def get_reports(
             if r["lat"] is None or r["lon"] is None:
                 continue
             sensitive = security.is_sensitive(r["category"])
-            if sensitive or r["status"] != "verified":
+            # Every public pin is blurred, verified or not: a verified row can
+            # still be a person's own filing, with a point the filer chose.
+            # Only a pure solidarity event (a public rally, not a harm
+            # incident) keeps its real place, and never when sensitive.
+            if sensitive or not _is_solidarity_only(r["category"]):
                 radius = SENSITIVE_FUZZ_RADIUS_M if sensitive else DEFAULT_FUZZ_RADIUS_M
                 r["lat"], r["lon"] = db.fuzz_coords(r["id"], r["lat"], r["lon"], radius_m=radius)
                 r["fuzzed"] = True
@@ -376,7 +395,7 @@ def get_own_report(report_id: int, x_edit_token: str = Header(default="")):
     if not security.token_equal(x_edit_token, existing.get("edit_token")):
         raise HTTPException(status_code=403, detail="Wrong edit token")
     existing.pop("edit_token", None)
-    return existing
+    return db.public_report(existing)
 
 
 class StatusUpdate(BaseModel):
@@ -394,6 +413,11 @@ class ReportEdit(BaseModel):
     law: str | None = Field(default=None, max_length=40)
     impact: str | None = Field(default=None, max_length=1000)
     category: str | None = Field(default=None, max_length=50)
+
+    @field_validator("category")
+    @classmethod
+    def _known_categories(cls, v: str | None) -> str | None:
+        return None if v is None else _normalise_categories(v)
 
     @field_validator("law")
     @classmethod
@@ -476,7 +500,7 @@ def admin_set_report_status(
     user: dict = Depends(auth.require_role("ADMIN", "VERIFIER")),
 ):
     """Verify or dismiss a report after human review. Open to both roles."""
-    if not db.set_status(report_id, body.status, edited_by=user["email"]):
+    if not db.set_status(report_id, body.status, edited_by=user["email"], by_human=True):
         raise HTTPException(status_code=404, detail="Report not found")
     return {"id": report_id, "status": body.status}
 
@@ -555,7 +579,7 @@ def service_review(report_id: int, body: ServiceReview, _: None = Depends(requir
         f"service-review-hour:{body.moderator}", 300, 3600
     ):
         raise HTTPException(status_code=429, detail="Too many reviews from this reviewer, slow down")
-    if not db.set_status(report_id, body.status, edited_by=f"pantheon:{body.moderator}"):
+    if not db.set_status(report_id, body.status, edited_by=f"pantheon:{body.moderator}", by_human=True):
         raise HTTPException(status_code=404, detail="Report not found")
     if body.category:
         cats = ",".join(
@@ -1077,17 +1101,18 @@ async def geocode(request: Request, q: str = Query(default="", max_length=120)):
     now = time.time()
     if hit and now - hit[0] < _GEOCODE_TTL:
         return {"results": hit[1]}
-    import httpx
+    # One process-wide, locked, spaced (1 req/s) and cached Nominatim call, shared
+    # with the scraper (geolocate.nominatim_search), so the usage policy holds for
+    # the whole process and not just per visitor. It blocks (the 1 s spacing), so it
+    # runs in a worker thread; geolocate refuses to queue more than a few callers.
+    import geolocate
 
     try:
-        async with httpx.AsyncClient(timeout=8.0, headers={"User-Agent": _GEOCODE_UA}) as client:
-            r = await client.get(
-                "https://nominatim.openstreetmap.org/search",
-                params={"format": "json", "limit": 5, "q": q, "accept-language": "en"},
-            )
-            r.raise_for_status()
-            data = r.json()
-    except Exception:
+        data = await asyncio.to_thread(geolocate.nominatim_search, q, 5, "en")
+    except geolocate.NominatimBusy:
+        raise HTTPException(status_code=503, detail="Geocoding is busy, try again in a moment",
+                            headers={"Retry-After": "5"})
+    if data is None:
         raise HTTPException(status_code=502, detail="Geocoding is unavailable right now")
     results = [
         {"lat": float(d["lat"]), "lon": float(d["lon"]), "label": d.get("display_name", q)}
