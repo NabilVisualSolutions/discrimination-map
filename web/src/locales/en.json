@@ -194,5 +194,17 @@
   "preview.slow": "Nothing showing? Many sites forbid embedding. Use “Open source” instead.",
   "rm.exactLabel": "Show the exact spot on the public map",
   "rm.exactHint": "Off: blurred by about 500 m (5 km for sexual violence and harassment). On: the exact spot shows only after a person has reviewed your report. Only turn it on if no one can be identified by the place.",
-  "rm.doneExact": "You asked for the exact spot. It shows once a person has reviewed the report, until then it stays blurred."
+  "rm.doneExact": "You asked for the exact spot. It shows once a person has reviewed the report, until then it stays blurred.",
+  "map.unavailable": "The map needs WebGL, which this browser or device has switched off. The incident list, table and filters still work.",
+  "entry.open": "Report this entry",
+  "entry.title": "Report this entry",
+  "entry.reasonLabel": "What is wrong or unlawful about it?",
+  "entry.emailLabel": "Your e-mail, if you want an answer (optional)",
+  "entry.goodFaith": "I confirm that this report is accurate and made in good faith.",
+  "entry.send": "Send report",
+  "entry.cancel": "Cancel",
+  "entry.sent": "Thank you. A person will look at this entry. It stays visible until then.",
+  "entry.short": "Please write at least a sentence about what is wrong.",
+  "entry.needGoodFaith": "Please confirm the good-faith statement.",
+  "symbols.spot": "Spot a banned symbol? Report it"
 }

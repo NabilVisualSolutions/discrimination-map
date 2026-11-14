@@ -194,5 +194,17 @@
   "preview.slow": "Nichts zu sehen? Viele Seiten verbieten das Einbetten. Nutze stattdessen „Quelle öffnen“.",
   "rm.exactLabel": "Genauen Ort auf der öffentlichen Karte zeigen",
   "rm.exactHint": "Aus: um etwa 500 m unscharf (5 km bei sexualisierter Gewalt und Belästigung). An: der genaue Ort erscheint erst, wenn eine Person deine Meldung geprüft hat. Nur einschalten, wenn niemand über den Ort erkennbar wird.",
-  "rm.doneExact": "Du hast den genauen Ort gewählt. Er erscheint, sobald eine Person die Meldung geprüft hat, bis dahin bleibt er unscharf."
+  "rm.doneExact": "Du hast den genauen Ort gewählt. Er erscheint, sobald eine Person die Meldung geprüft hat, bis dahin bleibt er unscharf.",
+  "map.unavailable": "Die Karte braucht WebGL, das in diesem Browser oder auf diesem Gerät ausgeschaltet ist. Liste, Tabelle und Filter funktionieren weiter.",
+  "entry.open": "Diesen Eintrag melden",
+  "entry.title": "Diesen Eintrag melden",
+  "entry.reasonLabel": "Was ist daran falsch oder rechtswidrig?",
+  "entry.emailLabel": "Deine E-Mail, falls du eine Antwort möchtest (freiwillig)",
+  "entry.goodFaith": "Ich bestätige, dass diese Meldung zutrifft und in gutem Glauben erfolgt.",
+  "entry.send": "Meldung senden",
+  "entry.cancel": "Abbrechen",
+  "entry.sent": "Danke. Ein Mensch prüft diesen Eintrag. Bis dahin bleibt er sichtbar.",
+  "entry.short": "Bitte schreib mindestens einen Satz dazu, was falsch ist.",
+  "entry.needGoodFaith": "Bitte bestätige die Erklärung zum guten Glauben.",
+  "symbols.spot": "Verbotenes Symbol gesehen? Melden"
 }

@@ -117,6 +117,10 @@ export const api = {
   ownReport: (id: number, editToken: string) =>
     req<Report>(`/api/reports/${id}`, { headers: { "X-Edit-Token": editToken } }),
 
+  reportEntry: (payload: { report_id: number; reason: string; email: string; good_faith: boolean;
+    hp_contact?: string; turnstile_token?: string }) =>
+    req<{ id: number; status: string }>("/api/report-entry", { method: "POST", body: JSON.stringify(payload) }),
+
   createReport: (payload: NewReport) =>
     req<{ id: number; status: ReportStatus; edit_token: string }>("/api/reports", {
       method: "POST",

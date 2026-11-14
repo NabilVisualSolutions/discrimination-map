@@ -67,7 +67,12 @@ async def lifespan(app: FastAPI):
             t.cancel()
 
 
-app = FastAPI(title="Discrimination Map", version="1.0", lifespan=lifespan)
+# No interactive API docs in production: nothing outside uses them, and they
+# list every route for anyone scanning the site. Dev keeps them.
+_DOCS = ENV == "dev"
+app = FastAPI(title="Discrimination Map", version="1.0", lifespan=lifespan,
+              docs_url="/docs" if _DOCS else None, redoc_url="/redoc" if _DOCS else None,
+              openapi_url="/openapi.json" if _DOCS else None)
 app.include_router(tiles.router)  # same-origin satellite tiles (no visitor data to NASA)
 
 if ALLOW_ORIGINS:
@@ -160,6 +165,7 @@ RATE_LIMITS: dict[str, list[tuple[int, float]]] = {
     "/api/reports": [(5, 60), (20, 3600), (60, 86400)],
     "/api/apply": [(3, 60), (10, 3600)],
     "/api/propose-symbol": [(3, 60), (10, 3600)],
+    "/api/report-entry": [(3, 60), (10, 3600)],
 }
 
 
@@ -1026,6 +1032,52 @@ class SymbolProposalBody(BotFields):
         if v and "@" not in v:
             raise ValueError("doesn't look like an email address")
         return v
+
+
+class EntryReportBody(BotFields):
+    """
+    Someone reports a public entry as unlawful or wrong (EU DSA Art. 16
+    notice-and-action): which entry, why, and that they act in good faith.
+    Contact is optional, as for a symbol proposal.
+    """
+    report_id: int = Field(ge=1)
+    reason: str = Field(min_length=10, max_length=2000)
+    good_faith: bool
+    email: str = Field(default="", max_length=200)
+
+    @field_validator("good_faith")
+    @classmethod
+    def _must_confirm(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("please confirm the report is made in good faith")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def _loose_email(cls, v: str) -> str:
+        v = v.strip()
+        if v and ("@" not in v or len(v) < 5):
+            raise ValueError("not an e-mail address")
+        return v
+
+
+@app.post("/api/report-entry", status_code=201)
+def report_entry(body: EntryReportBody, request: Request):
+    """
+    Public. Lands in the same /admin applications queue as symbol proposals
+    and volunteer applications (no new table). The entry stays as it is until
+    an admin acts; the notifier gets no automatic reply.
+    """
+    _bot_check(body, request)
+    if db.get_report(body.report_id) is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    new_id = db.create_application(
+        name="(entry report)",
+        email=body.email or "no-reply@dxmap.local",
+        interest="other",
+        message=f"[ENTRY REPORT #{body.report_id}] {body.reason}\nGood faith confirmed: yes",
+    )
+    return {"id": new_id, "status": "received"}
 
 
 @app.post("/api/propose-symbol", status_code=201)

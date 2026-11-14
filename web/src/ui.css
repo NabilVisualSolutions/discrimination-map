@@ -914,3 +914,27 @@ input.field, textarea.field {
   /* RTL: the sheet is on the left, so zoom controls + attribution sit just right of it, clear of the dock */
   [dir="rtl"] .app .maplibregl-ctrl-bottom-right { right: auto; left: calc(var(--sheet-w, 400px) + var(--rail-w) + 12px); margin: 0 0 calc(var(--ticker-h) + 12px) 0; }
 }
+
+
+/* ---------- phase 3 (2026-11) ---------- */
+/* Phones: the bottom sheet already lists the latest incidents, and the ticker
+   strip sat on top of its first row. */
+@media (max-width: 899px) {
+  :root { --ticker-h: 0px; }
+  .ticker { display: none; }
+}
+/* No WebGL: a plain message where the map would be; list and table still work. */
+.map-fallback {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--paper); color: var(--ink);
+}
+.map-fallback p { max-width: 34ch; text-align: center; line-height: 1.5; margin: 0; }
+.entry-open { margin-top: 18px; font-size: 13px; color: var(--muted, #8a97ac); text-decoration: underline; }
+.entry-form { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+.entry-form label { display: flex; flex-direction: column; gap: 4px; }
+.entry-form .field { margin: 0; }
+.entry-form .entry-check { flex-direction: row; align-items: flex-start; gap: 8px; }
+.entry-sent { margin-top: 18px; }
+.spot-symbol { width: 100%; margin-bottom: 14px; }
+.entry-form .err { color: var(--red-text); margin: 0; }

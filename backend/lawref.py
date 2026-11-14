@@ -179,7 +179,7 @@ CATEGORIES: dict[str, dict[str, str]] = {
     "islamophobia":           {"label": "Islamophobia", "color": "#FFA94D"},
     "antisemitism":           {"label": "Antisemitism", "color": "#4DA6FF"},
     "homophobia_transphobia": {"label": "Homophobia / transphobia", "color": "#B983FF"},
-    "neo_nazi":               {"label": "Neo-Nazi activity / signs", "color": "#C99400"},
+    "neo_nazi":               {"label": "Neo-Nazi activity / signs", "color": "#9C6B3E"},
     "xenophobia":             {"label": "Xenophobia", "color": "#4CD97B"},
     "sexual_violence":        {"label": "Sexual violence", "color": "#2BD9C9"},
     "harassment":             {"label": "Harassment", "color": "#E8779E"},

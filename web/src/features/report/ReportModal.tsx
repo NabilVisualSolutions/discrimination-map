@@ -26,6 +26,7 @@ export function ReportModal({
   editToken,
   presetLat,
   presetLon,
+  presetCategory,
   onClose,
   onSaved,
 }: {
@@ -34,6 +35,8 @@ export function ReportModal({
   editToken?: string
   presetLat?: number
   presetLon?: number
+  /** Opens the form with this category ticked (the "Spot a banned symbol" button). */
+  presetCategory?: string
   onClose: () => void
   onSaved?: () => void
 }) {
@@ -42,7 +45,7 @@ export function ReportModal({
 
   const [step, setStep] = useState<Step>("form")
   const [loading, setLoading] = useState(isEdit)
-  const [cats, setCats] = useState<Set<string>>(() => new Set())
+  const [cats, setCats] = useState<Set<string>>(() => new Set(presetCategory ? [presetCategory] : []))
   const [title, setTitle] = useState("")
   const [reason, setReason] = useState("")
   const [evidence, setEvidence] = useState("")

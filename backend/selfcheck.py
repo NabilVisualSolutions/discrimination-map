@@ -24,7 +24,12 @@ import db
 LOG_PATH = os.environ.get(
     "DXMAP_IMPROVE_LOG", os.path.join(os.path.dirname(__file__), "improvements.log"))
 SELFCHECK_SECONDS = int(os.environ.get("DXMAP_SELFCHECK_SECONDS", "900"))  # 15 min
-BASE_URL = os.environ.get("DXMAP_BASE_URL", "http://127.0.0.1:8020")
+_DEV = os.environ.get("DXMAP_ENV", "prod") == "dev"
+# The container listens on 8010 (Dockerfile CMD), run-dev.sh on 8020.
+BASE_URL = os.environ.get("DXMAP_BASE_URL", "http://127.0.0.1:8020" if _DEV else "http://127.0.0.1:8010")
+# The production image ships no tests/ (Dockerfile, .dockerignore): tests run
+# before a release, not on the server. Dev can still run them here.
+RUN_TESTS = _DEV
 
 # Security headers we expect the app / proxy to set on responses.
 EXPECTED_HEADERS = {
@@ -142,7 +147,7 @@ def suggest_improvements() -> list[str]:
 
 def run_selfcheck() -> dict[str, Any]:
     """Run the whole self-check once, log findings, and return a summary."""
-    tests = run_tests()
+    tests = run_tests() if RUN_TESTS else {"ok": True, "summary": "skipped: tests run before each release, not on the server"}
     security = audit_security()
     health = audit_health()
     suggestions = suggest_improvements()

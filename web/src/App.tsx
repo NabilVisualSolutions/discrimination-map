@@ -15,6 +15,9 @@ import { isHuman } from "./lib/review"
 import { previewFor, safeHttp } from "./lib/source-preview"
 import { SourcePreview } from "./features/source/SourcePreview"
 import { latestEditable, minutesLeft, type MineEntry } from "./lib/mine"
+import { hasWebGL } from "./lib/webgl"
+import { MapBoundary } from "./features/map/MapBoundary"
+import { EntryReport } from "./features/entry/EntryReport"
 
 // Full-screen map. Everything floats over it: a top search/filter bar, a
 // category panel, a persistent timeline at the bottom, and one sheet that
@@ -77,6 +80,7 @@ export function App() {
   const [fromTs, setFromTs] = useState<number | null>(null)
   const [showReport, setShowReport] = useState(false)
   const [reportPreset, setReportPreset] = useState<{ lat: number; lon: number } | null>(null)
+  const [reportCat, setReportCat] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ lon: number; lat: number; zoom: number } | null>(null)
   const [geoHits, setGeoHits] = useState<{ lat: number; lon: number; label: string }[]>([])
   const [view, setView] = useState<SheetView>("incidents")
@@ -397,6 +401,10 @@ export function App() {
   return (
     <div className={`app${noticeDismissed ? "" : " has-notice"}`}>
       <ConsentBanner />
+      {!hasWebGL() ? (
+        <div className="map-fallback" role="note"><p>{t("map.unavailable")}</p></div>
+      ) : (
+      <MapBoundary fallback={<div className="map-fallback" role="note"><p>{t("map.unavailable")}</p></div>}>
       <MapView
         reports={mapReports}
         categories={categories}
@@ -408,6 +416,8 @@ export function App() {
         selectedId={view === "detail" ? selected?.id : null}
         threeD={threeD}
       />
+      </MapBoundary>
+      )}
       {fxOn && (
         <div className="fx" aria-hidden>
           <i className="fx-b fx-t1" />
@@ -795,6 +805,10 @@ export function App() {
 
           {view === "awareness" && (
             <>
+              <button type="button" className="btn primary spot-symbol" onClick={() => {
+                setReportCat("banned_symbol")
+                setShowReport(true)
+              }}>{t("symbols.spot")}</button>
               <h3>{aw.h1}</h3>
               <p className="muted">{aw.lede}</p>
               {aw.symbols.map((s: { code: string; title: string; body: string }) => (
@@ -838,10 +852,12 @@ export function App() {
           editToken={reportEdit?.token}
           presetLat={reportPreset?.lat}
           presetLon={reportPreset?.lon}
+          presetCategory={reportCat ?? undefined}
           onClose={() => {
             setShowReport(false)
             setReportEdit(null)
             setReportPreset(null)
+            setReportCat(null)
           }}
           onSaved={() => {
             setMine(latestEditable())
@@ -1176,6 +1192,7 @@ function Detail({
           </div>
         </div>
       )}
+      <EntryReport key={r.id} id={r.id} />
     </div>
   )
 }

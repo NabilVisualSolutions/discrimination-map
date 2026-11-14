@@ -194,5 +194,17 @@
   "preview.slow": "Rien ne s'affiche ? Beaucoup de sites interdisent l'intégration. Utilisez plutôt « Ouvrir la source ».",
   "rm.exactLabel": "Afficher le lieu exact sur la carte publique",
   "rm.exactHint": "Désactivé : flouté d'environ 500 m (5 km pour les violences sexuelles et le harcèlement). Activé : le lieu exact n'apparaît qu'après vérification de votre signalement par une personne. Activez-le seulement si personne ne peut être identifié par le lieu.",
-  "rm.doneExact": "Vous avez demandé le lieu exact. Il apparaît après vérification par une personne, d'ici là il reste flouté."
+  "rm.doneExact": "Vous avez demandé le lieu exact. Il apparaît après vérification par une personne, d'ici là il reste flouté.",
+  "map.unavailable": "La carte a besoin de WebGL, désactivé dans ce navigateur ou sur cet appareil. La liste, le tableau et les filtres fonctionnent toujours.",
+  "entry.open": "Signaler cette entrée",
+  "entry.title": "Signaler cette entrée",
+  "entry.reasonLabel": "Qu'est-ce qui est faux ou illégal ?",
+  "entry.emailLabel": "Votre e-mail, si vous souhaitez une réponse (facultatif)",
+  "entry.goodFaith": "Je confirme que ce signalement est exact et fait de bonne foi.",
+  "entry.send": "Envoyer le signalement",
+  "entry.cancel": "Annuler",
+  "entry.sent": "Merci. Une personne examinera cette entrée. Elle reste visible d'ici là.",
+  "entry.short": "Merci d'écrire au moins une phrase sur ce qui ne va pas.",
+  "entry.needGoodFaith": "Merci de confirmer la déclaration de bonne foi.",
+  "symbols.spot": "Vous voyez un symbole interdit ? Signalez-le"
 }
