@@ -40,6 +40,8 @@ export interface Report {
   fuzzed?: boolean
   /** A person reviewed it. Missing (older API) means false: status "verified" alone is NOT human review. */
   human_verified?: boolean
+  /** Reporter or reviewer asked for the exact spot. Public map shows it only once human verified. */
+  show_exact?: boolean
 }
 
 export interface CategoryMeta {
@@ -95,6 +97,7 @@ export interface NewReport {
   lat: number
   lon: number
   occurred_at?: number
+  show_exact?: boolean
   /** Honeypot + Turnstile (lib/botguard.tsx). */
   hp_contact?: string
   turnstile_token?: string

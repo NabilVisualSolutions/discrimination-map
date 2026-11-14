@@ -57,6 +57,7 @@ export function ReportModal({
       : null
   )
   const [sensitiveOk, setSensitiveOk] = useState(false)
+  const [showExact, setShowExact] = useState(false)
   const [err, setErr] = useState("")
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ id: number; status: string; edit_token: string } | null>(null)
@@ -107,6 +108,7 @@ export function ReportModal({
         setReason(r.reason ?? "")
         setEvidence(r.evidence ?? "")
         setImpact(r.impact ?? "")
+        setShowExact(!!r.show_exact)
         if (r.occurred_at) setOccurred(toLocalInput(new Date(r.occurred_at * 1000)))
         if (r.lat != null && r.lon != null)
           setPicked({ lat: r.lat, lon: r.lon, label: r.place || `${r.lat.toFixed(3)}, ${r.lon.toFixed(3)}` })
@@ -168,6 +170,7 @@ export function ReportModal({
           evidence: evidence.trim() || undefined,
           impact: impact.trim() || undefined,
           category: categoryStr,
+          show_exact: showExact,
         })
         setResult({ id: editId!, status: "updated", edit_token: editToken! })
       } else {
@@ -180,6 +183,7 @@ export function ReportModal({
           lat: picked.lat,
           lon: picked.lon,
           occurred_at: occurredTs,
+          show_exact: showExact,
           hp_contact: hp,
           turnstile_token: botToken ?? "",
         }
@@ -226,7 +230,7 @@ export function ReportModal({
             </div>
             <h2 className="rm-h2">{isEdit ? t("rm.doneEdit") : t("rm.doneNew")}</h2>
             <p className="rm-p">
-              {result.status === "pending" ? t("rm.doneBodyPending") : t("rm.doneBodyLead")} {t("rm.doneFuzz")}
+              {result.status === "pending" ? t("rm.doneBodyPending") : t("rm.doneBodyLead")} {showExact ? t("rm.doneExact") : t("rm.doneFuzz")}
             </p>
             {!isEdit && (
               <div className="rm-token">
@@ -343,6 +347,13 @@ export function ReportModal({
                 </>
               )}
             </div>
+
+            <label className="rm-consent-row">
+              <input type="checkbox" checked={showExact} onChange={(e) => setShowExact(e.target.checked)} />
+              <span>
+                {t("rm.exactLabel")} <span className="rm-hint">{t("rm.exactHint")}</span>
+              </span>
+            </label>
 
             <div className="field">
               <label>{t("rm.fEvidence")}</label>

@@ -82,7 +82,7 @@
   "rm.cat": "Kategorie",
   "rm.catPick": "— wählen —",
   "rm.sensitiveTitle": "Besonders schützenswert.",
-  "rm.sensitiveBody": "Diese Meldung geht nicht direkt auf die öffentliche Karte – eine Person prüft sie zuerst, und der Ort wird weiträumig (~5 km) unscharf gemacht. Bitte keine identifizierenden Details zu Betroffenen.",
+  "rm.sensitiveBody": "Diese Meldung geht nicht direkt auf die öffentliche Karte – eine Person prüft sie zuerst, und der Ort wird weiträumig (~5 km) unscharf gemacht, außer du wählst unten den genauen Ort. Bitte keine identifizierenden Details zu Betroffenen.",
   "rm.sensitiveOk": "Ich habe das verstanden.",
   "rm.fTitle": "Titel",
   "rm.fTitlePh": "Kurz: was ist passiert?",
@@ -189,5 +189,8 @@
   "preview.load": "Vorschau von {{host}} laden",
   "preview.frameTitle": "Vorschau der Quelle, geladen von {{host}}",
   "preview.effectOff": "Effekt aus",
-  "preview.slow": "Nichts zu sehen? Viele Seiten verbieten das Einbetten. Nutze stattdessen „Quelle öffnen“."
+  "preview.slow": "Nichts zu sehen? Viele Seiten verbieten das Einbetten. Nutze stattdessen „Quelle öffnen“.",
+  "rm.exactLabel": "Genauen Ort auf der öffentlichen Karte zeigen",
+  "rm.exactHint": "Aus: um etwa 500 m unscharf (5 km bei sexualisierter Gewalt und Belästigung). An: der genaue Ort erscheint erst, wenn eine Person deine Meldung geprüft hat. Nur einschalten, wenn niemand über den Ort erkennbar wird.",
+  "rm.doneExact": "Du hast den genauen Ort gewählt. Er erscheint, sobald eine Person die Meldung geprüft hat, bis dahin bleibt er unscharf."
 }

@@ -189,6 +189,10 @@ _MIGRATIONS: list[tuple[str, str]] = [
     # Publisher name for items that come from a named outlet (RSS/Atom feeds):
     # shown as attribution next to the headline and the link to the original.
     ("reports", "ALTER TABLE reports ADD COLUMN source_name TEXT"),
+    # Reporter's request to show the exact spot instead of the public blur.
+    # Takes effect only once a person has verified the report (human_verified)
+    # and a reviewer can switch it either way. Default 0: blurred.
+    ("reports", "ALTER TABLE reports ADD COLUMN show_exact INTEGER NOT NULL DEFAULT 0"),
 ]
 
 # How a report_history row counts as a human decision. edited_by is 'self'
@@ -391,6 +395,7 @@ def insert_report(
     created_at: Optional[int] = None,
     occurred_at: Optional[int] = None,
     source_name: Optional[str] = None,
+    show_exact: bool = False,
 ) -> Optional[int]:
     """
     Insert a report. Returns the new row id, or None if it was a duplicate
@@ -434,13 +439,13 @@ def insert_report(
                     (source, external_id, title, body, url, category,
                      reason, evidence, law, impact, verified, status,
                      lat, lon, place, located, created_at, occurred_at, edit_token,
-                     source_name)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     source_name, show_exact)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (source, external_id, title, body, normalized_url, category,
                  reason, evidence, law, impact, 1 if status == "verified" else 0, status,
                  lat, lon, place, located, ts, occ, secrets.token_urlsafe(16),
-                 source_name),
+                 source_name, 1 if show_exact else 0),
             )
             return cur.lastrowid
     except sqlite3.IntegrityError:
@@ -623,6 +628,7 @@ def set_status(report_id: int, status: str, edited_by: str = "unknown", by_human
 def public_report(row: dict[str, Any]) -> dict[str, Any]:
     """Coerce the integer human_verified column to the bool the API exposes."""
     row["human_verified"] = bool(row.get("human_verified"))
+    row["show_exact"] = bool(row.get("show_exact"))
     return row
 
 
@@ -645,7 +651,7 @@ def get_report_history(report_id: int) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
-_EDITABLE_FIELDS = {"title", "reason", "evidence", "law", "impact", "category"}
+_EDITABLE_FIELDS = {"title", "reason", "evidence", "law", "impact", "category", "show_exact"}
 
 
 def update_report_fields(report_id: int, fields: dict[str, Any], edited_by: str = "unknown") -> bool:
@@ -661,6 +667,8 @@ def update_report_fields(report_id: int, fields: dict[str, Any], edited_by: str 
     writes nothing), in the same transaction as the update itself.
     """
     updates = {k: v for k, v in fields.items() if k in _EDITABLE_FIELDS and v is not None}
+    if "show_exact" in updates:
+        updates["show_exact"] = 1 if updates["show_exact"] else 0
     if not updates:
         return False
     set_clause = ", ".join(f"{k} = ?" for k in updates)

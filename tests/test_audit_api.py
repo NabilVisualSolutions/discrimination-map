@@ -431,3 +431,57 @@ def test_report_edit_rejects_unknown_or_oddly_separated_categories():
             ReportEdit(category=bad)
     assert ReportEdit(category=" Harassment | racism ").category == "harassment,racism"
     assert ReportEdit().category is None
+
+
+# ---- show_exact: reporter asks, a person's review makes it count ----------
+
+EXACT = (52.52, 13.405)
+VOL = "vol_" + "a" * 32
+
+
+def _review(rid, **body):
+    return new_client().post(f"/api/service/review/{rid}", json={"moderator": VOL, **body},
+                             headers={"X-Service-Token": "test-service-token"})
+
+
+def test_show_exact_without_human_review_stays_blurred():
+    # status verified by a script, never by a person: the request alone is not enough
+    rid = verified_report("violence", show_exact=True)
+    assert coords_for(new_client(), rid) != EXACT
+
+
+def test_show_exact_counts_once_a_person_verifies():
+    rid = verified_report("violence", status="unverified", show_exact=True)
+    assert _review(rid, status="verified").status_code == 200
+    assert coords_for(new_client(), rid) == EXACT
+
+
+def test_human_verified_without_request_stays_blurred():
+    rid = verified_report("violence", status="unverified")
+    assert _review(rid, status="verified").status_code == 200
+    assert coords_for(new_client(), rid) != EXACT
+
+
+def test_reviewer_can_override_the_request_both_ways():
+    asked = verified_report("racism", status="unverified", show_exact=True)
+    assert _review(asked, status="verified", show_exact=False).status_code == 200
+    assert coords_for(new_client(), asked) != EXACT
+    not_asked = verified_report("racism", status="unverified")
+    assert _review(not_asked, status="verified", show_exact=True).status_code == 200
+    assert coords_for(new_client(), not_asked) == EXACT
+
+
+def test_sensitive_category_follows_the_same_choice():
+    # owner decision 2026-11-14: no special case for sensitive categories
+    rid = verified_report("harassment", status="unverified", show_exact=True)
+    assert _review(rid, status="verified").status_code == 200
+    assert coords_for(new_client(), rid) == EXACT
+
+
+def test_reporter_sets_show_exact_on_the_form():
+    body = {"title": "Graffiti", "reason": "Swastika", "category": "banned_symbol",
+            "lat": 52.5, "lon": 13.4, "show_exact": True}
+    rid = new_client().post("/api/reports", json=body, headers=visitor()).json()["id"]
+    assert db.get_report(rid)["show_exact"] == 1
+    history = [h for h in db.get_report_history(rid) if h["field"] == "show_exact"]
+    assert history == []  # set at filing, not an edit

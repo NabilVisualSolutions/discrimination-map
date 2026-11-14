@@ -247,6 +247,10 @@ class UserReport(BotFields):
                           description="One or more category slugs, comma-separated")
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
+    show_exact: bool = Field(
+        default=False,
+        description="Reporter asks to show the exact spot. Only takes effect once "
+                    "a person has verified the report. Default: blurred.")
     occurred_at: int | None = Field(
         default=None,
         description="Unix seconds — when the incident happened (may be in the past). "
@@ -333,11 +337,15 @@ def get_reports(
             if r["lat"] is None or r["lon"] is None:
                 continue
             sensitive = security.is_sensitive(r["category"])
-            # Every public pin is blurred, verified or not: a verified row can
-            # still be a person's own filing, with a point the filer chose.
-            # Only a pure solidarity event (a public rally, not a harm
-            # incident) keeps its real place, and never when sensitive.
-            if sensitive or not _is_solidarity_only(r["category"]):
+            # Public pins are blurred by default. The exact spot shows only
+            # when the reporter asked for it (or a reviewer set it) AND a
+            # person has verified the report. Same rule for every category,
+            # sensitive ones included (owner decision 2026-11-14). A pure
+            # solidarity event (a public rally) keeps its place as before,
+            # unless sensitive.
+            exact = (r.get("show_exact") and r.get("human_verified")) or (
+                not sensitive and _is_solidarity_only(r["category"]))
+            if not exact:
                 radius = SENSITIVE_FUZZ_RADIUS_M if sensitive else DEFAULT_FUZZ_RADIUS_M
                 r["lat"], r["lon"] = db.fuzz_coords(r["id"], r["lat"], r["lon"], radius_m=radius)
                 r["fuzzed"] = True
@@ -368,6 +376,7 @@ def post_report(report: UserReport, request: Request):
         lat=report.lat, lon=report.lon,
         place="user-reported",
         occurred_at=report.occurred_at,
+        show_exact=report.show_exact,
     )
     if new_id is None:
         raise HTTPException(status_code=409, detail="Duplicate report")
@@ -413,6 +422,9 @@ class ReportEdit(BaseModel):
     law: str | None = Field(default=None, max_length=40)
     impact: str | None = Field(default=None, max_length=1000)
     category: str | None = Field(default=None, max_length=50)
+    # Exact spot or blurred on the public map. Reporter (in the edit window)
+    # or reviewer can switch it. Exact only applies to human-verified rows.
+    show_exact: bool | None = None
 
     @field_validator("category")
     @classmethod
@@ -555,6 +567,9 @@ class ServiceReview(BaseModel):
         return v
     # Optional reclassification: one or more category slugs, comma-separated.
     category: str | None = Field(default=None, max_length=120)
+    # Reviewer's decision on the public location: True exact, False blurred,
+    # None keeps whatever the reporter asked for.
+    show_exact: bool | None = None
 
 
 @app.get("/api/service/review-queue")
@@ -587,7 +602,9 @@ def service_review(report_id: int, body: ServiceReview, _: None = Depends(requir
         )
         if cats:
             db.update_report_fields(report_id, {"category": cats}, edited_by=f"pantheon:{body.moderator}")
-    return {"id": report_id, "status": body.status, "category": body.category}
+    if body.show_exact is not None:
+        db.update_report_fields(report_id, {"show_exact": body.show_exact}, edited_by=f"pantheon:{body.moderator}")
+    return {"id": report_id, "status": body.status, "category": body.category, "show_exact": body.show_exact}
 
 
 @app.get("/api/service/stats")

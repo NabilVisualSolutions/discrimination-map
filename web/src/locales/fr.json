@@ -82,7 +82,7 @@
   "rm.cat": "Catégorie",
   "rm.catPick": "— choisir —",
   "rm.sensitiveTitle": "Particulièrement protégé.",
-  "rm.sensitiveBody": "Ce signalement ne va pas directement sur la carte publique — une personne le vérifie d'abord, et le lieu est flouté largement (~5 km). N'incluez aucun détail identifiant les personnes concernées.",
+  "rm.sensitiveBody": "Ce signalement ne va pas directement sur la carte publique — une personne le vérifie d'abord, et le lieu est flouté largement (~5 km), sauf si vous demandez le lieu exact ci-dessous. N'incluez aucun détail identifiant les personnes concernées.",
   "rm.sensitiveOk": "J'ai compris.",
   "rm.fTitle": "Titre",
   "rm.fTitlePh": "Brièvement : que s'est-il passé ?",
@@ -189,5 +189,8 @@
   "preview.load": "Charger l'aperçu depuis {{host}}",
   "preview.frameTitle": "Aperçu de la source, chargé depuis {{host}}",
   "preview.effectOff": "Effet désactivé",
-  "preview.slow": "Rien ne s'affiche ? Beaucoup de sites interdisent l'intégration. Utilisez plutôt « Ouvrir la source »."
+  "preview.slow": "Rien ne s'affiche ? Beaucoup de sites interdisent l'intégration. Utilisez plutôt « Ouvrir la source ».",
+  "rm.exactLabel": "Afficher le lieu exact sur la carte publique",
+  "rm.exactHint": "Désactivé : flouté d'environ 500 m (5 km pour les violences sexuelles et le harcèlement). Activé : le lieu exact n'apparaît qu'après vérification de votre signalement par une personne. Activez-le seulement si personne ne peut être identifié par le lieu.",
+  "rm.doneExact": "Vous avez demandé le lieu exact. Il apparaît après vérification par une personne, d'ici là il reste flouté."
 }

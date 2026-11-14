@@ -82,7 +82,7 @@
   "rm.cat": "Category",
   "rm.catPick": "— choose —",
   "rm.sensitiveTitle": "Especially protected.",
-  "rm.sensitiveBody": "This report does not go straight to the public map — a person reviews it first, and the location is blurred widely (~5 km). Please include no identifying details about those affected.",
+  "rm.sensitiveBody": "This report does not go straight to the public map — a person reviews it first, and the location is blurred widely (~5 km) unless you ask for the exact spot below. Please include no identifying details about those affected.",
   "rm.sensitiveOk": "I understand.",
   "rm.fTitle": "Title",
   "rm.fTitlePh": "Briefly: what happened?",
@@ -189,5 +189,8 @@
   "preview.load": "Load preview from {{host}}",
   "preview.frameTitle": "Preview of the source, loaded from {{host}}",
   "preview.effectOff": "Effect off",
-  "preview.slow": "Nothing showing? Many sites forbid embedding. Use “Open source” instead."
+  "preview.slow": "Nothing showing? Many sites forbid embedding. Use “Open source” instead.",
+  "rm.exactLabel": "Show the exact spot on the public map",
+  "rm.exactHint": "Off: blurred by about 500 m (5 km for sexual violence and harassment). On: the exact spot shows only after a person has reviewed your report. Only turn it on if no one can be identified by the place.",
+  "rm.doneExact": "You asked for the exact spot. It shows once a person has reviewed the report, until then it stays blurred."
 }
