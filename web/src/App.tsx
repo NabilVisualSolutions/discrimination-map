@@ -1369,6 +1369,7 @@ function Involved({
       <a className="link-row" href="/awareness" target="_blank" rel="noreferrer">{t("involved.awareness")}</a>
       <a className="link-row" href="/privacy">{t("involved.privacy")}</a>
       <a className="link-row" href="/terms">{t("involved.terms")}</a>
+      <a className="link-row" href="/impressum">{t("involved.impressum")}</a>
       {analyticsAvailable && (
         <p className="muted sm" style={{ marginTop: 14 }}>
           <button type="button" className="linklike" onClick={clearConsent}>{t("consent.footer")}</button>

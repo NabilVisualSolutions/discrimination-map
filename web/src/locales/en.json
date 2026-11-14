@@ -33,6 +33,7 @@
   "involved.admin": "Reviewer or admin? Go to /admin →",
   "involved.privacy": "Privacy",
   "involved.terms": "Terms",
+  "involved.impressum": "Legal notice (Impressum)",
   "involved.signedIn": "Signed in as {email} · {role}",
   "detail.back": "← All incidents",
   "detail.reason": "Why flagged",

@@ -33,6 +33,7 @@
   "involved.admin": "Reviewer oder Admin? Zu /admin →",
   "involved.privacy": "Datenschutz",
   "involved.terms": "Nutzungsbedingungen",
+  "involved.impressum": "Impressum",
   "involved.signedIn": "Angemeldet als {email} · {role}",
   "detail.back": "← Alle Vorfälle",
   "detail.reason": "Erkennungsgrund",

@@ -33,6 +33,7 @@
   "involved.admin": "Reviewer ou admin ? Aller à /admin →",
   "involved.privacy": "Confidentialité",
   "involved.terms": "Conditions",
+  "involved.impressum": "Mentions légales (Impressum)",
   "involved.signedIn": "Connecté en tant que {email} · {role}",
   "detail.back": "← Tous les incidents",
   "detail.reason": "Motif du signalement",
