@@ -7,6 +7,7 @@ connection factory for Postgres later without touching the API surface.
 """
 from __future__ import annotations
 
+import html
 import hashlib
 import hmac
 import json
@@ -417,6 +418,12 @@ def insert_report(
     """
     located = 1 if (lat is not None and lon is not None) else 0
     normalized_url = url.strip().rstrip("/") if url else None
+    if source != "user":
+        # Feeds and APIs hand us HTML-escaped text (&quot; &amp; &#39;). Store
+        # it decoded: the UI escapes on output. A person's own words stay as typed.
+        title = html.unescape(title) if title else title
+        body = html.unescape(body) if body else body
+        reason = html.unescape(reason) if reason else reason
     # Only web links are ever stored as a source: a javascript:, data: or
     # protocol-relative URL here would become a clickable link in the UI.
     if normalized_url and not normalized_url.lower().startswith(("http://", "https://")):
@@ -499,7 +506,9 @@ def list_reports(
     if viewer_is_reviewer:
         q = "SELECT * FROM reports WHERE status NOT IN ('dismissed', 'irrelevant')"
     else:
-        q = "SELECT * FROM reports WHERE status = 'verified'"
+        # "Verified" on the public map means a person checked it. A row a
+        # script marked 'verified' (the 2026-09-01 bulk run) stays off.
+        q = "SELECT * FROM reports WHERE status = 'verified' AND human_verified = 1"
     params: list[Any] = []
     if located_only:
         q += " AND located = 1"
@@ -534,7 +543,7 @@ def _strip_token(row: dict[str, Any]) -> dict[str, Any]:
 
 def list_reports_admin(
     limit: int = 100, offset: int = 0, verified: Optional[bool] = None,
-    status: Optional[str] = None,
+    status: Optional[str] = None, located_first: bool = False,
 ) -> dict[str, Any]:
     """
     Every report (located or not), newest first, for the moderation queue.
@@ -558,7 +567,9 @@ def list_reports_admin(
     with _conn() as conn:
         total = conn.execute(f"SELECT COUNT(*) AS n FROM reports{where}", params).fetchone()["n"]
         rows = conn.execute(
-            f"SELECT * FROM reports{where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            f"SELECT * FROM reports{where} ORDER BY "
+            + ("(lat IS NULL OR lon IS NULL), " if located_first else "")
+            + "created_at DESC LIMIT ? OFFSET ?",
             (*params, limit, offset),
         ).fetchall()
     return {"reports": [public_report(_strip_token(dict(r))) for r in rows], "total": total}
@@ -884,6 +895,9 @@ def stats() -> dict[str, Any]:
             r["status"]: r["c"] for r in conn.execute(
                 "SELECT status, COUNT(*) c FROM reports GROUP BY status").fetchall()
         }
+        human_verified = conn.execute(
+            "SELECT COUNT(*) c FROM reports WHERE status = 'verified' AND human_verified = 1"
+        ).fetchone()["c"]
         by_category = {
             r["category"]: r["c"] for r in conn.execute(
                 "SELECT category, COUNT(*) c FROM reports GROUP BY category").fetchall()
@@ -891,6 +905,8 @@ def stats() -> dict[str, Any]:
     return {
         "total": total, "located": located, "by_source": by_source,
         "by_status": by_status, "by_category": by_category,
+        # Rows a person checked: the only ones the public map shows.
+        "human_verified": human_verified,
     }
 
 

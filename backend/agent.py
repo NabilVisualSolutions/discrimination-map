@@ -263,7 +263,10 @@ async def source_youtube(client: httpx.AsyncClient) -> list[dict[str, Any]]:
 # News + encyclopaedia sources (no key)                                        #
 # --------------------------------------------------------------------------- #
 
-WIKIPEDIA_ENABLED = os.environ.get("DXMAP_WIKIPEDIA", "1") != "0"
+# Off by default since 2026-11: search hits and category sweeps return topic
+# articles ("Racism in Germany", a 1945 air raid), not incidents. Set
+# DXMAP_WIKIPEDIA=1 to turn it back on.
+WIKIPEDIA_ENABLED = os.environ.get("DXMAP_WIKIPEDIA", "0") == "1"
 GDELT_ENABLED = os.environ.get("DXMAP_GDELT", "1") != "0"
 
 # Wikipedia: free-text searches plus category sweeps. Categories are the

@@ -38,6 +38,15 @@ client = TestClient(app_module.app)
 
 # ---------------- geolocation ----------------
 
+
+def _public_insert(**kw):
+    """Insert like db.insert_report; a 'verified' row also gets a person's
+    review, because the public map shows only human-verified rows."""
+    rid = db.insert_report(**kw)
+    if rid is not None and kw.get("status") == "verified":
+        db.set_status(rid, "verified", edited_by="reviewer@dxmap-tests.example-org.dev", by_human=True)
+    return rid
+
 def test_gazetteer_hits_german_city():
     hit = geolocate.from_gazetteer("Hakenkreuz an Wand in Berlin gesprüht")
     assert hit is not None
@@ -290,7 +299,7 @@ def test_sexual_violence_report_uses_wider_fuzz_radius(monkeypatch):
     # beyond the 500 m default). The production fuzz is untouched.
     monkeypatch.setattr(db, "_FUZZ_SECRET", bytes(range(32)))
     ids = [
-        db.insert_report(
+        _public_insert(
             source="mastodon", external_id=f"test_scraped_fuzz_{i}", title="Sensitive scraped test",
             body="sensitive", url=f"https://example.social/@x/fuzz{i}",
             category="sexual_violence", reason="sensitive scraped reason",
@@ -318,7 +327,7 @@ def test_every_public_pin_is_blurred_except_pure_solidarity_events(monkeypatch):
     monkeypatch.setattr(db, "_FUZZ_SECRET", bytes(range(32)))
 
     def add(tag, category):
-        return db.insert_report(
+        return _public_insert(
             source="mastodon", external_id=f"test_blur_all_{tag}", title="Blur all test",
             body="x", url=f"https://example.social/@x/{tag}", category=category,
             reason="blur all reason", lat=52.5200, lon=13.4000, place="Berlin", status="verified",
@@ -547,7 +556,7 @@ def test_solidarity_event_not_in_sensitive_fuzz_bucket():
     other non-sensitive category — it's a public event, not a harm lead, so
     the wide sensitive-category fuzz radius must never apply to it.
     """
-    new_id = db.insert_report(
+    new_id = _public_insert(
         source="user", title="Solidarity rally", reason="counter-protest rally",
         category="solidarity_event", lat=52.5200, lon=13.4000, place="Berlin",
         status="verified",
@@ -573,7 +582,7 @@ def test_as_of_filters_reports_by_timestamp():
     past = now - 86400  # 1 day ago
     
     # Insert an old report directly with a known timestamp (status=verified so it appears in public feed)
-    old_id = db.insert_report(
+    old_id = _public_insert(
         source="mastodon", external_id="test_old", title="Old report", reason="old test",
         category="racism", lat=52.5, lon=13.4, place="Berlin",
         url="https://example.social/@x/old",
@@ -581,7 +590,7 @@ def test_as_of_filters_reports_by_timestamp():
         status="verified",
     )
     # Insert a new report
-    new_id = db.insert_report(
+    new_id = _public_insert(
         source="mastodon", external_id="test_new", title="New report", reason="new test",
         category="racism", lat=52.5, lon=13.4, place="Berlin",
         url="https://example.social/@x/new",
@@ -610,7 +619,7 @@ def test_as_of_filters_reports_by_timestamp():
 def test_as_of_combines_with_all_flag():
     """`as_of` works together with `all=true` (includes unlocated)."""
     now = int(time.time())
-    old_id = db.insert_report(
+    old_id = _public_insert(
         source="user", title="Unlocated old", reason="unlocated old test",
         category="racism", lat=None, lon=None, place="",
         created_at=now - 86400,
@@ -658,7 +667,7 @@ def test_sensitive_categories_use_wide_fuzz_even_verified():
     even when verified — they should never show a tight pin.
     """
     for i, cat in enumerate(("sexual_violence", "harassment")):
-        new_id = db.insert_report(
+        new_id = _public_insert(
             source="mastodon", external_id=f"test_{cat}", title="Sensitive test",
             body="sensitive", url=f"https://example.social/@x/{i+10}",
             category=cat, reason=f"test {cat} reason",

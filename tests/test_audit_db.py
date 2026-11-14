@@ -71,6 +71,8 @@ def _report(**kw):
     base.update(kw)
     rid = db.insert_report(**base)
     assert rid is not None
+    if base["status"] == "verified":  # public map: human-verified rows only
+        db.set_status(rid, "verified", edited_by="reviewer@dxmap-tests.example-org.dev", by_human=True)
     return rid
 
 

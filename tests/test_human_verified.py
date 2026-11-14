@@ -106,7 +106,7 @@ def test_pantheon_review_sets_flag_and_dismiss_clears():
 
 
 def test_human_review_of_bulk_verified_report_earns_flag():
-    rid = verified_report("banned_symbol")
+    rid = verified_report("banned_symbol", human=False)
     assert flag(rid)[0] is False
     admin = logged_in("ADMIN", "hv2")
     assert admin.patch(f"/api/admin/reports/{rid}", json={"status": "verified"}).status_code == 200
@@ -149,11 +149,11 @@ def test_a_script_cannot_keep_the_flag_by_reverifying_after_a_revert():
 
 
 def test_insert_report_as_verified_is_not_human_verified():
-    assert flag(verified_report("banned_symbol"))[0] is False
+    assert flag(verified_report("banned_symbol", human=False))[0] is False
 
 
 def test_moderator_field_edit_does_not_set_flag():
-    rid = verified_report("banned_symbol")
+    rid = verified_report("banned_symbol", human=False)
     admin = logged_in("ADMIN", "hv3")
     assert admin.patch(f"/api/admin/reports/{rid}/fields", json={"title": "Better title"}).status_code == 200
     db.update_report_fields(rid, {"title": "Edited"}, edited_by="boss@example.org")
@@ -186,11 +186,11 @@ def test_anonymous_self_edit_cannot_set_flag():
 # ---- API shape ---------------------------------------------------------------
 
 def test_public_feed_and_single_report_expose_human_verified_bool():
-    bulk = verified_report("banned_symbol")
-    human = verified_report("banned_symbol")
+    bulk = verified_report("banned_symbol", human=False)
+    human = verified_report("banned_symbol", human=False)
     db.set_status(human, "verified", edited_by="boss@example.org", by_human=True)
     feed = {r["id"]: r for r in new_client().get("/api/reports", headers=visitor()).json()["reports"]}
-    assert feed[bulk]["status"] == "verified" and feed[bulk]["human_verified"] is False
+    assert bulk not in feed  # since 2026-11 the public map shows human-verified rows only
     assert feed[human]["status"] == "verified" and feed[human]["human_verified"] is True
     assert "human_verified_at" in feed[human]
     for k in ("edited_by", "moderator"):

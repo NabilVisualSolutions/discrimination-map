@@ -295,6 +295,17 @@ SENSITIVE_FUZZ_RADIUS_M = 5000
 DEFAULT_FUZZ_RADIUS_M = 500
 
 
+# @user and @user@instance.tld, not an e-mail address (a word character
+# before the @ means it is part of an address).
+_HANDLE_RE = re.compile(r"(?<![\w.@])@[A-Za-z0-9_](?:[A-Za-z0-9_.\-]*[A-Za-z0-9_])?(?:@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+)?")
+
+
+def _strip_handles(text: str | None) -> str | None:
+    if not text:
+        return text
+    return _HANDLE_RE.sub("@\u2026", text)
+
+
 def _is_solidarity_only(category: str) -> bool:
     tokens = [t.strip().lower() for t in re.split(r"[,|/]", category or "") if t.strip()]
     return bool(tokens) and all(t == "solidarity_event" for t in tokens)
@@ -334,6 +345,9 @@ def get_reports(
     )
     if not is_reviewer:
         for r in reports:
+            # "Incidents, not people": no account handles in public text.
+            r["title"] = _strip_handles(r.get("title"))
+            r["body"] = _strip_handles(r.get("body"))
             if r["lat"] is None or r["lon"] is None:
                 continue
             sensitive = security.is_sensitive(r["category"])
@@ -578,7 +592,10 @@ def service_review_queue(
 ):
     """Incidents still needing review (unverified + pending), newest first."""
     limit = max(1, min(limit, 1000))
-    return db.list_reports_admin(limit=limit, offset=offset, status="unverified,pending")
+    # Located leads first: a verdict on a lead with no place cannot show on the
+    # map (the feed needs a location), so reviewers start where it counts.
+    return db.list_reports_admin(limit=limit, offset=offset, status="unverified,pending",
+                                 located_first=True)
 
 
 @app.post("/api/service/review/{report_id}")

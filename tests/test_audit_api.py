@@ -61,13 +61,18 @@ def logged_in(role, tag):
     return c
 
 
-def verified_report(category, lat=52.5200, lon=13.4050, **kw):
+def verified_report(category, lat=52.5200, lon=13.4050, human=True, **kw):
+    """A located report. With status 'verified' (the default) it is also marked
+    human verified, as a person's review would, because only those are public.
+    human=False leaves it as a script would: 'verified' but not public."""
     base = dict(source="user", external_id=f"t-{os.urandom(4).hex()}", title="Title", body="b",
                 category=category, reason="r", evidence="", law=None, impact="", lat=lat, lon=lon,
                 place="x", status="verified")
     base.update(kw)
     rid = db.insert_report(**base)
     assert rid is not None
+    if human and base["status"] == "verified":
+        db.set_status(rid, "verified", edited_by="reviewer@dxmap-tests.example-org.dev", by_human=True)
     return rid
 
 
@@ -444,10 +449,12 @@ def _review(rid, **body):
                              headers={"X-Service-Token": "test-service-token"})
 
 
-def test_show_exact_without_human_review_stays_blurred():
-    # status verified by a script, never by a person: the request alone is not enough
-    rid = verified_report("violence", show_exact=True)
-    assert coords_for(new_client(), rid) != EXACT
+def test_show_exact_without_human_review_is_not_public_at_all():
+    # status verified by a script, never by a person: the request alone is not
+    # enough, and since 2026-11 such a row is not on the public map at all
+    rid = verified_report("violence", show_exact=True, human=False)
+    rows = new_client().get("/api/reports?limit=5000", headers=visitor()).json()["reports"]
+    assert rid not in {r["id"] for r in rows}
 
 
 def test_show_exact_counts_once_a_person_verifies():
