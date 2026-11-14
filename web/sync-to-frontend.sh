@@ -8,5 +8,5 @@ npx vite build
 cd ..
 rm -f frontend/assets/*
 cp web/dist/assets/* frontend/assets/
-sed 's#/assets/#/static/assets/#g' web/dist/index.html > frontend/index.html
+cp web/dist/index.html frontend/index.html  # vite base is /static/, no rewrite needed
 echo "synced web/dist -> frontend/  (commit frontend/index.html + frontend/assets/)"

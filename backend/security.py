@@ -292,9 +292,10 @@ def _page_policy() -> str:
     return "; ".join([
         "default-src 'self'",
         f"script-src 'self' {_inline_script_hashes()}{turnstile}".replace("  ", " "),
-        "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
+        "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
-        "font-src 'self' data: https://fonts.bunny.net",
+        # Fonts are self-hosted (served from /static), no font service is allowed.
+        "font-src 'self' data:",
         # Satellite tiles come from our own /tiles/sat proxy (same origin), so no NASA host is listed.
         "connect-src 'self' https://tiles.openfreemap.org https://*.amplitude.com",
         "worker-src 'self' blob:",

@@ -1,6 +1,7 @@
 /* DX-MAP — dark intelligence-dashboard palette. Every colour in the UI
    comes from the tokens below, so the whole look changes in this one place. */
-@import url('https://fonts.bunny.net/css2?family=Fragment+Mono:ital@0;1&family=General+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Sora:wght@600;700;800&display=swap');
+/* Fonts are self-hosted: imported from @fontsource in main.tsx and served
+   from our own origin. No font service is contacted. */
 
 :root{
   color-scheme: dark;

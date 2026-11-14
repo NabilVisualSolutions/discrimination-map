@@ -244,9 +244,11 @@ def test_frame_src_allows_only_the_source_preview_hosts(monkeypatch):
     assert frame.split()[1] == "'self'" and "*" not in frame and " https: " not in frame + " "
 
 
-def test_page_policy_allows_fonts_from_bunny_only():
-    # Rule (Nabil, 2026-10-29): no Google Fonts in production; Bunny Fonts is the EU drop-in.
+def test_page_policy_allows_only_self_hosted_fonts():
+    # Rule (Nabil, 2026-11-14): fonts are self-hosted on every project. No font
+    # service at all: not Google, not Bunny, not a CDN behind either of them.
     policy = security._page_policy()
-    assert "style-src 'self' 'unsafe-inline' https://fonts.bunny.net" in policy
-    assert "font-src 'self' data: https://fonts.bunny.net" in policy
-    assert "googleapis" not in policy and "gstatic" not in policy
+    assert "style-src 'self' 'unsafe-inline';" in policy + ";"
+    assert "font-src 'self' data:;" in policy + ";"
+    for host in ("googleapis", "gstatic", "bunny", "jsdelivr", "typekit"):
+        assert host not in policy

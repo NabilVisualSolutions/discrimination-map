@@ -5,6 +5,9 @@ import react from "@vitejs/plugin-react"
 // running FastAPI backend (run-dev.sh, port 8020). Production build goes to
 // web/dist, which FastAPI serves as the SPA shell (see REWRITE-PLAN.md §2).
 export default defineConfig({
+  // FastAPI mounts frontend/ at /static, so every built URL (JS chunks, CSS,
+  // self-hosted font files) must start with /static/.
+  base: "/static/",
   plugins: [react()],
   server: {
     port: 5180,
