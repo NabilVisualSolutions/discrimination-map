@@ -1225,6 +1225,13 @@ def privacy_page():
     return FileResponse(path)
 
 
+@app.get("/impressum")
+def impressum_page():
+    """Provider identification (§ 5 DDG) lives on the privacy page; this is the
+    short, guessable address for it, linked from the map attribution."""
+    return RedirectResponse("/privacy#impressum", status_code=307)
+
+
 @app.get("/terms")
 def terms_page():
     """Serve the Terms of Use — public, linked from the map footer/report form."""

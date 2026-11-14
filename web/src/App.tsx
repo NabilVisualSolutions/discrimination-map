@@ -700,7 +700,7 @@ export function App() {
                 <span className="lg-pin lg-ring" aria-hidden /> {t("status.notHuman")}
               </p>
               {reportsQ.isLoading && <p className="muted">{t("loadingMap")}</p>}
-              {!reportsQ.isLoading && filtered.length === 0 && <p className="muted">{t("noResults")}</p>}
+              {!reportsQ.isLoading && filtered.length === 0 && <p className="muted">{t(reports.length === 0 ? "emptyMap" : "noResults")}</p>}
               {filtered.slice(0, 300).map((r) => {
                 const col = categories[catOf(r)[0]]?.color ?? "#8a97ac"
                 const isNew = now - when(r) < 3 * DAY

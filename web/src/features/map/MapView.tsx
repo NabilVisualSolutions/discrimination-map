@@ -321,7 +321,7 @@ export function MapView({
       style: styleFor(viewRef.current),
       center: [8, 25],
       zoom: 1.7,
-      attributionControl: { compact: true, customAttribution: "Icons: Lucide (ISC)" },
+      attributionControl: { compact: true, customAttribution: '<a href="/impressum">Impressum / Legal notice</a> | Icons: Lucide (ISC)' },
       renderWorldCopies: false,
     })
     map.current = m

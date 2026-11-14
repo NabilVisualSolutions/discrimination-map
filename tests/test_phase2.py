@@ -136,3 +136,8 @@ def test_review_queue_lists_located_rows_first():
 
 
 app_module  # imported for its side effects (routes)
+
+
+def test_impressum_address_leads_to_provider_details():
+    r = new_client().get("/impressum", follow_redirects=False)
+    assert r.status_code == 307 and r.headers["location"] == "/privacy#impressum"

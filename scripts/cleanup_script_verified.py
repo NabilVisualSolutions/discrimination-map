@@ -16,13 +16,18 @@ Dry run by default. Writes only with --confirm.
 
     DXMAP_DB_PATH=/app/data/dxmap.db python scripts/cleanup_script_verified.py
     DXMAP_DB_PATH=/app/data/dxmap.db python scripts/cleanup_script_verified.py --confirm
+
+In the container (the image has no scripts/): docker compose cp the file to
+/tmp and run it from /app, the working directory, so it finds backend/db.py.
 """
 import html
 import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-for candidate in (os.path.join(HERE, "..", "backend"), os.path.join(HERE, "..")):
+# repo layout (scripts/ next to backend/), or a copy run from the container's /app
+for candidate in (os.path.join(HERE, "..", "backend"), os.path.join(HERE, ".."),
+                  os.path.join(os.getcwd(), "backend")):
     if os.path.exists(os.path.join(candidate, "db.py")):
         sys.path.insert(0, candidate)
         break
