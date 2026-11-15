@@ -291,7 +291,7 @@ def _page_policy() -> str:
     turnstile = " https://challenges.cloudflare.com" if turnstile_enabled() else ""
     return "; ".join([
         "default-src 'self'",
-        f"script-src 'self' {_inline_script_hashes()}{turnstile}".replace("  ", " "),
+        f"script-src 'self' 'wasm-unsafe-eval' {_inline_script_hashes()}{turnstile}".replace("  ", " "),
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         # Fonts are self-hosted (served from /static), no font service is allowed.

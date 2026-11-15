@@ -4,6 +4,16 @@ import "maplibre-gl/dist/maplibre-gl.css"
 import type { Report, CategoryMeta } from "../../lib/api"
 import { CATEGORY_ICONS, iconFor, iconSvg } from "../../lib/category-icons"
 import { isHuman } from "../../lib/review"
+// Arabic, Hebrew and Persian place names need this plugin, or MapLibre draws
+// their letters unjoined and in the wrong order. Served from our own origin
+// (hashed asset), loaded lazily the first time a right-to-left label shows.
+import rtlTextUrl from "../../../node_modules/@mapbox/mapbox-gl-rtl-text/dist/mapbox-gl-rtl-text.js?url" // package "exports" hides dist/
+
+if (maplibregl.getRTLTextPluginStatus() === "unavailable") {
+  maplibregl.setRTLTextPlugin(rtlTextUrl, true).catch(() => {
+    /* labels still render, only unshaped; never break the map for this */
+  })
+}
 
 // Worldwide tile map. Every pin renders at every zoom (no clustering).
 // Same-category incidents are stitched into a proximity web: each point is
