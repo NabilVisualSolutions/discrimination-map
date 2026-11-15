@@ -306,10 +306,16 @@ DEFAULT_FUZZ_RADIUS_M = 500
 _HANDLE_RE = re.compile(r"(?<![\w.@])@[A-Za-z0-9_](?:[A-Za-z0-9_.\-]*[A-Za-z0-9_])?(?:@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+)?")
 
 
+_GLUED_HANDLE_RE = re.compile(r"(?<=[\w/])@[A-Za-z0-9_]{2,}(?![A-Za-z0-9_.\-]*\.[A-Za-z]{2,})")
+
+
 def _strip_handles(text: str | None) -> str | None:
     if not text:
         return text
-    return _HANDLE_RE.sub("@\u2026", text)
+    text = _HANDLE_RE.sub("@\u2026", text)
+    # A handle glued to the word before it ("werden@Bundesrat", a hashtag
+    # then "@name"). Not an e-mail address: those go on to a dotted domain.
+    return _GLUED_HANDLE_RE.sub("@\u2026", text)
 
 
 def _is_solidarity_only(category: str) -> bool:

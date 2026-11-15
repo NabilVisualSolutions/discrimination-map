@@ -39,3 +39,17 @@ def test_collector_runs_every_minute_by_default():
     if os.environ.get("DXMAP_HEARTBEAT_SECONDS") is None:
         import agent
         assert agent.HEARTBEAT_SECONDS == 60
+
+
+@pytest.mark.parametrize("raw,out", [
+    ("genommen werden@Bundesrat sagt", "genommen werden@… sagt"),
+    ("#rechtsextremismus@lagedernation", "#rechtsextremismus@…"),
+    ("si=VZ7L3t0@BrittanyPaigesq #nazis", "si=VZ7L3t0@… #nazis"),
+    ("pruef-bw@pruef_sl @x", "pruef-bw@… @…"),
+    ("mail redaktion@saarnews.com", "mail redaktion@saarnews.com"),
+    ("poststelle@sta-frankfurt.justiz.hessen.de", "poststelle@sta-frankfurt.justiz.hessen.de"),
+    ("By Shelby Erdman @ Atlanta Black Star.", "By Shelby Erdman @ Atlanta Black Star."),
+])
+def test_glued_handles_are_removed_but_emails_stay(raw, out):
+    import app
+    assert app._strip_handles(raw) == out
