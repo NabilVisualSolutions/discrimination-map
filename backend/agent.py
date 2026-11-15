@@ -50,7 +50,7 @@ def redact_secrets(text: str) -> str:
     return text
 
 
-HEARTBEAT_SECONDS = int(os.environ.get("DXMAP_HEARTBEAT_SECONDS", "180"))  # 3 min
+HEARTBEAT_SECONDS = int(os.environ.get("DXMAP_HEARTBEAT_SECONDS", "60"))  # 1 min
 USER_AGENT = os.environ.get("DXMAP_USER_AGENT", "dxmap-agent (+https://map.nabilvs.com)")
 
 # Worldwide, multilingual. Event/incident-shaped far-right + racist-attack
@@ -82,7 +82,12 @@ SEARCH_TERMS = [t.strip() for t in os.environ.get(
     # Dutch / Turkish / Russian / Arabic / Polish / Hindi
     "racistische aanval,extreemrechts geweld,ırkçı saldırı,nefret suçu,"
     "расистское нападение,нападение неонацистов,اعتداء عنصري,جريمة كراهية,"
-    "atak rasistowski,नस्लीय हमला"
+    "atak rasistowski,नस्लीय हमला,"
+    # More of Europe: sv / da / no / fi / cs / sk / hu / ro / el / bg / hr-sr / sl / uk
+    "rasistiskt angrepp,hatbrott,racistisk overfald,rasistisk angrep,rasistinen hyökkäys,"
+    "rasistický útok,rasszista támadás,atac rasist,"
+    "ρατσιστική επίθεση,расистко нападение,rasistički napad,rasistični napad,"
+    "расистський напад"
 ).split(",") if t.strip()]
 
 # Mastodon: (instance -> hashtags). Every instance below answered the public
@@ -376,7 +381,13 @@ GDELT_QUERIES = [q.strip() for q in os.environ.get(
     '"ataque racista" sourcelang:portuguese;"injúria racial" sourcelang:portuguese;'
     '"attacco razzista" sourcelang:italian;"racistische aanval" sourcelang:dutch;'
     '"ırkçı saldırı" sourcelang:turkish;"расистское нападение" sourcelang:russian;'
-    '"اعتداء عنصري" sourcelang:arabic;"नस्लीय हमला" sourcelang:hindi'
+    '"اعتداء عنصري" sourcelang:arabic;"नस्लीय हमला" sourcelang:hindi;'
+    # more of Europe
+    '"atak rasistowski" sourcelang:polish;"rasistiskt" sourcelang:swedish;'
+    '"racistisk" sourcelang:danish;"rasistinen" sourcelang:finnish;'
+    '"rasistický útok" sourcelang:czech;"rasszista" sourcelang:hungarian;'
+    '"atac rasist" sourcelang:romanian;"ρατσιστική επίθεση" sourcelang:greek;'
+    '"rasistički napad" sourcelang:croatian;"расистський" sourcelang:ukrainian'
 ).split(";") if q.strip()]
 GDELT_PER_BEAT = int(os.environ.get("DXMAP_GDELT_PER_BEAT", "3"))
 GDELT_SPACING_S = float(os.environ.get("DXMAP_GDELT_SPACING_S", "6"))
@@ -615,11 +626,15 @@ async def heartbeat_loop() -> None:
     """The persistent heartbeat; never dies (per-source failures are isolated)."""
     STATE["started_at"] = int(time.time())
     while True:
+        began = time.monotonic()
         try:
             await heartbeat_once()
         except Exception:
             pass
-        for remaining in range(HEARTBEAT_SECONDS, 0, -1):
+        # One beat starts every HEARTBEAT_SECONDS, however long the beat took
+        # (at least a 5 s gap, so a slow beat never runs back to back).
+        wait = max(5, HEARTBEAT_SECONDS - int(time.monotonic() - began))
+        for remaining in range(wait, 0, -1):
             STATE["next_beat_in"] = remaining
             await asyncio.sleep(1)
 

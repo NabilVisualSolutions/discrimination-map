@@ -266,12 +266,13 @@ def test_apply_endpoint_and_admin_listing():
     assert any(a["email"] == "volunteer@dxmap-tests.example-org.dev" for a in apps)
 
 
-def test_scraped_report_with_url_is_unverified_and_only_reviewers_see_it():
+def test_scraped_lead_is_public_as_unchecked_and_blurred():
     """
-    Agent-scraped items always carry a real source `url`, so they enter as
-    'unverified' leads (not 'pending'). The public map shows VERIFIED
-    incidents only, so a lead is invisible to visitors; reviewers see it, at
-    its real location, to judge it.
+    Agent-scraped items carry a real source `url`, so they enter as
+    'unverified' leads (not 'pending'). Since 2026-11-15 the public map shows
+    them, marked as not checked by a person and always blurred. Reviewers see
+    the real location to judge it. An unchecked lead without a place stays
+    off the public list; a people-filed 'pending' report stays off entirely.
     """
     new_id = db.insert_report(
         source="mastodon", external_id="test_scraped_1", title="Scraped test",
@@ -280,8 +281,23 @@ def test_scraped_report_with_url_is_unverified_and_only_reviewers_see_it():
         lat=52.5200, lon=13.4000, place="Berlin",
     )
     assert new_id is not None
-    public_ids = [r["id"] for r in client.get("/api/reports?all=true").json()["reports"]]
-    assert new_id not in public_ids
+    public = {r["id"]: r for r in client.get("/api/reports?all=true&limit=5000").json()["reports"]}
+    assert new_id in public
+    pub = public[new_id]
+    assert pub["status"] == "unverified" and not pub.get("human_verified")
+    assert pub["fuzzed"] is True and (pub["lat"], pub["lon"]) != (52.5200, 13.4000)
+
+    unlocated = db.insert_report(
+        source="mastodon", external_id="test_scraped_2", title="Scraped, no place",
+        body="b", url="https://example.social/@x/2", category="banned_symbol", reason="r",
+    )
+    pending = db.insert_report(
+        source="user", external_id="test_user_pending", title="Filed by a person",
+        body="b", url="", category="violence", reason="r", status="pending",
+        lat=52.51, lon=13.41, place="Berlin",
+    )
+    public = {r["id"] for r in client.get("/api/reports?all=true&limit=5000").json()["reports"]}
+    assert unlocated not in public and pending not in public
 
     reviewer = TestClient(app_module.app)
     reviewer.post("/api/auth/login", json={

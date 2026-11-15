@@ -319,8 +319,8 @@ export function MapView({
     const m = new maplibregl.Map({
       container: ref.current,
       style: styleFor(viewRef.current),
-      center: [8, 25],
-      zoom: 1.7,
+      center: [12, 51], // Europe first (owner decision 2026-11-15)
+      zoom: 3.2,
       attributionControl: { compact: true, customAttribution: '<a href="/impressum">Impressum / Legal notice</a> | Icons: Lucide (ISC)' },
       renderWorldCopies: false,
     })

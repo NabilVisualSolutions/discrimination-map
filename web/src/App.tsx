@@ -175,7 +175,7 @@ export function App() {
   const [locState, setLocState] = useState<"idle" | "busy" | "denied" | "failed">("idle")
 
   const cats = useQuery({ queryKey: ["categories"], queryFn: api.categories, staleTime: 3_600_000 })
-  const reportsQ = useQuery({ queryKey: ["reports"], queryFn: () => api.reports({ limit: 5000, all: true }), staleTime: 60_000 })
+  const reportsQ = useQuery({ queryKey: ["reports"], queryFn: () => api.reports({ limit: 5000, all: true }), staleTime: 60_000, refetchInterval: 60_000 })
   const lawsQ = useQuery({ queryKey: ["laws", i18n.language], queryFn: () => api.laws(i18n.language), staleTime: 600_000 })
   const meQ = useQuery({ queryKey: ["me"], queryFn: api.me, staleTime: 300_000, retry: false })
   const me = meQ.data ?? null
@@ -392,7 +392,8 @@ export function App() {
   const allCatKeys = catList.map((c) => c.k)
 
   const fromPct = earliest === now ? 0 : Math.round(((effFrom - earliest) / (now - earliest)) * 1000)
-  const fmtDate = (ts: number) => new Date(ts * 1000).toLocaleDateString(i18n.language)
+  const fmtDate = (ts: number) =>
+    new Date(ts * 1000).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" })
 
   const TABS: SheetView[] = isReviewer
     ? ["incidents", "review", "table", "laws", "awareness", "involved"]

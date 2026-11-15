@@ -265,19 +265,39 @@ _RELEVANCE_I18N = re.compile(
         r"rasistow|neonazi|skrajn\w+ prawic|ksenofob|antysemit|przestępstw\w+ z nienawiści|swastyk",
         # hi
         r"नस्लीय|नस्लवाद|घृणा अपराध|नफरत",
+        # sv / da / no
+        r"rasist|nynazis|högerextrem|høyreekstrem|højreekstrem|hatbrott|hadforbrydelse|hatkriminalitet|främlingsfientl|fremmedfjendsk|fremmedfiendtl|hakkors|hakekors",
+        # fi
+        r"rasisti|uusnatsi|äärioikeisto|viharikos|hakaristi",
+        # cs / sk
+        r"rasistick|neonacis|krajn\w* pravic|extrémn\w* pravic|hákov\w* kříž|trestn\w* čin z nenávisti",
+        # hu
+        r"rasszis|neonáci|szélsőjobb|gyűlöletbűn|antiszemit|horogkereszt|cigányellenes",
+        # ro
+        r"\brasis|neonazis|extrem\w* dreapt|infracțiun\w* motivat\w* de ură|xenofob",
+        # el
+        r"ρατσιστ|νεοναζ|ακροδεξ|χρυσή αυγή|αντισημιτ|ξενοφοβ|σβάστικ|έγκλημα μίσους",
+        # bg
+        r"расистк|крайнодесн|престъпление от омраза",
+        # hr / sr / bs / sl
+        r"rasisti[čc]|neonacis|ekstremn\w* desnic|zločin iz mržnje|ustaš",
+        # uk
+        r"неонацист|ультраправ|антисеміт|злочин на ґрунті ненависті",
     ]),
     re.IGNORECASE)
 
 _INDICATORS_I18N: list[tuple[str, str, str, str]] = [
-    (r"incendie criminel|incendio (?:provocado|doloso)|incêndio criminoso|incendi(?:o|ato) doloso|brandstichting|brandaanslag|podpalenie|kundak|подожг|поджог|حريق متعمد|إحراق|आगजनी",
+    (r"incendie criminel|incendio (?:provocado|doloso)|incêndio criminoso|incendi(?:o|ato) doloso|brandstichting|brandaanslag|podpalenie|kundak|подожг|поджог|حريق متعمد|إحراق|आगजनी|mordbrand|brandattentat|ildspåsættelse|påsatt brann|tuhopoltto|žhářsk|gyújtogat|incendier|εμπρησμ|podmetnut\w* požar|підпал|палеж",
      "arson", "StGB-223-306", "arson / firebombing reported"),
     (r"\babus(?:ed|e)\b|\bvandal\w*|\bset (?:on )?fire\b|\bslogans?\b|\bgraffiti\b|\bbeaten\b|\bviolence\b|\bassault\w*|\battack\w*|\bharass\w*|\bdesecrat\w*|"
      r"pintadas?|grafiti|vandaliz|destrozos|detenid[oa]s?|inj[uú]ria|pichação|pichações|geweld|scritte|imbrattat|"
-     r"attaque|agress|attaqu|ataque|agresi[oó]n|agress[aã]o|aggression|aggressione|attacco|aanval|mishandeling|saldır|dövül|нападени|избит|убийств|اعتداء|هجوم|ضرب|طعن|atak|pobit|हमला|मारपीट",
+     r"attaque|agress|attaqu|ataque|agresi[oó]n|agress[aã]o|aggression|aggressione|attacco|aanval|mishandeling|saldır|dövül|нападени|избит|убийств|اعتداء|هجوم|ضرب|طعن|atak|pobit|हमला|मारपीट|"
+     r"angrepp|angreb|angrep|överfall|overfald|misshandl|mishandl|knivhugg|hyökkäy|pahoinpitel|útok|napaden|zbit|támad|bántalmaz|megver|"
+     r"\batac|agresiun|agresat|bătut|επίθεσ|ξυλοδαρ|нападение|побой|пребит|napad|pretuč|prebij|напад|побит",
      "violence", "StGB-223-306", "physical attack reported"),
     (r"menace de mort|amenaza de muerte|ameaça de morte|minaccia di morte|doodsbedreiging|ölüm tehdidi|угроз|تهديد بالقتل|groźb",
      "threat", "StGB-241", "threat against persons"),
-    (r"croix gamm[eé]e|esv[aá]stica|svastica|zwarte hand|gamal[ıi] ha[cç]|свастик|صليب معقوف|swastyk|salut nazi|saludo nazi|saudação nazista|saluto romano|saluto fascista",
+    (r"croix gamm[eé]e|esv[aá]stica|svastica|zwarte hand|gamal[ıi] ha[cç]|свастик|صليب معقوف|swastyk|hakkors|hakekors|hakaristi|hákov\w* kříž|horogkereszt|σβάστικ|salut nazi|saludo nazi|saudação nazista|saluto romano|saluto fascista",
      "banned_symbol", "StGB-86a", "banned symbol / salute displayed"),
     (r"n[eé]gationnisme|negacionismo del holocausto|negación del holocausto|negação do holocausto|holocaust-?ontkenning|отрицани[ея] холокост|إنكار المحرقة|إنكار الهولوكوست",
      "holocaust_denial", "StGB-130-3", "Holocaust denial / trivialization"),

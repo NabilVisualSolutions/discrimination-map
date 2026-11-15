@@ -491,10 +491,9 @@ def list_reports(
     """
     Return recent reports as plain dicts, newest first.
 
-    Public feed (`viewer_is_reviewer=False`): only `verified` reports. A
-    scraped or user-filed lead stays off the public map until a confirmed
-    volunteer or admin has reviewed it — "needs review" is never shown to
-    visitors.
+    Public feed (`viewer_is_reviewer=False`): open automated leads
+    ('unverified') and human-verified reports. People-filed reports wait
+    ('pending') until a volunteer or admin has reviewed them.
 
     Reviewer feed (`viewer_is_reviewer=True`, i.e. VERIFIER/ADMIN): every
     report except the ones already judged out (`dismissed`, `irrelevant`),
@@ -506,12 +505,21 @@ def list_reports(
     if viewer_is_reviewer:
         q = "SELECT * FROM reports WHERE status NOT IN ('dismissed', 'irrelevant')"
     else:
-        # "Verified" on the public map means a person checked it. A row a
-        # script marked 'verified' (the 2026-09-01 bulk run) stays off.
-        q = "SELECT * FROM reports WHERE status = 'verified' AND human_verified = 1"
+        # Public map (owner decision 2026-11-15): every automated lead that
+        # is still open ('unverified') plus what a person verified. Checked
+        # and unchecked rows are told apart in the UI by `human_verified`.
+        # A script-set 'verified' without a person stays off, and so do
+        # people-filed reports waiting for review ('pending'), dismissed and
+        # irrelevant rows.
+        q = ("SELECT * FROM reports WHERE (status = 'unverified'"
+             " OR (status = 'verified' AND human_verified = 1))")
     params: list[Any] = []
     if located_only:
         q += " AND located = 1"
+    elif not viewer_is_reviewer:
+        # The full public list is the map plus checked rows without a place.
+        # Unlocated unchecked leads (most of the backlog) stay in the queue.
+        q += " AND (located = 1 OR human_verified = 1)"
     if as_of is not None:
         q += " AND created_at <= ?"
         params.append(as_of)
