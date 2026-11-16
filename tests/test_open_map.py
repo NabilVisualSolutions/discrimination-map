@@ -57,3 +57,54 @@ def test_collector_runs_every_minute_by_default():
 def test_glued_handles_are_removed_but_emails_stay(raw, out):
     import app
     assert app._strip_handles(raw) == out
+
+
+def test_youtube_key_goes_in_a_header_and_terms_rotate(monkeypatch):
+    import asyncio
+    import agent
+
+    seen = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"items": [{"id": {"videoId": "v1"}, "snippet": {"title": "a &amp; b", "description": "d"}}]}
+
+    class Client:
+        async def get(self, url, params=None, headers=None):
+            seen.append((url, dict(params or {}), dict(headers or {})))
+            return Resp()
+
+    monkeypatch.setattr(agent, "YOUTUBE_API_KEY", "test-key-123")
+    agent.STATE["youtube_next"] = 0
+    items = asyncio.run(agent.source_youtube(Client()))
+    assert items[0]["title"] == "a & b"
+    assert len(seen) == agent.YOUTUBE_QUERIES_PER_RUN
+    for url, params, headers in seen:
+        assert "test-key-123" not in url and "test-key-123" not in str(params)
+        assert headers["X-Goog-Api-Key"] == "test-key-123"
+    first = [p["q"] for _, p, _ in seen]
+    seen.clear()
+    asyncio.run(agent.source_youtube(Client()))
+    assert [p["q"] for _, p, _ in seen] != first  # next run, next terms
+
+
+def test_youtube_runs_at_most_every_30_minutes(monkeypatch):
+    import asyncio
+    import agent
+
+    calls = []
+
+    async def fake_run(name, adapter, client):
+        calls.append(name)
+        return []
+
+    monkeypatch.setattr(agent, "run_one_source", fake_run)
+    monkeypatch.setattr(agent, "build_sources", lambda: [("bluesky", True, object()), ("youtube", True, object())])
+    agent.STATE["source_last_run"] = {}
+    asyncio.run(agent.heartbeat_once())
+    asyncio.run(agent.heartbeat_once())
+    assert calls.count("bluesky") == 2 and calls.count("youtube") == 1
+    assert agent.SOURCE_EVERY_S["youtube"] == 1800

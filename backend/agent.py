@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html
 import os
 import re
 import time
@@ -137,6 +138,7 @@ GEOCODE_BUDGET = int(os.environ.get("DXMAP_GEOCODE_BUDGET", "6"))
 STATE: dict[str, Any] = {
     "started_at": None, "last_beat": None, "beat_count": 0,
     "next_beat_in": HEARTBEAT_SECONDS,
+    "source_last_run": {},
 }
 
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -242,25 +244,51 @@ async def source_reddit(client: httpx.AsyncClient) -> list[dict[str, Any]]:
     return items
 
 
+# YouTube: the free quota is 10,000 units a day and one search costs 100, so
+# about 100 searches a day. The source runs every 30 minutes (48 runs) with
+# two searches each, rotating through SEARCH_TERMS a few terms at a time.
+YOUTUBE_EVERY_S = int(os.environ.get("DXMAP_YOUTUBE_EVERY_S", "1800"))
+YOUTUBE_QUERIES_PER_RUN = int(os.environ.get("DXMAP_YOUTUBE_QUERIES_PER_RUN", "2"))
+YOUTUBE_TERMS_PER_QUERY = 5
+YOUTUBE_LOOKBACK_S = 3 * 86400
+
+
+def _youtube_batches() -> list[str]:
+    terms = SEARCH_TERMS
+    return [" | ".join(f'"{t}"' for t in terms[i:i + YOUTUBE_TERMS_PER_QUERY])
+            for i in range(0, len(terms), YOUTUBE_TERMS_PER_QUERY)]
+
+
 async def source_youtube(client: httpx.AsyncClient) -> list[dict[str, Any]]:
-    """Recent YouTube uploads matching event terms. Requires a free key."""
+    """Recent YouTube uploads matching event terms. Requires a free key.
+
+    The key goes in a header, never in the URL, so it cannot end up in an
+    error message, a log line or the public source health."""
     if not YOUTUBE_API_KEY:
         raise RuntimeError("YouTube disabled — set a free YOUTUBE_API_KEY")
-    resp = await client.get(
-        "https://www.googleapis.com/youtube/v3/search",
-        params={"part": "snippet", "type": "video", "order": "date",
-                "q": " OR ".join(SEARCH_TERMS[:4]), "maxResults": 15,
-                "key": YOUTUBE_API_KEY})
-    resp.raise_for_status()
-    items = []
-    for it in resp.json().get("items", []):
-        sn, vid = it.get("snippet", {}), it.get("id", {}).get("videoId")
-        items.append({
-            "external_id": f"youtube_{vid}",
-            "title": sn.get("title", "")[:300],
-            "body": (sn.get("description") or "")[:1000],
-            "url": f"https://youtube.com/watch?v={vid}", "category": "youtube",
-        })
+    batches = _youtube_batches()
+    start = STATE.get("youtube_next", 0) % len(batches)
+    picked = [batches[(start + k) % len(batches)] for k in range(min(YOUTUBE_QUERIES_PER_RUN, len(batches)))]
+    STATE["youtube_next"] = start + len(picked)
+    after = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - YOUTUBE_LOOKBACK_S))
+    items: list[dict[str, Any]] = []
+    for q in picked:
+        resp = await client.get(
+            "https://www.googleapis.com/youtube/v3/search",
+            params={"part": "snippet", "type": "video", "order": "date", "q": q,
+                    "maxResults": 25, "publishedAfter": after},
+            headers={"X-Goog-Api-Key": YOUTUBE_API_KEY, "User-Agent": USER_AGENT})
+        resp.raise_for_status()
+        for it in resp.json().get("items", []):
+            sn, vid = it.get("snippet", {}), it.get("id", {}).get("videoId")
+            if not vid:
+                continue
+            items.append({
+                "external_id": f"youtube_{vid}",
+                "title": html.unescape(sn.get("title", ""))[:300],
+                "body": html.unescape(sn.get("description") or "")[:1000],
+                "url": f"https://youtube.com/watch?v={vid}", "category": "youtube",
+            })
     return items
 
 
@@ -471,6 +499,10 @@ async def source_rss(client: httpx.AsyncClient) -> list[dict[str, Any]]:
     return out
 
 
+# Sources that must not run every beat, in seconds between runs.
+SOURCE_EVERY_S: dict[str, int] = {"youtube": YOUTUBE_EVERY_S}
+
+
 def build_sources() -> list[tuple[str, bool, Optional[Callable]]]:
     """Registry: (name, enabled, adapter). Disabled ones are skipped."""
     return [
@@ -611,8 +643,17 @@ async def heartbeat_once() -> None:
     unlocated items in a worker thread so the event loop is never blocked.
     """
     async with httpx.AsyncClient(timeout=20) as client:
-        tasks = [run_one_source(n, a, client)
-                 for (n, en, a) in build_sources() if en and a]
+        now = time.time()
+        due = []
+        for (n, en, a) in build_sources():
+            if not (en and a):
+                continue
+            every = SOURCE_EVERY_S.get(n, 0)
+            if every and now - STATE["source_last_run"].get(n, 0) < every:
+                continue  # slow source (quota): not due this beat
+            STATE["source_last_run"][n] = now
+            due.append((n, a))
+        tasks = [run_one_source(n, a, client) for (n, a) in due]
         results = await asyncio.gather(*tasks) if tasks else []
     pending = [pr for sub in results for pr in sub]
     if pending:
